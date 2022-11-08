@@ -16,45 +16,66 @@ type InstructionObject = (system: System) => number;
 class CPU {
     // All registers are 16 bits long.
     // AF: lower is flags: ZNHC (zero, substraction, half-carry, carry)
-    protected regAF: Register;
-    protected regBC: Register;
-    protected regDE: Register;
-    protected regHL: Register;
-    protected regPC: Register; // program counter
-    protected regSP: Register; // stack pointer
-
-    constructor() {
-        this.regAF = new Register(0x01, 0b1000);
-        this.regBC = new Register(0x00, 0x13);
-        this.regDE = new Register(0x00, 0xd8);
-        this.regHL = new Register(0x01, 0x4d);
-        this.regPC = new Register(0x0100); // program counter
-        this.regSP = new Register(0xfffe); // stack pointer
-    }
+    protected regAF = new Register(0x01, 0b1000);
+    protected regBC = new Register(0x00, 0x13);
+    protected regDE = new Register(0x00, 0xd8);
+    protected regHL = new Register(0x01, 0x4d);
+    protected regPC = new Register(0x0100); // program counter
+    protected regSP = new Register(0xfffe); // stack pointer
+    protected halted: boolean = false;
 
     protected nextByte(system: System) {
-        return system.read(this.regPC.inc());
+        const byte = system.read(this.regPC.inc());
+        console.log("[CPU] read next byte ", byte.toString(16));
+        return byte;
     }
 
     protected nextWord(system: System) {
         const low = this.nextByte(system);
         const high = this.nextByte(system);
+        console.log("[CPU] read next word ", combine(high, low).toString(16));
         return combine(high, low);
     }
 
     protected handleInterrupts(system: System) {}
 
+    debug() {
+        console.log({
+            pc: this.regPC.get(),
+        });
+    }
+
     /**
-     * Steps through one line of the code, and returns the clock cycles required for the
+     * Steps through one line of the code, and returns the M-cycles required for the
      * operation
      */
-    step(system: System): number {
+    step(system: System, verbose?: boolean): number {
+        // Check if any interrupt is requested. This also stops HALTing.
+        const execNext = system.executeNext();
+        if (execNext !== null) {
+            this.halted = false;
+            this.call(system, execNext);
+            if (verbose) console.log("[CPU] interrupt execute, goto", execNext.toString(16));
+        }
+
+        // Do nothing if halted
+        if (this.halted) {
+            if (verbose) console.log("[CPU] halted");
+            return 1;
+        }
+
+        // Execute next instruction
+        if (verbose)
+            console.log(
+                `[CPU] reading for pc ${this.regPC.get().toString(16)} (${this.regPC.get()})`
+            );
         const opcode = this.nextByte(system);
+        if (verbose) console.log("[CPU] executing op", opcode.toString(16));
         const instruction = this.instructionSet[opcode];
         if (instruction === undefined) {
             throw Error(`Unrecognized opcode ${opcode} at address ${this.regPC}`);
         }
-        const cycles = instruction(system) * 4;
+        const cycles = instruction(system);
         return cycles;
     }
 
@@ -323,6 +344,8 @@ class CPU {
         0xd4: (s) => { const a = this.nextWord(s); if(!this.flag(FLAG_CARRY)) { this.call(s, a); return 6; } return 3; },
         // RET
         0xc9: (s) => { this.return(s); return 4; },
+        // RETI
+        0xd9: (s) => { s.enableInterrupts(); this.return(s); return 4; },
         // RET Z/C/NZ/NC
         0xc8: (s) => { if(this.flag(FLAG_ZERO)) { this.return(s); return 5; } return 2; },
         0xd8: (s) => { if(this.flag(FLAG_CARRY)) { this.return(s); return 5; } return 2; },
@@ -331,7 +354,7 @@ class CPU {
         // JP a16
         0xc3: (s) => { this.jump(this.nextWord(s)); return 4; },
         // JP HL
-        0xd9: (s) => { this.jump(this.regHL.get()); return 1; },
+        0xe9: (s) => { this.jump(this.regHL.get()); return 1; },
         // JP Z/C/NZ/NC, a16
         0xca: (s) => { const a = this.nextWord(s); if(this.flag(FLAG_ZERO)) { this.jump(a); return 4; } return 3; },
         0xda: (s) => { const a = this.nextWord(s); if(this.flag(FLAG_CARRY)) { this.jump(a); return 4; } return 3; },
@@ -359,6 +382,24 @@ class CPU {
         0x17: () => { this.rotateLSr("a", true, false); return 1; },
         0x0f: () => { this.rotateRSr("a", false, false); return 1; },
         0x1f: () => { this.rotateRSr("a", true, false); return 1; },
+        // DI / EI
+        0xf3: (s) => { s.disableInterrupts(); return 1; },
+        0xfb: (s) => { s.enableInterrupts(); return 1; },
+        // HALT
+        0x76: () => { this.halted = true; return 1; },
+        // SCF / CCF
+        0x37: () => {
+            this.setFlag(FLAG_SUBSTRACTION, false);
+            this.setFlag(FLAG_HALFCARRY, false);
+            this.setFlag(FLAG_CARRY, true);
+            return 1;
+        },
+        0x3f: () => {
+            this.setFlag(FLAG_SUBSTRACTION, false);
+            this.setFlag(FLAG_HALFCARRY, false);
+            this.setFlag(FLAG_CARRY, !this.flag(FLAG_CARRY));
+            return 1;
+        },
     };
 
     // Helper functions for instructions

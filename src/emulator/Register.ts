@@ -1,11 +1,21 @@
+import Addressable from "./Addressable";
 import { wrap16 } from "./util";
 
 /**
  * Half of a register, containing an 8bit value.
  * Note all additions/substractions to the register wrap (ie. 255 + 1 = 0).
+ *
+ * For convenience's sake, a register implements `Addressable`. Calling `read` will simply
+ * return the value (ignoring the position), and calling `write` will simply set the value,
+ * ignoring the position too.
  */
-class SubRegister {
-    protected value: number = 0;
+class SubRegister implements Addressable {
+    protected value: number;
+
+    /** Initialises a subregister with either 0 or a value */
+    constructor(value?: number) {
+        this.value = value ?? 0;
+    }
 
     /** Sets this register byte to the given value */
     set(value: number) {
@@ -22,6 +32,15 @@ class SubRegister {
     /** Returns if the given flag is set */
     flag(flag: number) {
         return (this.value & flag) !== 0;
+    }
+
+    /** Read this subregister. */
+    read(): number {
+        return this.get();
+    }
+    /** Write to this subregister. Position's ignored. */
+    write(_: number, data: number): void {
+        this.set(data);
     }
 }
 

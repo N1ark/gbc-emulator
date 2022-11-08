@@ -32,6 +32,7 @@ class ROM extends AbstractMemory {
 
         super(stringAsArray.length);
         this.data = stringAsArray;
+        console.log("saved data ", this.data);
     }
 }
 

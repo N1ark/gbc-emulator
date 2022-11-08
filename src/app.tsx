@@ -1,4 +1,4 @@
-import { useRef, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import "./app.css";
 import { createRef, FunctionalComponent } from "preact";
 import RomInput from "./RomInput";
@@ -7,28 +7,31 @@ import GameBoyColor from "./emulator/GameBoyColor";
 import VideoOutput from "./emulator/VideoOutput";
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
 import GameInput from "./emulator/GameInput";
+import useKeys from "./useKeys";
 
 const App: FunctionalComponent = () => {
+    const pressedKeys = useKeys();
     const screenRef = createRef<HTMLCanvasElement>();
     const [gameboy, setGameboy] = useState<GameBoyColor>();
 
     const loadRom = (rom: string) => {
         const gameIn: GameInput = {
             read: () => ({
-                up: false,
-                down: false,
-                left: false,
-                right: false,
-                a: false,
-                b: false,
-                start: false,
-                select: false,
+                up: pressedKeys.includes("arrowup"),
+                down: pressedKeys.includes("arrowdown"),
+                left: pressedKeys.includes("arrowleft"),
+                right: pressedKeys.includes("arrowright"),
+                a: pressedKeys.includes("q"),
+                b: pressedKeys.includes("a"),
+                start: pressedKeys.includes("w"),
+                select: pressedKeys.includes("s"),
             }),
         };
 
+        const debug = () => ({ canStep: pressedKeys.includes(" ") });
+
         const videoOut: VideoOutput = {
             receive: (data) => {
-                console.log("receiving data", data);
                 const canvas = screenRef.current;
                 if (!canvas) return;
 
@@ -42,7 +45,7 @@ const App: FunctionalComponent = () => {
             },
         };
 
-        const gbc = new GameBoyColor(rom, gameIn, videoOut);
+        const gbc = new GameBoyColor(rom, gameIn, videoOut, debug);
         setGameboy(gbc);
 
         requestAnimationFrame(() => gbc.run());
@@ -53,7 +56,7 @@ const App: FunctionalComponent = () => {
             <h1>Emmy</h1>
             <h2>The GBC Browser Emulator</h2>
 
-            {gameboy ? <Screen ref={screenRef} /> : <RomInput onLoad={loadRom} />}
+            {gameboy ? <Screen ref={screenRef} /> : <RomInput type="gb" onLoad={loadRom} />}
         </>
     );
 };
