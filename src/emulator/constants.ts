@@ -27,3 +27,6 @@ export const IFLAG_LCDC = 1 << 1;
 export const IFLAG_TIMER = 1 << 2;
 export const IFLAG_SERIAL = 1 << 3;
 export const IFLAG_JOYPAD = 1 << 4;
+
+// Timer
+export const DIV_INC_RATE = 16384;

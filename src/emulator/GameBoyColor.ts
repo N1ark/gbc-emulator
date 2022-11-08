@@ -37,7 +37,7 @@ class GameBoyColor {
         while (this.cycles < CYCLES_PER_FRAME) {
             // one CPU step, convert M-cycles to CPU cycles
             const cycles = this.cpu.step(this.system, this.debug !== undefined) * 4;
-            this.system.cycles(cycles);
+            this.system.tick(cycles);
             this.cycles += cycles;
 
             if (this.debug) {

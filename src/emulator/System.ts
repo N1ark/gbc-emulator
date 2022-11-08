@@ -1,5 +1,7 @@
 import Addressable from "./Addressable";
 import {
+    CLOCK_SPEED,
+    DIV_INC_RATE,
     HRAM_SIZE,
     IFLAG_JOYPAD,
     IFLAG_LCDC,
@@ -9,21 +11,29 @@ import {
     WRAM_SIZE,
 } from "./constants";
 import GameInput from "./GameInput";
+import GPU from "./GPU";
 import JoypadInput from "./JoypadInput";
 import { RAM, ROM } from "./Memory";
 import { SubRegister } from "./Register";
+import Timer from "./Timer";
+import { wrap8 } from "./util";
 
 type AddressData = [Addressable, number];
 
 class System implements Addressable {
+    // Core components / memory
     protected rom: ROM;
-    protected gpu: RAM = new RAM(0);
+    protected gpu: GPU = new GPU();
     protected wram: RAM = new RAM(WRAM_SIZE);
     protected hram: RAM = new RAM(HRAM_SIZE);
 
+    // Interrupts
     protected intMasterEnable: boolean = false; // IME - master enable flag
     protected intEnable = new SubRegister(0x00); // IE - interrupt enable (handler)
     protected intFlag = new SubRegister(0xe1); // IF - interrupt flag (requests)
+
+    // Timer
+    protected timer = new Timer();
 
     protected joypad: JoypadInput;
 
@@ -32,8 +42,11 @@ class System implements Addressable {
         this.joypad = new JoypadInput(input);
     }
 
-    /** Cycles the whole system for the given number of cycles. */
-    cycles(cycles: number) {}
+    /** Ticks the whole system for the given number of cycles. */
+    tick(cycles: number) {
+        this.gpu.tick(cycles, this);
+        this.timer.tick(cycles, this);
+    }
 
     /**
      * Responsible for following the memory map.
@@ -44,9 +57,18 @@ class System implements Addressable {
             throw new Error(`Invalid address to read from ${pos.toString(16)}`);
 
         // Registers
-        if (pos === 0xff00) return [this.joypad, 0];
-        if (pos === 0xff0f) return [this.intFlag, 0];
-        if (pos === 0xffff) return [this.intEnable, 0];
+        const register = {
+            0xff00: this.joypad,
+
+            0xff04: this.timer,
+            0xff05: this.timer,
+            0xff06: this.timer,
+            0xff07: this.timer,
+
+            0xff0f: this.intFlag,
+            0xffff: this.intEnable,
+        }[pos];
+        if (register !== undefined) return [register, 0];
 
         // ROM Bank
         if (0x0000 <= pos && pos <= 0x7fff) return [this.rom, pos];
