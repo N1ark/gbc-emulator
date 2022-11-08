@@ -1,9 +1,9 @@
-import Readable from "./Readable";
+import Addressable from "./Addressable";
 
 /**
  * Simple abstract memory object.
  */
-class AbstractMemory implements Readable {
+class AbstractMemory implements Addressable {
     protected size: number;
     protected data: Uint8Array;
 
@@ -14,6 +14,10 @@ class AbstractMemory implements Readable {
 
     read(pos: number) {
         return this.data[pos];
+    }
+
+    write(pos: number, data: number): void {
+        throw new Error("write is not implemented for this object.");
     }
 }
 

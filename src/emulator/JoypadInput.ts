@@ -1,3 +1,4 @@
+import Addressable from "./Addressable";
 import {
     ARROW_DOWN,
     ARROW_LEFT,
@@ -9,7 +10,6 @@ import {
     BUTTON_START,
 } from "./constants";
 import GameInput from "./GameInput";
-import Readable from "./Readable";
 
 const READ_ARROWS_BIT = 1 << 4;
 const READ_BUTTON_BIT = 1 << 5;
@@ -19,7 +19,7 @@ const CONTROL_BITS = READ_ARROWS_BIT & READ_BUTTON_BIT;
  * The joypad input, that takes care of receiving inputs for the buttons and directional arrows.
  * @see https://gbdev.io/pandocs/Joypad_Input.html
  */
-class JoypadInput implements Readable {
+class JoypadInput implements Addressable {
     protected input: GameInput;
 
     // bits 0-3 are state (button or arrow)
@@ -55,7 +55,7 @@ class JoypadInput implements Readable {
         return (CONTROL_BITS & this.register) | (~CONTROL_BITS & data);
     }
 
-    write(data: number): void {
+    write(_: number, data: number): void {
         this.register = data;
 
         // the switch is done when the bit moves to a LOW state.

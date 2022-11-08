@@ -1,7 +1,6 @@
 import { CYCLES_PER_FRAME } from "./constants";
 import CPU from "./CPU";
 import GameInput from "./GameInput";
-import JoypadInput from "./JoypadInput";
 import System from "./System";
 import VideoOutput from "./VideoOutput";
 
@@ -10,13 +9,11 @@ class GameBoyColor {
     protected cpu: CPU;
     protected system: System;
 
-    protected input: JoypadInput;
     protected output: VideoOutput;
 
     constructor(rom: string, input: GameInput, output: VideoOutput) {
         this.cpu = new CPU();
-        this.system = new System(rom);
-        this.input = new JoypadInput(input);
+        this.system = new System(rom, input);
         this.output = output;
     }
 
@@ -35,7 +32,7 @@ class GameBoyColor {
         this.output.receive(output);
 
         // Read input
-        this.input.readInput();
+        this.system.readInput();
     }
 
     run() {
