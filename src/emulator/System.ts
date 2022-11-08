@@ -31,11 +31,11 @@ class System implements Addressable {
         if (pos === 0xff00) return [this.joypad, 0];
 
         // ROM Bank
-        if (0x0000 <= pos && pos <= 0x7fff) [this.rom, pos];
+        if (0x0000 <= pos && pos <= 0x7fff) return [this.rom, pos];
         // Work RAM (WRAM)
-        if (0xc000 <= pos && pos <= 0xdfff) [this.wram, pos - 0xc000];
+        if (0xc000 <= pos && pos <= 0xdfff) return [this.wram, pos - 0xc000];
         // High RAM (HRAM)
-        if (0xff80 <= pos && pos <= 0xfffe) [this.hram, pos - 0xff80];
+        if (0xff80 <= pos && pos <= 0xfffe) return [this.hram, pos - 0xff80];
 
         throw new Error(`Read from currently unsupported address ${pos.toString(16)}`);
     }

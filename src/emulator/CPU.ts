@@ -15,12 +15,22 @@ type InstructionObject = (system: System) => number;
  */
 class CPU {
     // All registers are 16 bits long.
-    protected regAF = new Register(0); // lower is flags: ZNHC (zero, substraction, half-carry, carry)
-    protected regBC = new Register(0);
-    protected regDE = new Register(0);
-    protected regHL = new Register(0);
-    protected regSP = new Register(0); // stack pointer
-    protected regPC = new Register(0); // program counter
+    // AF: lower is flags: ZNHC (zero, substraction, half-carry, carry)
+    protected regAF: Register;
+    protected regBC: Register;
+    protected regDE: Register;
+    protected regHL: Register;
+    protected regPC: Register; // program counter
+    protected regSP: Register; // stack pointer
+
+    constructor() {
+        this.regAF = new Register(0x01, 0b1000);
+        this.regBC = new Register(0x00, 0x13);
+        this.regDE = new Register(0x00, 0xd8);
+        this.regHL = new Register(0x01, 0x4d);
+        this.regPC = new Register(0x0100); // program counter
+        this.regSP = new Register(0xfffe); // stack pointer
+    }
 
     protected nextByte(system: System) {
         return system.read(this.regPC.inc());
@@ -44,7 +54,6 @@ class CPU {
         if (instruction === undefined) {
             throw Error(`Unrecognized opcode ${opcode} at address ${this.regPC}`);
         }
-
         const cycles = instruction(system) * 4;
         return cycles;
     }

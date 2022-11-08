@@ -34,8 +34,14 @@ class Register {
     // Least significant byte (0x00FF)
     public l = new SubRegister();
 
-    constructor(value: number) {
-        this.set(value);
+    /** Builds the register from either one 16-bit value or two 8-bit values */
+    constructor(high: number, low?: number) {
+        if (low !== undefined) {
+            this.h.set(high);
+            this.l.set(low);
+        } else {
+            this.set(high);
+        }
     }
 
     /** Sets this register to the given 16bit value. */
@@ -46,7 +52,7 @@ class Register {
 
     /** Returns the 16bit value in this register */
     get() {
-        return (this.h.get() << 8) & this.l.get();
+        return (this.h.get() << 8) | this.l.get();
     }
 
     /** Increments this register's value and returns the previous value (equivalent to r++) */
