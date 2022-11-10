@@ -1,7 +1,6 @@
 import Addressable from "./Addressable";
+import Audio from "./Audio";
 import {
-    CLOCK_SPEED,
-    DIV_INC_RATE,
     HRAM_SIZE,
     IFLAG_JOYPAD,
     IFLAG_LCDC,
@@ -16,14 +15,14 @@ import JoypadInput from "./JoypadInput";
 import { RAM, ROM } from "./Memory";
 import { SubRegister } from "./Register";
 import Timer from "./Timer";
-import { wrap8 } from "./util";
+import VideoOutput from "./VideoOutput";
 
 type AddressData = [Addressable, number];
 
 class System implements Addressable {
     // Core components / memory
     protected rom: ROM;
-    protected gpu: GPU = new GPU();
+    protected gpu: GPU;
     protected wram: RAM = new RAM(WRAM_SIZE);
     protected hram: RAM = new RAM(HRAM_SIZE);
 
@@ -32,14 +31,15 @@ class System implements Addressable {
     protected intEnable = new SubRegister(0x00); // IE - interrupt enable (handler)
     protected intFlag = new SubRegister(0xe1); // IF - interrupt flag (requests)
 
-    // Timer
+    // Devices
     protected timer = new Timer();
-
+    protected audio = new Audio();
     protected joypad: JoypadInput;
 
-    constructor(rom: string, input: GameInput) {
+    constructor(rom: Uint8Array, input: GameInput, output: VideoOutput) {
         this.rom = new ROM(rom);
         this.joypad = new JoypadInput(input);
+        this.gpu = new GPU(output);
     }
 
     /** Ticks the whole system for the given number of cycles. */
@@ -68,10 +68,31 @@ class System implements Addressable {
             0xff0f: this.intFlag,
             0xffff: this.intEnable,
         }[pos];
-        if (register !== undefined) return [register, 0];
+        if (register !== undefined) return [register, pos];
+
+        if (pos === 0xff02) {
+            return [new SubRegister(), 0];
+        }
+        if (pos === 0xff01) {
+            const spy = new SubRegister();
+            spy.read = () => 0;
+            spy.write = (pos, data) =>
+                console.warn(`\t\t\t\t${String.fromCharCode(data)} - ${data}`);
+            return [spy, 0];
+        }
+
+        // GPU Registers
+        if (0xff40 <= pos && pos <= 0xff4b) return [this.gpu, pos];
+
+        // Audio registers
+        if (0xff10 <= pos && pos <= 0xff26) return [this.audio, pos];
+        // Audio wave
+        if (0xff30 <= pos && pos <= 0xff3f) return [this.audio, pos];
 
         // ROM Bank
         if (0x0000 <= pos && pos <= 0x7fff) return [this.rom, pos];
+        // Video RAM (VRAM)
+        if (0x8000 <= pos && pos <= 0x9fff) return [this.gpu, pos];
         // Work RAM (WRAM)
         if (0xc000 <= pos && pos <= 0xdfff) return [this.wram, pos - 0xc000];
         // High RAM (HRAM)

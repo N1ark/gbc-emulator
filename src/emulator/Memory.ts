@@ -9,7 +9,7 @@ class AbstractMemory implements Addressable {
 
     constructor(size: number, data?: Uint8Array) {
         this.size = size;
-        this.data = new Uint8Array(size);
+        this.data = data ?? new Uint8Array(size);
     }
 
     read(pos: number) {
@@ -26,13 +26,13 @@ class AbstractMemory implements Addressable {
  * on creation.
  */
 class ROM extends AbstractMemory {
-    constructor(data: string) {
-        const encoder = new TextEncoder();
-        const stringAsArray = encoder.encode(data);
-
-        super(stringAsArray.length);
-        this.data = stringAsArray;
+    constructor(data: Uint8Array) {
+        super(data.length, data);
         console.log("saved data ", this.data);
+    }
+
+    write(pos: number, data: number): void {
+        console.warn(`ignored writing ${data.toString(16)} to rom at ${pos.toString(16)}`);
     }
 }
 

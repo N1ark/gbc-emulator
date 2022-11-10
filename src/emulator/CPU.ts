@@ -1,11 +1,11 @@
 import { Register, SubRegister } from "./Register";
 import System from "./System";
-import { combine, high, low, wrap16, wrap8 } from "./util";
+import { asSignedInt8, combine, high, low, wrap16, wrap8 } from "./util";
 
-const FLAG_ZERO = 1 << 3;
-const FLAG_SUBSTRACTION = 1 << 2;
-const FLAG_HALFCARRY = 1 << 1;
-const FLAG_CARRY = 1 << 0;
+const FLAG_ZERO = 1 << 7;
+const FLAG_SUBSTRACTION = 1 << 6;
+const FLAG_HALFCARRY = 1 << 5;
+const FLAG_CARRY = 1 << 4;
 
 type SubRegisterName = "a" | "b" | "c" | "d" | "e" | "f" | "h" | "l";
 type InstructionObject = (system: System) => number;
@@ -16,7 +16,7 @@ type InstructionObject = (system: System) => number;
 class CPU {
     // All registers are 16 bits long.
     // AF: lower is flags: ZNHC (zero, substraction, half-carry, carry)
-    protected regAF = new Register(0x01, 0b1000);
+    protected regAF = new Register(0x01, FLAG_ZERO | FLAG_HALFCARRY | FLAG_CARRY);
     protected regBC = new Register(0x00, 0x13);
     protected regDE = new Register(0x00, 0xd8);
     protected regHL = new Register(0x01, 0x4d);
@@ -24,16 +24,19 @@ class CPU {
     protected regSP = new Register(0xfffe); // stack pointer
     protected halted: boolean = false;
 
+    // for debug purposes
+    protected stepCounter: number = 0;
+
     protected nextByte(system: System) {
         const byte = system.read(this.regPC.inc());
-        console.log("[CPU] read next byte ", byte.toString(16));
+        // console.debug("[CPU] read next byte ", byte.toString(16));
         return byte;
     }
 
     protected nextWord(system: System) {
         const low = this.nextByte(system);
         const high = this.nextByte(system);
-        console.log("[CPU] read next word ", combine(high, low).toString(16));
+        // console.debug("[CPU] read next word ", combine(high, low).toString(16));
         return combine(high, low);
     }
 
@@ -65,15 +68,20 @@ class CPU {
         }
 
         // Execute next instruction
+        const opcode = this.nextByte(system);
         if (verbose)
             console.log(
-                `[CPU] reading for pc ${this.regPC.get().toString(16)} (${this.regPC.get()})`
+                `[CPU] ${++this.stepCounter} - (0x${(this.regPC.get() - 1).toString(
+                    16
+                )}) executing op 0x${opcode.toString(16)}`
             );
-        const opcode = this.nextByte(system);
-        if (verbose) console.log("[CPU] executing op", opcode.toString(16));
         const instruction = this.instructionSet[opcode];
         if (instruction === undefined) {
-            throw Error(`Unrecognized opcode ${opcode} at address ${this.regPC}`);
+            throw Error(
+                `Unrecognized opcode ${opcode.toString(16)} at address ${(
+                    this.regPC.get() - 1
+                ).toString(16)}`
+            );
         }
         const cycles = instruction(system);
         return cycles;
@@ -87,7 +95,21 @@ class CPU {
      * @link https://meganesulli.com/generate-gb-opcodes/
      * */
     protected instructionSet: Partial<Record<number, InstructionObject>> = {
-        0x00: () => 1, // nop
+        // NOP
+        0x00: () => 1,
+        // extended instructions
+        0xcb: (s) => {
+            const opcode = this.nextByte(s);
+            const instruction = this.extendedInstructionSet[opcode];
+            if(instruction === undefined) {
+                throw Error(
+                    `Unrecognized extended opcode ${opcode.toString(16)} at address ${(
+                        this.regPC.get() - 1
+                    ).toString(16)}`
+                );
+            }
+            return instruction(s);
+        },
         // LD dd, nn
         0x01: (s) => { this.regBC.set(this.nextWord(s)); return 3; },
         0x11: (s) => { this.regDE.set(this.nextWord(s)); return 3; },
@@ -323,9 +345,9 @@ class CPU {
         // LD A, (C)
         0xf2: (s) => { this.regAF.h.set(s.read(0xff00 | this.sr("c").get())); return 2; },
         // LD (a16), A
-        0xea: (s) => { s.write(0xff00 | this.nextWord(s), this.regAF.h.get()); return 4; },
+        0xea: (s) => { s.write(this.nextWord(s), this.regAF.h.get()); return 4; },
         // LD A, (a16)
-        0xfa: (s) => { this.regAF.h.set(s.read(0xff00 | this.nextWord(s))); return 4; },
+        0xfa: (s) => { this.regAF.h.set(s.read(this.nextWord(s))); return 4; },
         // RST 0/1/2/3/4/5/6/7
         0xc7: (s) => { this.call(s, 0x00); return 4; },
         0xcf: (s) => { this.call(s, 0x08); return 4; },
@@ -361,12 +383,12 @@ class CPU {
         0xc2: (s) => { const a = this.nextWord(s); if(!this.flag(FLAG_ZERO)) { this.jump(a); return 4; } return 3; },
         0xd2: (s) => { const a = this.nextWord(s); if(!this.flag(FLAG_CARRY)) { this.jump(a); return 4; } return 3; },
         // JR s8
-        0x18: (s) => { this.jumpr(this.nextByte(s)); return 3; },
+        0x18: (s) => { this.jumpr(asSignedInt8(this.nextByte(s))); return 3; },
         // JR Z/C/NZ/NC, s8
-        0x28: (s) => { const a = this.nextByte(s); if(this.flag(FLAG_ZERO)) { this.jumpr(a); return 3; } return 2; },
-        0x38: (s) => { const a = this.nextByte(s); if(this.flag(FLAG_CARRY)) { this.jumpr(a); return 3; } return 2; },
-        0x20: (s) => { const a = this.nextByte(s); if(!this.flag(FLAG_ZERO)) { this.jumpr(a); return 3; } return 2; },
-        0x30: (s) => { const a = this.nextByte(s); if(!this.flag(FLAG_CARRY)) { this.jumpr(a); return 3; } return 2; },
+        0x28: (s) => { const a = asSignedInt8(this.nextByte(s)); if(this.flag(FLAG_ZERO)) { this.jumpr(a); return 3; } return 2; },
+        0x38: (s) => { const a = asSignedInt8(this.nextByte(s)); if(this.flag(FLAG_CARRY)) { this.jumpr(a); return 3; } return 2; },
+        0x20: (s) => { const a = asSignedInt8(this.nextByte(s)); if(!this.flag(FLAG_ZERO)) { this.jumpr(a); return 3; } return 2; },
+        0x30: (s) => { const a = asSignedInt8(this.nextByte(s)); if(!this.flag(FLAG_CARRY)) { this.jumpr(a); return 3; } return 2; },
         // POP BC/DE/HL/AF
         0xc1: (s) => { this.regBC.set(this.pop(s)); return 3; },
         0xd1: (s) => { this.regDE.set(this.pop(s)); return 3; },
@@ -402,6 +424,102 @@ class CPU {
         },
     };
 
+    /**
+     * A list of all 16-bit opcodes. Works the same as instructionSet.
+     */
+    protected extendedInstructionSet: Partial<Record<number, InstructionObject>> = {
+        // RLC ...
+        ...this.generateExtendedOperation(0x00, 2, 4, (s, sr) =>
+            sr.set(this.rotateL(sr.get(), false, true))
+        ),
+        // RRC ...
+        ...this.generateExtendedOperation(0x08, 2, 4, (s, sr) =>
+            sr.set(this.rotateL(sr.get(), true, true))
+        ),
+        // RL ...
+        ...this.generateExtendedOperation(0x10, 2, 4, (s, sr) =>
+            sr.set(this.rotateR(sr.get(), false, true))
+        ),
+        // RC ...
+        ...this.generateExtendedOperation(0x18, 2, 4, (s, sr) =>
+            sr.set(this.rotateR(sr.get(), true, true))
+        ),
+        // SLA ...
+        ...this.generateExtendedOperation(0x20, 2, 4, (s, sr) => {
+            const val = sr.get();
+            const result = (val << 1) & 0xff;
+            this.setFlag(FLAG_ZERO, result === 0);
+            this.setFlag(FLAG_SUBSTRACTION, false);
+            this.setFlag(FLAG_HALFCARRY, false);
+            this.setFlag(FLAG_CARRY, ((val >> 7) & 0b1) === 1);
+        }),
+        // SRA ...
+        ...this.generateExtendedOperation(0x28, 2, 4, (s, sr) => {
+            const val = sr.get();
+            const result = ((val >> 1) & 0xff) | (val & 0b1000000); // bit 7 left unchanged
+            this.setFlag(FLAG_ZERO, result === 0);
+            this.setFlag(FLAG_SUBSTRACTION, false);
+            this.setFlag(FLAG_HALFCARRY, false);
+            this.setFlag(FLAG_CARRY, (val & 0b1) === 1);
+        }),
+        // SRL ...
+        ...this.generateExtendedOperation(0x38, 2, 4, (s, sr) => {
+            const val = sr.get();
+            const result = (val >> 1) & 0xff; // bit 7 left unchanged
+            this.setFlag(FLAG_ZERO, result === 0);
+            this.setFlag(FLAG_SUBSTRACTION, false);
+            this.setFlag(FLAG_HALFCARRY, false);
+            this.setFlag(FLAG_CARRY, (val & 0b1) === 1);
+        }),
+        // SWAP ...
+        ...this.generateExtendedOperation(0x30, 2, 4, (s, sr) => {
+            const val = sr.get();
+            const result = ((val & 0x0f) << 4) | ((val & 0xf0) >> 4);
+            this.setFlag(FLAG_ZERO, result === 0);
+            this.setFlag(FLAG_SUBSTRACTION, false);
+            this.setFlag(FLAG_HALFCARRY, false);
+            this.setFlag(FLAG_CARRY, false);
+        }),
+        // BIT 0/1/2/.../7, ...
+        ...[...new Array(8)].reduce(
+            (previous, _, bit) => ({
+                ...previous,
+                ...this.generateExtendedOperation(0x40 + bit * 8, 2, 3, (s, sr) => {
+                    const val = sr.get();
+                    const out = val >> bit;
+                    this.setFlag(FLAG_ZERO, out === 0);
+                    this.setFlag(FLAG_SUBSTRACTION, false);
+                    this.setFlag(FLAG_HALFCARRY, true);
+                }),
+            }),
+            {} as Partial<Record<number, InstructionObject>>
+        ),
+        // RES 0/1/2/.../7, ...
+        ...[...new Array(8)].reduce(
+            (previous, _, bit) => ({
+                ...previous,
+                ...this.generateExtendedOperation(0x80 + bit * 8, 2, 4, (s, sr) => {
+                    const val = sr.get();
+                    const result = val & ~(1 << bit);
+                    sr.set(result);
+                }),
+            }),
+            {} as Partial<Record<number, InstructionObject>>
+        ),
+        // SET 0/1/2/.../7, ...
+        ...[...new Array(8)].reduce(
+            (previous, _, bit) => ({
+                ...previous,
+                ...this.generateExtendedOperation(0xc0 + bit * 8, 2, 4, (s, sr) => {
+                    const val = sr.get();
+                    const result = val | (1 << bit);
+                    sr.set(result);
+                }),
+            }),
+            {} as Partial<Record<number, InstructionObject>>
+        ),
+    };
+
     // Helper functions for instructions
     /** Reads flags */
     protected flag(flag: number): boolean {
@@ -429,7 +547,7 @@ class CPU {
         const result = wrap8(n + 1);
         this.setFlag(FLAG_ZERO, result === 0);
         this.setFlag(FLAG_SUBSTRACTION, false);
-        this.setFlag(FLAG_HALFCARRY, (result & 0xf) === 0xf);
+        this.setFlag(FLAG_HALFCARRY, (result & 0xf) < (n & 0xf));
         return result;
     }
     /** Applies `incN` to a sub-register */
@@ -443,7 +561,7 @@ class CPU {
         const result = wrap8(n - 1);
         this.setFlag(FLAG_ZERO, result === 0);
         this.setFlag(FLAG_SUBSTRACTION, true);
-        this.setFlag(FLAG_HALFCARRY, (result & 0xf) === 0);
+        this.setFlag(FLAG_HALFCARRY, (result & 0xf) > (n & 0xf));
         return result;
     }
     /** Applies `decN` to a sub-register */
@@ -568,6 +686,59 @@ class CPU {
     protected rotateRSr(srName: SubRegisterName, useCarry: boolean, setZero: boolean) {
         const sr = this.sr(srName);
         sr.set(this.rotateR(sr.get(), useCarry, setZero));
+    }
+    /**
+     * Helper function for instructions that follow the same B-C-D-E-H-L-(HL)-A pattern
+     * @param baseCode The base code of the instruction (e.g. 0x50)
+     * @param cost The number of cycles this instruction takes for registers (ie. BCDEHLA)
+     * @param hlCost The number of cycles this instruction takes for (HL)
+     * @param execute A function that executes the instruction for a given register
+     * @returns An object with the completed instructions (e.g. 0x50, 0x51, ..., 0x57)
+     */
+    protected generateExtendedOperation(
+        baseCode: number,
+        cost: number,
+        hlCost: number,
+        execute: (s: System, sr: Pick<SubRegister, "get" | "set">) => void
+    ): Partial<Record<number, InstructionObject>> {
+        // order matters: B/C/D/E/H/L/(HL)/A
+        return {
+            [baseCode + 0]: (s) => {
+                execute(s, this.regBC.h);
+                return cost;
+            },
+            [baseCode + 1]: (s) => {
+                execute(s, this.regBC.l);
+                return cost;
+            },
+            [baseCode + 2]: (s) => {
+                execute(s, this.regDE.h);
+                return cost;
+            },
+            [baseCode + 3]: (s) => {
+                execute(s, this.regDE.l);
+                return cost;
+            },
+            [baseCode + 4]: (s) => {
+                execute(s, this.regHL.h);
+                return cost;
+            },
+            [baseCode + 5]: (s) => {
+                execute(s, this.regHL.l);
+                return cost;
+            },
+            [baseCode + 6]: (s) => {
+                execute(s, {
+                    get: () => s.read(this.regHL.get()),
+                    set: (n: number) => s.write(this.regHL.get(), n),
+                });
+                return hlCost;
+            },
+            [baseCode + 7]: (s) => {
+                execute(s, this.regAF.h);
+                return cost;
+            },
+        };
     }
 }
 

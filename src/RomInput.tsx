@@ -11,7 +11,7 @@ const consoleRomExtensions: Record<ConsoleType, string> = {
 
 type RomInputProps = {
     type?: ConsoleType;
-    onLoad: (data: string) => void;
+    onLoad: (data: ArrayBuffer) => void;
 };
 
 const RomInput: FunctionalComponent<RomInputProps> = ({ type = "gb", onLoad }) => {
@@ -25,9 +25,9 @@ const RomInput: FunctionalComponent<RomInputProps> = ({ type = "gb", onLoad }) =
         if (!e.currentTarget.files?.length) return;
         const uploadedRom = e.currentTarget.files[0];
         const reader = new FileReader();
-        reader.readAsBinaryString(uploadedRom);
+        reader.readAsArrayBuffer(uploadedRom);
         reader.onload = (e) => {
-            if (e.target?.result && typeof e.target.result === "string") {
+            if (e.target?.result && typeof e.target.result === "object") {
                 onLoad(e.target.result);
             }
         };

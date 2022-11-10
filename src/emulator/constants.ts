@@ -1,5 +1,5 @@
 // CPU
-export const CLOCK_SPEED = 4194304;
+export const CLOCK_SPEED = 4194304; // 2^22Hz
 export const FRAME_RATE = 60;
 export const CYCLES_PER_FRAME = Math.floor(CLOCK_SPEED / FRAME_RATE);
 

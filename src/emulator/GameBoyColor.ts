@@ -6,6 +6,7 @@ import VideoOutput from "./VideoOutput";
 
 type DebugData = {
     canStep: boolean;
+    skipDebug: boolean;
 };
 
 function sleep(ms: number) {
@@ -17,18 +18,24 @@ class GameBoyColor {
     protected cpu: CPU;
     protected system: System;
 
-    protected output: VideoOutput;
     protected cycles: number;
 
     protected debug?: () => DebugData;
 
-    constructor(rom: string, input: GameInput, output: VideoOutput, debug?: () => DebugData) {
+    constructor(
+        rom: Uint8Array,
+        input: GameInput,
+        output: VideoOutput,
+        debug?: () => DebugData
+    ) {
         this.cpu = new CPU();
-        this.system = new System(rom, input);
-        this.output = output;
+        this.system = new System(rom, input, output);
         this.cycles = 0;
         this.debug = debug;
         console.log("[debug] Created GBC", this);
+
+        // @ts-ignore helpful for debugging :)
+        window.gbc = this;
     }
 
     drawFrame() {
@@ -40,18 +47,14 @@ class GameBoyColor {
             this.system.tick(cycles);
             this.cycles += cycles;
 
-            if (this.debug) {
+            if (this.debug && !this.debug().skipDebug) {
                 return;
             }
         }
-        this.cpu.debug();
+        if (this.debug && !this.debug().skipDebug) {
+            this.cpu.debug();
+        }
         this.cycles %= CYCLES_PER_FRAME; // keep leftover cycles
-
-        // consume the sink
-
-        // Render the screen
-        const output = new Uint8ClampedArray();
-        this.output.receive(output);
 
         // Read input
         this.system.readInput();
@@ -61,10 +64,11 @@ class GameBoyColor {
         if (!this.isRunning) return;
         this.drawFrame();
 
-        if (this.debug) {
+        if (this.debug && !this.debug().skipDebug) {
             // force a "button up, button down, button up" cycle (ie full button press)
             setTimeout(async () => {
                 if (!this.debug) return;
+                while (this.debug().canStep) await sleep(100);
                 while (!this.debug().canStep) await sleep(100);
                 this.run();
             }, 10);

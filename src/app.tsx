@@ -14,21 +14,16 @@ const App: FunctionalComponent = () => {
     const screenRef = createRef<HTMLCanvasElement>();
     const [gameboy, setGameboy] = useState<GameBoyColor>();
 
-    const loadRom = (rom: string) => {
+    const loadRom = (rom: ArrayBuffer) => {
         const gameIn: GameInput = {
             read: () => ({
-                up: pressedKeys.includes("arrowup"),
-                down: pressedKeys.includes("arrowdown"),
-                left: pressedKeys.includes("arrowleft"),
-                right: pressedKeys.includes("arrowright"),
-                a: pressedKeys.includes("q"),
-                b: pressedKeys.includes("a"),
-                start: pressedKeys.includes("w"),
-                select: pressedKeys.includes("s"),
             }),
         };
 
-        const debug = () => ({ canStep: pressedKeys.includes(" ") });
+        const debug = () => ({
+            canStep: pressedKeys.includes(" "),
+            skipDebug: pressedKeys.includes("escape"),
+        });
 
         const videoOut: VideoOutput = {
             receive: (data) => {
@@ -40,12 +35,13 @@ const App: FunctionalComponent = () => {
                 const context = canvas.getContext("2d");
                 if (!context) return;
 
-                const imageData = new ImageData(data, SCREEN_WIDTH, SCREEN_HEIGHT);
+                const dataAsUint8 = new Uint8ClampedArray(data.buffer);
+                const imageData = new ImageData(dataAsUint8, SCREEN_WIDTH, SCREEN_HEIGHT);
                 context.putImageData(imageData, 0, 0);
             },
         };
-
-        const gbc = new GameBoyColor(rom, gameIn, videoOut, debug);
+        const romArray = new Uint8Array(rom);
+        const gbc = new GameBoyColor(romArray, gameIn, videoOut, debug);
         setGameboy(gbc);
 
         requestAnimationFrame(() => gbc.run());
