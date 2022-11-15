@@ -71,7 +71,11 @@ class GPU implements Readable {
 
     // Video output/storage
     protected output: VideoOutput;
-    protected videoBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH);
+    protected videoBuffer = (() => {
+        const tempBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH);
+        tempBuffer.fill(0xff000000);
+        return tempBuffer;
+    })();
 
     // General use
     /** @link https://gbdev.io/pandocs/LCDC.html */
@@ -96,9 +100,9 @@ class GPU implements Readable {
 
     protected colorOptions: Record<Int2, number> = {
         0b00: 0xffffffff, // white
-        0b01: 0xaaaaaaff, // light gray
-        0b10: 0x555555ff, // dark gray
-        0b11: 0x000000ff, // black
+        0b01: 0xffaaaaaa, // light gray
+        0b10: 0xff555555, // dark gray
+        0b11: 0xff000000, // black
     };
 
     constructor(output: VideoOutput) {
@@ -110,6 +114,59 @@ class GPU implements Readable {
      * @link https://gbdev.io/pandocs/pixel_fifo.html
      */
     tick(cycles: number, system: System) {
+        this.cycleCounter += cycles;
+        this.lineCycleCounter += cycles;
+
+        const currentMode = this.lcdStatus.get() & STAT_MODE;
+
+        let needLcdcInterrupt = false;
+
+        if (this.cycleCounter > MODE_VBLANK.CYCLES) {
+            if (currentMode !== MODE_VBLANK.FLAG) {
+                this.setMode(MODE_VBLANK.FLAG);
+                needLcdcInterrupt = this.lcdStatus.flag(MODE_VBLANK.INTERRUPT);
+                system.requestInterrupt(IFLAG_VBLANK);
+                this.output.receive(this.videoBuffer);
+            }
+
+            if (this.cycleCounter > MODE_VBLANK.CYCLES + CYCLES_VBLANK_EXTRA) {
+                this.cycleCounter %= MODE_VBLANK.CYCLES + CYCLES_VBLANK_EXTRA;
+                this.lineCycleCounter = this.cycleCounter;
+                this.lcdY.set(0);
+                this.setMode(MODE_SEARCHING_OAM.FLAG);
+            }
+        } else {
+            if (this.lineCycleCounter < MODE_SEARCHING_OAM.CYCLES) {
+                if (currentMode !== MODE_SEARCHING_OAM.FLAG) {
+                    this.setMode(MODE_SEARCHING_OAM.FLAG);
+                    needLcdcInterrupt = this.lcdStatus.flag(MODE_SEARCHING_OAM.INTERRUPT);
+                }
+            } else if (this.lineCycleCounter < MODE_TRANSFERRING.CYCLES) {
+                if (currentMode !== MODE_TRANSFERRING.FLAG) {
+                    this.setMode(MODE_TRANSFERRING.FLAG);
+                    this.updateScanline(system);
+                }
+            } else if (this.lineCycleCounter < MODE_HBLANK.CYCLES) {
+                if (currentMode !== MODE_HBLANK.FLAG) {
+                    this.setMode(MODE_HBLANK.FLAG);
+                    needLcdcInterrupt = this.lcdStatus.flag(MODE_HBLANK.INTERRUPT);
+                }
+            } else {
+                // Reached end of line, move on to next one
+                this.lcdY.set(wrap8(this.lcdY.get() + 1));
+                this.lineCycleCounter %= MODE_HBLANK.CYCLES;
+            }
+        }
+
+        // The GPU constantly compares the LY and LCY, and needs interrupts when they match
+        const doLycLyMatch = this.lcdY.get() == this.lcdYCompare.get();
+        this.lcdStatus.sflag(STAT_LYC_LY_EQ_FLAG, doLycLyMatch);
+        needLcdcInterrupt ||= doLycLyMatch;
+
+        // Request interrupt if anything relevant happened
+        if (needLcdcInterrupt) {
+            system.requestInterrupt(IFLAG_LCDC);
+        }
     }
 
     /** Sets the current mode of the GPU, updating the STAT register. */
@@ -118,9 +175,138 @@ class GPU implements Readable {
     }
 
     /** Updates the current scanline, by rendering the background, window and then objects. */
-    protected updateScanline() {
+    protected updateScanline(system: System) {
+        const bgPriorities = [...new Array(SCREEN_WIDTH)].map(() => false);
+        if (this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
+            this.drawBackground(bgPriorities);
+        }
+        // if (this.lcdControl.flag(LCDC_WIN_ENABLE)) {
+        //     this.drawBackgroundOrWindow("win", bgPriorities);
+        // }
+        if (this.lcdControl.flag(LCDC_OBJ_ENABLE)) {
+            console.log("gna draw objs");
+            this.drawObjects(system, bgPriorities);
+        }
     }
 
+    protected drawBackground(priorities: boolean[]) {
+        // Function to get access to the tile data, ie. the shades of a tile
+        const toAddress = this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
+            ? // Unsigned regular, 0x8000-0x8fff
+              (n: number) => 0x8000 + n
+            : // Signed offset, 0x9000-0x97ff for 0-127 and 0x8800-0x8fff for 128-255
+              (n: number) => (n < 128 ? 0x9000 + n : 0x8800 + (n - 128));
+
+        // The tilemap used (a map of tile *pointers*)
+        const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
+        // Map of colors for each shade
+        const palette = this.bgAndWinPaletteColor();
+
+        // The top-left corner of the 160x144 view area
+        const viewX = this.screenX.get();
+        const viewY = this.screenY.get();
+
+        // The currently read Y pixel of the bg map
+        const y = viewY + this.lcdY.get();
+        // The currently read Y position of the corresponding tile (one tile is 8 pixels long)
+        const tileY = Math.floor(y / 8);
+        // The currently read Y position *inside* the tile
+        const tileInnerY = y % 8;
+
+        // Start of video buffer for this line
+        const bufferStart = this.lcdY.get() * SCREEN_WIDTH;
+
+        for (let i = 0; i < SCREEN_WIDTH; i++) {
+            // The currently read X pixel of the bg map
+            const x = viewX + i;
+            // The currently read X position of the corresponding tile
+            const tileX = Math.floor(x / 8);
+            // The currently read X position *inside* the tile
+            const tileInnerX = x % 8;
+
+            // Index of the tile in the current tile data
+            const tileIndex = tileY * 32 + tileX;
+            // Get the actual address of the tile *pointer*
+            const tilePointerAddress = tileMapLoc + tileIndex;
+            // The ID (pointer) of the tile
+            const tileId = this.read(tilePointerAddress);
+
+            // Get the byte with the lower data for the entire tile line (8 pixels)
+            const shadeLineDataL = this.read(toAddress(tileId + tileInnerY));
+            // Get the byte with the higher data for the entire tile line (8 pixels)
+            const shadeLineDataH = this.read(toAddress(tileId + tileInnerY));
+            // Extract the two shade bits, and combine them to get the correct shade
+            const shadeL = (shadeLineDataL >> tileInnerX) & 0b1;
+            const shadeH = (shadeLineDataH >> tileInnerX) & 0b1;
+            const shade = ((shadeH << 1) | shadeL) as Int2;
+
+            // Get the RGBA color, and draw it!
+            const pixelColor = palette[shade];
+            this.videoBuffer[bufferStart + i] = pixelColor;
+        }
+    }
+
+    protected drawObjects(system: System, priorities: boolean[]) {
+        const y = this.lcdY.get();
+        const doubleObjects = this.lcdControl.flag(LCDC_OBJ_SIZE);
+        // Height of objects in pixels
+        const objHeight = doubleObjects ? 8 : 16;
+        const sprites = system.getSprites();
+        const drawnSprites = sprites
+            .filter(
+                // only get selected sprites
+                (sprite) => y - objHeight <= sprite.y && sprite.y <= y
+            )
+            .slice(0, 10); // only 10 sprites per scanline
+
+        console.log("all sprites are ", sprites);
+
+        for (const sprite of drawnSprites) {
+            // We need to check if we have double height sprites and this is the lower half of
+            // the sprite, in which case the actual tile address is the next byte
+            const tileAddress =
+                0x8000 + sprite.tileIndex + (doubleObjects && y - sprite.y >= 8 ? 1 : 0);
+            // The currently read Y position inside the corresponding tile
+            const tileY = (y - sprite.y) % 8;
+            //
+            const palette = this.objPaletteColors(sprite.paletteNumber ? 1 : 0);
+
+            // Start of video buffer for this line
+            const bufferStart = this.lcdY.get() * SCREEN_WIDTH + (sprite.x - 8);
+
+            for (let innerX = 0; innerX < 8; innerX++) {
+                // The X value of the sprite is offset by 8 to the left, so we skip off-screen
+                if (sprite.x - 8 + innerX < 0) continue;
+
+                // Get the byte with the lower data for the entire tile line (8 pixels)
+                const shadeLineDataL = this.read(tileAddress + tileY * 2);
+                // Get the byte with the higher data for the entire tile line (8 pixels)
+                const shadeLineDataH = this.read(tileAddress + tileY * 2);
+                // Extract the two shade bits, and combine them to get the correct shade
+                const shadeL = (shadeLineDataL >> innerX) & 0b1;
+                const shadeH = (shadeLineDataH >> innerX) & 0b1;
+                const shade = ((shadeH << 1) | shadeL) as Int2;
+
+                // Get the RGBA color, and draw it!
+                const pixelColor = palette[shade];
+                // if transparent, skip
+                if (pixelColor === 0x00000000) continue;
+                this.videoBuffer[bufferStart + innerX] = pixelColor;
+            }
+            console.log("drew sprite", sprite);
+        }
+    }
+
+    /** An object containing the RGBA colors for each color ID in the background and window. */
+    protected bgAndWinPaletteColor(): Record<Int2, number> {
+        const palette = this.bgPalette.get();
+        return {
+            0b00: this.colorOptions[((palette >> 0) & 0xff) as Int2],
+            0b01: this.colorOptions[((palette >> 2) & 0xff) as Int2],
+            0b10: this.colorOptions[((palette >> 4) & 0xff) as Int2],
+            0b11: this.colorOptions[((palette >> 6) & 0xff) as Int2],
+        };
+    }
     /** An object containing the RGBA colors for each color ID for objects.  */
     protected objPaletteColors(id: 0 | 1) {
         const palette = [this.objPalette0, this.objPalette1][id].get();

@@ -1,14 +1,11 @@
 import { createRef } from "preact";
-import { useEffect } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 
 const useKeys = () => {
-    const pressedKeys = createRef<string[]>();
-    pressedKeys.current = [];
+    const pressedKeys = useRef<string[]>([]);
 
     useEffect(() => {
         const keyDownListener = (e: KeyboardEvent) => {
-            if (pressedKeys.current === null) return;
-
             const key = e.key.toLowerCase();
             const index = pressedKeys.current.indexOf(key);
             if (index === -1) {
@@ -16,8 +13,6 @@ const useKeys = () => {
             }
         };
         const keyUpListener = (e: KeyboardEvent) => {
-            if (pressedKeys.current === null) return;
-
             const key = e.key.toLowerCase();
             const index = pressedKeys.current.indexOf(key);
             if (index !== -1) {

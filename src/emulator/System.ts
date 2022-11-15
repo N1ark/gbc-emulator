@@ -13,6 +13,7 @@ import GameInput from "./GameInput";
 import GPU from "./GPU";
 import JoypadInput from "./JoypadInput";
 import { RAM, ROM } from "./Memory";
+import OAM from "./oam";
 import { SubRegister } from "./Register";
 import Timer from "./Timer";
 import VideoOutput from "./VideoOutput";
@@ -34,6 +35,7 @@ class System implements Addressable {
     // Devices
     protected timer = new Timer();
     protected audio = new Audio();
+    protected oam = new OAM();
     protected joypad: JoypadInput;
 
     constructor(rom: Uint8Array, input: GameInput, output: VideoOutput) {
@@ -46,6 +48,7 @@ class System implements Addressable {
     tick(cycles: number) {
         this.gpu.tick(cycles, this);
         this.timer.tick(cycles, this);
+        this.oam.tick(cycles, this);
     }
 
     /**
@@ -66,10 +69,12 @@ class System implements Addressable {
             0xff07: this.timer,
 
             0xff0f: this.intFlag,
+            0xff46: this.oam,
             0xffff: this.intEnable,
         }[pos];
         if (register !== undefined) return [register, pos];
 
+        // Serial in/out
         if (pos === 0xff02) {
             return [new SubRegister(), 0];
         }
@@ -95,6 +100,8 @@ class System implements Addressable {
         if (0x8000 <= pos && pos <= 0x9fff) return [this.gpu, pos];
         // Work RAM (WRAM)
         if (0xc000 <= pos && pos <= 0xdfff) return [this.wram, pos - 0xc000];
+        // OAM
+        if (0xfe00 <= pos && pos <= 0xfe9f) return [this.oam, pos];
         // High RAM (HRAM)
         if (0xff80 <= pos && pos <= 0xfffe) return [this.hram, pos - 0xff80];
 
@@ -156,6 +163,14 @@ class System implements Addressable {
             }
         }
         return null;
+    }
+
+    /**
+     * Returns the sprites stored in the OAM.
+     * @link https://gbdev.io/pandocs/OAM.html
+     */
+    getSprites() {
+        return this.oam.getSprites();
     }
 }
 

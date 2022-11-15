@@ -39,20 +39,18 @@ class GameBoyColor {
     }
 
     drawFrame() {
+        const debugging = this.debug && !this.debug().skipDebug;
         // new video sink
 
         while (this.cycles < CYCLES_PER_FRAME) {
             // one CPU step, convert M-cycles to CPU cycles
-            const cycles = this.cpu.step(this.system, this.debug !== undefined) * 4;
+            const cycles = this.cpu.step(this.system, debugging) * 4;
             this.system.tick(cycles);
             this.cycles += cycles;
 
-            if (this.debug && !this.debug().skipDebug) {
+            if (debugging) {
                 return;
             }
-        }
-        if (this.debug && !this.debug().skipDebug) {
-            this.cpu.debug();
         }
         this.cycles %= CYCLES_PER_FRAME; // keep leftover cycles
 
@@ -68,8 +66,8 @@ class GameBoyColor {
             // force a "button up, button down, button up" cycle (ie full button press)
             setTimeout(async () => {
                 if (!this.debug) return;
-                while (this.debug().canStep) await sleep(100);
-                while (!this.debug().canStep) await sleep(100);
+                while (this.debug().canStep) await sleep(10);
+                while (!this.debug().canStep) await sleep(10);
                 this.run();
             }, 10);
             return;

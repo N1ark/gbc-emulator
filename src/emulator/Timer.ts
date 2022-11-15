@@ -22,7 +22,7 @@ const TIMER_ENABLE_FLAG = 1 << 2;
 
 class Timer implements Addressable {
     // DIV - divider register
-    protected divider = new SubRegister(0x00);
+    protected divider = new SubRegister(0xab);
     protected dividerSub = 0; // a helper counter
     // TIMA - timer counter
     protected timerCounter = new SubRegister(0x00);
@@ -30,7 +30,7 @@ class Timer implements Addressable {
     // TMA - timer modulo
     protected timerModulo = new SubRegister(0x00);
     // TAC - timer control
-    protected timerControl = new SubRegister(0x00);
+    protected timerControl = new SubRegister(0xf8);
 
     /**
      * Ticks the timer system

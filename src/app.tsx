@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import "./app.css";
 import { createRef, FunctionalComponent } from "preact";
 import RomInput from "./RomInput";
@@ -11,12 +11,31 @@ import useKeys from "./useKeys";
 
 const App: FunctionalComponent = () => {
     const pressedKeys = useKeys();
-    const screenRef = createRef<HTMLCanvasElement>();
+    const screenRef = useRef<HTMLCanvasElement>(null);
     const [gameboy, setGameboy] = useState<GameBoyColor>();
 
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "z" && gameboy === undefined) {
+            fetch("/test_cpu.gb")
+                .then((r) => r.blob())
+                .then((b) => b.arrayBuffer())
+                .then((txt) => {
+                    console.log(txt);
+                    loadRom(txt);
+                });
+        }
+    });
     const loadRom = (rom: ArrayBuffer) => {
         const gameIn: GameInput = {
             read: () => ({
+                up: pressedKeys.includes("arrowup"),
+                down: pressedKeys.includes("arrowdown"),
+                left: pressedKeys.includes("arrowleft"),
+                right: pressedKeys.includes("arrowright"),
+                a: pressedKeys.includes("q"),
+                b: pressedKeys.includes("a"),
+                start: pressedKeys.includes("w"),
+                select: pressedKeys.includes("s"),
             }),
         };
 
@@ -29,8 +48,6 @@ const App: FunctionalComponent = () => {
             receive: (data) => {
                 const canvas = screenRef.current;
                 if (!canvas) return;
-
-                console.log(canvas);
 
                 const context = canvas.getContext("2d");
                 if (!context) return;
@@ -52,7 +69,11 @@ const App: FunctionalComponent = () => {
             <h1>Emmy</h1>
             <h2>The GBC Browser Emulator</h2>
 
-            {gameboy ? <Screen ref={screenRef} /> : <RomInput type="gb" onLoad={loadRom} />}
+            {gameboy ? (
+                <Screen canvasRef={screenRef} />
+            ) : (
+                <RomInput type="gb" onLoad={loadRom} />
+            )}
         </>
     );
 };

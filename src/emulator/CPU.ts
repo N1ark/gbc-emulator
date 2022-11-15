@@ -29,24 +29,16 @@ class CPU {
 
     protected nextByte(system: System) {
         const byte = system.read(this.regPC.inc());
-        // console.debug("[CPU] read next byte ", byte.toString(16));
         return byte;
     }
 
     protected nextWord(system: System) {
         const low = this.nextByte(system);
         const high = this.nextByte(system);
-        // console.debug("[CPU] read next word ", combine(high, low).toString(16));
         return combine(high, low);
     }
 
     protected handleInterrupts(system: System) {}
-
-    debug() {
-        console.log({
-            pc: this.regPC.get(),
-        });
-    }
 
     /**
      * Steps through one line of the code, and returns the M-cycles required for the
