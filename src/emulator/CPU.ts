@@ -63,7 +63,6 @@ class CPU {
         const opcode = this.nextByte(system);
         if (verbose)
             console.log(
-                `[CPU] ${++this.stepCounter} - (0x${(this.regPC.get() - 1).toString(
                     16
                 )}) executing op 0x${opcode.toString(16)}`
             );
@@ -319,15 +318,15 @@ class CPU {
         0xb6: (s) => { this.boolNToA(s.read(this.regHL.get()), "|"); return 2; },
         0xf6: (s) => { this.boolNToA(this.nextByte(s), "|"); return 2; },
         // CP B/C/D/E/H/L/A/(HL)/d8
-        0xb8: () => { this.boolNToA(this.sr("b").get(), "|"); return 1; },
-        0xb9: () => { this.boolNToA(this.sr("c").get(), "|"); return 1; },
-        0xba: () => { this.boolNToA(this.sr("d").get(), "|"); return 1; },
-        0xbb: () => { this.boolNToA(this.sr("e").get(), "|"); return 1; },
-        0xbc: () => { this.boolNToA(this.sr("h").get(), "|"); return 1; },
-        0xbd: () => { this.boolNToA(this.sr("l").get(), "|"); return 1; },
-        0xbf: () => { this.boolNToA(this.sr("a").get(), "|"); return 1; },
-        0xbe: (s) => { this.boolNToA(s.read(this.regHL.get()), "|"); return 2; },
-        0xfe: (s) => { this.boolNToA(this.nextByte(s), "|"); return 2; },
+        0xb8: () => { this.compNToA(this.sr("b").get()); return 1; },
+        0xb9: () => { this.compNToA(this.sr("c").get()); return 1; },
+        0xba: () => { this.compNToA(this.sr("d").get()); return 1; },
+        0xbb: () => { this.compNToA(this.sr("e").get()); return 1; },
+        0xbc: () => { this.compNToA(this.sr("h").get()); return 1; },
+        0xbd: () => { this.compNToA(this.sr("l").get()); return 1; },
+        0xbf: () => { this.compNToA(this.sr("a").get()); return 1; },
+        0xbe: (s) => { this.compNToA(s.read(this.regHL.get())); return 2; },
+        0xfe: (s) => { this.compNToA(this.nextByte(s)); return 2; },
         // LD (a8), A
         0xe0: (s) => { s.write(0xff00 | this.nextByte(s), this.regAF.h.get()); return 3; },
         // LD A, (a8)
@@ -396,6 +395,22 @@ class CPU {
         0x17: () => { this.rotateLSr("a", true, false); return 1; },
         0x0f: () => { this.rotateRSr("a", false, false); return 1; },
         0x1f: () => { this.rotateRSr("a", true, false); return 1; },
+        // ADD SP, s8
+        0xe8: (s) => {
+            const s8 = asSignedInt8(this.nextByte(s));
+            const sp = this.regSP.get();
+            this.regSP.set(this.perfAdd(s8, sp));
+            return 4;
+        },
+        // LD HL, SP+s8
+        0xf8: (s) => {
+            const s8 = asSignedInt8(this.nextByte(s));
+            const sp = this.regSP.get();
+            this.regHL.set(this.perfAdd(s8, sp));
+            return 3;
+        },
+        // LD SP, HL
+        0xf9: () => { this.regSP.set(this.regHL.get()); return 2;},
         // DI / EI
         0xf3: (s) => { s.disableInterrupts(); return 1; },
         0xfb: (s) => { s.enableInterrupts(); return 1; },
@@ -586,6 +601,15 @@ class CPU {
         this.setFlag(FLAG_SUBSTRACTION, false);
         this.setFlag(FLAG_HALFCARRY, (a & 0xf) + (n & 0xf) + carryVal > 0xf);
         this.setFlag(FLAG_CARRY, a + n + carryVal > 0xff);
+    }
+    /** Adds the two given 16-bit values (updating flags), returns the result */
+    protected perfAdd(a: number, b: number) {
+        const result = wrap16(a + b);
+        this.setFlag(FLAG_ZERO, false);
+        this.setFlag(FLAG_SUBSTRACTION, false);
+        this.setFlag(FLAG_CARRY, (a & 0xff) > 0xff - (b & 0xff));
+        this.setFlag(FLAG_HALFCARRY, (a & 0xf) > 0xf - (b & 0xf));
+        return result;
     }
     /** Substracts a value from subregister A, updates flags Z/1/H/CY */
     protected subNFromA(n: number, carry: boolean) {
