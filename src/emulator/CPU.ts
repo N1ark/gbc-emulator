@@ -40,6 +40,10 @@ class CPU {
 
     protected handleInterrupts(system: System) {}
 
+    getPC() {
+        return this.regPC.get();
+    }
+
     /**
      * Steps through one line of the code, and returns the M-cycles required for the
      * operation
@@ -61,8 +65,10 @@ class CPU {
 
         // Execute next instruction
         const opcode = this.nextByte(system);
+        ++this.stepCounter;
         if (verbose)
             console.log(
+                `[CPU] ${this.stepCounter} - (0x${(this.regPC.get() - 1).toString(
                     16
                 )}) executing op 0x${opcode.toString(16)}`
             );

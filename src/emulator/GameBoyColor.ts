@@ -21,6 +21,7 @@ class GameBoyColor {
     protected cycles: number;
 
     protected debug?: () => DebugData;
+    protected breakpoints?: number[];
 
     constructor(
         rom: Uint8Array,
@@ -38,7 +39,8 @@ class GameBoyColor {
         window.gbc = this;
     }
 
-    drawFrame() {
+    /** Draws a full frame and returns if a breakpoint was reached */
+    drawFrame(): boolean {
         const debugging = this.debug && !this.debug().skipDebug;
         // new video sink
 
@@ -48,21 +50,22 @@ class GameBoyColor {
             this.system.tick(cycles);
             this.cycles += cycles;
 
-            if (debugging) {
-                return;
+            if (debugging || this.breakpoints?.includes(this.cpu.getPC())) {
+                return true;
             }
         }
         this.cycles %= CYCLES_PER_FRAME; // keep leftover cycles
 
         // Read input
         this.system.readInput();
+        return false;
     }
 
     run() {
         if (!this.isRunning) return;
-        this.drawFrame();
+        const breakpoint = this.drawFrame();
 
-        if (this.debug && !this.debug().skipDebug) {
+        if ((this.debug && !this.debug().skipDebug) || breakpoint) {
             // force a "button up, button down, button up" cycle (ie full button press)
             setTimeout(async () => {
                 if (!this.debug) return;

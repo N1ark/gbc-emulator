@@ -38,6 +38,9 @@ class System implements Addressable {
     protected oam = new OAM();
     protected joypad: JoypadInput;
 
+    // Debug
+    protected serialOut: string = "";
+
     constructor(rom: Uint8Array, input: GameInput, output: VideoOutput) {
         this.rom = new ROM(rom);
         this.joypad = new JoypadInput(input);
@@ -81,8 +84,11 @@ class System implements Addressable {
         if (pos === 0xff01) {
             const spy = new SubRegister();
             spy.read = () => 0;
-            spy.write = (pos, data) =>
-                console.warn(`\t\t\t\t${String.fromCharCode(data)} - ${data}`);
+            spy.write = (pos, data) => {
+                console.warn(
+                    `[Serial Out] (${data}): ${(this.serialOut += String.fromCharCode(data))}`
+                );
+            };
             return [spy, 0];
         }
 
@@ -105,7 +111,10 @@ class System implements Addressable {
         // High RAM (HRAM)
         if (0xff80 <= pos && pos <= 0xfffe) return [this.hram, pos - 0xff80];
 
-        throw new Error(`Read from currently unsupported address ${pos.toString(16)}`);
+        console.warn(
+            `Accessed invalid address ${pos.toString(16)}, returned a fake 0xFF register`
+        );
+        return [new SubRegister(0xff), 0];
     }
 
     /**
