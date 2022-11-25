@@ -47,6 +47,10 @@ class CPU {
         return this.regPC.get();
     }
 
+    unhalt() {
+        this.halted = false;
+    }
+
     /**
      * Steps through one line of the code, and returns the M-cycles required for the
      * operation
@@ -110,7 +114,6 @@ class CPU {
             };
             this.logOutput +=
                 `cyc:${cycles * 4}/` +
-                `tIn:${system.debugTimer}/` +
                 `op:${opcode.toString(16)}/` +
                 `n-1:${system.read(this.regPC.get() - 1).toString(16)}/` +
                 Object.entries(loggedMemory)
@@ -166,7 +169,7 @@ class CPU {
             }
             return instruction(s);
         },
-        // LD dd, nn
+        // LD BC/DE/HL/SP, d16
         0x01: (s) => { this.regBC.set(this.nextWord(s)); return 3; },
         0x11: (s) => { this.regDE.set(this.nextWord(s)); return 3; },
         0x21: (s) => { this.regHL.set(this.nextWord(s)); return 3; },
@@ -223,7 +226,7 @@ class CPU {
         0x0a: (s) => { this.regAF.h.set(s.read(this.regBC.get())); return 2; },
         0x1a: (s) => { this.regAF.h.set(s.read(this.regDE.get())); return 2; },
         0x2a: (s) => { this.regAF.h.set(s.read(this.regHL.inc())); return 2; },
-        0x3a: (s) => { this.regAF.h.set(s.read(this.regBC.dec())); return 2; },
+        0x3a: (s) => { this.regAF.h.set(s.read(this.regHL.dec())); return 2; },
         // LD B/D/H/C/E/L/A, d8
         0x06: (s) => { this.sr("b").set(this.nextByte(s)); return 2; },
         0x16: (s) => { this.sr("d").set(this.nextByte(s)); return 2; },
@@ -449,7 +452,8 @@ class CPU {
         0xc1: (s) => { this.regBC.set(this.pop(s)); return 3; },
         0xd1: (s) => { this.regDE.set(this.pop(s)); return 3; },
         0xe1: (s) => { this.regHL.set(this.pop(s)); return 3; },
-        0xf1: (s) => { this.regAF.set(this.pop(s)); return 3; },
+        // We need to mask lower 4 bits bc hardwired to 0
+        0xf1: (s) => { this.regAF.set(this.pop(s) & 0xfff0); return 3; },
         // PUSH BC/DE/HL/AF
         0xc5: (s) => { this.push(s, this.regBC.get()); return 4; },
         0xd5: (s) => { this.push(s, this.regDE.get()); return 4; },
@@ -494,6 +498,30 @@ class CPU {
             this.setFlag(FLAG_CARRY, !this.flag(FLAG_CARRY));
             return 1;
         },
+        // DAA
+        0x27: () => {
+            let a = this.regAF.h.get();
+		    let adjust = this.flag(FLAG_CARRY) ? 0x60 : 0x00;
+            if (this.flag(FLAG_HALFCARRY)) { adjust |= 0x06; }
+            if (!this.flag(FLAG_SUBSTRACTION)) {
+                if((a & 0x0f) > 0x09) adjust |= 0x06;
+                if(a > 0x99) adjust |= 0x60;
+            }
+
+            a = wrap8(a + (this.flag(FLAG_SUBSTRACTION) ? -adjust : adjust));
+            this.regAF.h.set(a);
+            this.setFlag(FLAG_CARRY, adjust >= 0x60);
+            this.setFlag(FLAG_HALFCARRY, false);
+            this.setFlag(FLAG_ZERO, a === 0);
+            return 1;
+        },
+        // CPL
+        0x2f: () => {
+            this.regAF.h.set((~this.regAF.h.get()) & 0xFF)
+            this.setFlag(FLAG_SUBSTRACTION, true);
+            this.setFlag(FLAG_HALFCARRY, true);
+            return 1;
+        },
     };
 
     /**
@@ -506,11 +534,11 @@ class CPU {
         ),
         // RRC ...
         ...this.generateExtendedOperation(0x08, 2, 4, (s, sr) =>
-            sr.set(this.rotateL(sr.get(), true, true))
+            sr.set(this.rotateR(sr.get(), false, true))
         ),
         // RL ...
         ...this.generateExtendedOperation(0x10, 2, 4, (s, sr) =>
-            sr.set(this.rotateR(sr.get(), false, true))
+            sr.set(this.rotateL(sr.get(), true, true))
         ),
         // RC ...
         ...this.generateExtendedOperation(0x18, 2, 4, (s, sr) =>
@@ -520,6 +548,7 @@ class CPU {
         ...this.generateExtendedOperation(0x20, 2, 4, (s, sr) => {
             const val = sr.get();
             const result = (val << 1) & 0xff;
+            sr.set(result);
             this.setFlag(FLAG_ZERO, result === 0);
             this.setFlag(FLAG_SUBSTRACTION, false);
             this.setFlag(FLAG_HALFCARRY, false);
@@ -528,7 +557,8 @@ class CPU {
         // SRA ...
         ...this.generateExtendedOperation(0x28, 2, 4, (s, sr) => {
             const val = sr.get();
-            const result = ((val >> 1) & 0xff) | (val & 0b1000000); // bit 7 left unchanged
+            const result = ((val >> 1) & 0xff) | (val & (1 << 7)); // bit 7 left unchanged
+            sr.set(result);
             this.setFlag(FLAG_ZERO, result === 0);
             this.setFlag(FLAG_SUBSTRACTION, false);
             this.setFlag(FLAG_HALFCARRY, false);
@@ -537,7 +567,8 @@ class CPU {
         // SRL ...
         ...this.generateExtendedOperation(0x38, 2, 4, (s, sr) => {
             const val = sr.get();
-            const result = (val >> 1) & 0xff; // bit 7 left unchanged
+            const result = (val >> 1) & 0xff;
+            sr.set(result);
             this.setFlag(FLAG_ZERO, result === 0);
             this.setFlag(FLAG_SUBSTRACTION, false);
             this.setFlag(FLAG_HALFCARRY, false);
@@ -547,6 +578,7 @@ class CPU {
         ...this.generateExtendedOperation(0x30, 2, 4, (s, sr) => {
             const val = sr.get();
             const result = ((val & 0x0f) << 4) | ((val & 0xf0) >> 4);
+            sr.set(result);
             this.setFlag(FLAG_ZERO, result === 0);
             this.setFlag(FLAG_SUBSTRACTION, false);
             this.setFlag(FLAG_HALFCARRY, false);
@@ -558,7 +590,7 @@ class CPU {
                 ...previous,
                 ...this.generateExtendedOperation(0x40 + bit * 8, 2, 3, (s, sr) => {
                     const val = sr.get();
-                    const out = val >> bit;
+                    const out = (val >> bit) & 0b1;
                     this.setFlag(FLAG_ZERO, out === 0);
                     this.setFlag(FLAG_SUBSTRACTION, false);
                     this.setFlag(FLAG_HALFCARRY, true);

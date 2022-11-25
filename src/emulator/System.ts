@@ -38,14 +38,16 @@ class System implements Addressable {
     protected audio = new Audio();
     protected oam = new OAM();
     protected joypad: JoypadInput;
+    protected unhalt: () => void;
 
     // Debug
     protected serialOut: string = "";
 
-    constructor(rom: Uint8Array, input: GameInput, output: VideoOutput) {
+    constructor(rom: Uint8Array, input: GameInput, output: VideoOutput, unhalt: () => void) {
         this.rom = new ROM(rom);
         this.joypad = new JoypadInput(input);
         this.gpu = new GPU(output);
+        this.unhalt = unhalt;
     }
 
     /** Ticks the whole system for the given number of cycles. */
@@ -150,9 +152,11 @@ class System implements Addressable {
     disableInterrupts() {
         this.intMasterEnable = false;
     }
+
     /** Requests an interrupt for the given flag type. */
     requestInterrupt(flag: number) {
         this.intFlag.sflag(flag, true);
+        this.unhalt();
     }
     /**
      * Looks at the interrupts to and decides if an exceptional call must be made, and if so,
