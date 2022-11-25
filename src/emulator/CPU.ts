@@ -26,6 +26,9 @@ class CPU {
 
     // for debug purposes
     protected stepCounter: number = 0;
+    protected logOffset: number = 0;
+    protected logLimit: number = 200000;
+    protected logOutput: string | undefined = "";
 
     protected nextByte(system: System) {
         const byte = system.read(this.regPC.inc());
@@ -81,7 +84,63 @@ class CPU {
             );
         }
         const cycles = instruction(system);
+        this.logDebug(system, opcode, cycles);
         return cycles;
+    }
+
+    /**
+     * Debug function that logs the gameboy state to a log string that is then saved as a file.
+     */
+    protected logDebug(system: System, opcode: number, cycles: number) {
+        if (
+            this.logOffset < this.stepCounter &&
+            this.stepCounter < this.logOffset + this.logLimit
+        ) {
+            const loggedMemory = {
+                IF: 0xff0f,
+                IE: 0xffff,
+                // DIV: 0xff04,
+                TIMA: 0xff05,
+                TMA: 0xff06,
+                TAC: 0xff07,
+                LCCON: 0xff40,
+                STAT: 0xff41,
+                LY: 0xff44,
+                LYC: 0xff45,
+            };
+            this.logOutput +=
+                `cyc:${cycles * 4}/` +
+                `tIn:${system.debugTimer}/` +
+                `op:${opcode.toString(16)}/` +
+                `n-1:${system.read(this.regPC.get() - 1).toString(16)}/` +
+                Object.entries(loggedMemory)
+                    .map(([n, a]) => `${n}:${system.read(a).toString(16)}/`)
+                    .join("") +
+                `a:${this.regAF.h.get().toString(16)}/` +
+                `f:${this.regAF.l.get().toString(16)}/` +
+                `b:${this.regBC.h.get().toString(16)}/` +
+                `c:${this.regBC.l.get().toString(16)}/` +
+                `d:${this.regDE.h.get().toString(16)}/` +
+                `e:${this.regDE.l.get().toString(16)}/` +
+                `h:${this.regHL.h.get().toString(16)}/` +
+                `l:${this.regHL.l.get().toString(16)}/` +
+                `pc:${this.regPC.get().toString(16)}/` +
+                `sp:${this.regSP.get().toString(16)}\n`;
+        } else if (this.stepCounter === this.logLimit + this.logOffset && this.logLimit) {
+            console.log("exporting logs for emulator 1");
+            let filename = "log_em1.txt";
+            let blob = new Blob([this.logOutput ?? ""], { type: "text/plain" });
+            delete this.logOutput;
+            let link = document.createElement("a");
+            link.download = filename;
+            link.href = window.URL.createObjectURL(blob);
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => {
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(link.href);
+            }, 100);
+        }
     }
 
     /* prettier-ignore */

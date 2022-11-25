@@ -21,7 +21,7 @@ class GameBoyColor {
     protected cycles: number;
 
     protected debug?: () => DebugData;
-    protected breakpoints?: number[];
+    protected breakpoints?: (number | [number, (c: CPU) => boolean])[];
 
     constructor(
         rom: Uint8Array,
@@ -50,7 +50,12 @@ class GameBoyColor {
             this.system.tick(cycles);
             this.cycles += cycles;
 
-            if (debugging || this.breakpoints?.includes(this.cpu.getPC())) {
+            const breakpoint = this.breakpoints?.find(
+                (br) =>
+                    (typeof br === "number" && br === this.cpu.getPC()) ||
+                    (typeof br === "object" && br[0] === this.cpu.getPC() && br[1](this.cpu))
+            );
+            if (debugging || breakpoint) {
                 return true;
             }
         }
