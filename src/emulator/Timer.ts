@@ -49,30 +49,27 @@ class Timer implements Addressable {
             const speedMode = (this.timerControl.get() & 0b11) as keyof typeof TIMER_CONTROLS;
             const clockDivider = TIMER_CONTROLS[speedMode];
             this.timerCounterSub += cycles;
-            if (this.timerCounterSub >= CLOCK_SPEED / clockDivider) {
-                this.timerCounterSub %= CLOCK_SPEED / clockDivider;
+            while (this.timerCounterSub >= clockDivider) {
+                this.timerCounterSub -= clockDivider;
                 const result = this.timerCounter.get() + 1;
                 // overflow, need to interrupt + reset
-                if (result <= 0xff) {
+                if (result > 0xff) {
                     this.timerCounter.set(this.timerModulo.get());
                     system.requestInterrupt(IFLAG_TIMER);
                 } else {
                     this.timerCounter.set(result);
                 }
             }
-        } else {
-            this.timerCounterSub = 0;
         }
     }
 
     protected address(pos: number): SubRegister {
-        const adresses: Partial<Record<number, SubRegister>> = {
+        const register = {
             0xff04: this.divider,
             0xff05: this.timerCounter,
             0xff06: this.timerModulo,
             0xff07: this.timerControl,
-        };
-        const register = adresses[pos];
+        }[pos];
         if (register) {
             return register;
         }
