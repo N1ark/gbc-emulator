@@ -6,6 +6,21 @@ def parse(l: str):
     return {p[0]: p[1] for r in parts if len(p := r.split(":")) > 1}
 
 
+def ranges(vals: list[int]) -> list[tuple[int, int]]:
+    if not vals:
+        return []
+    ranges: list[tuple[int, int]] = []
+    vals = sorted(vals)
+    current: list[int] = [vals[0]]
+    for i in vals[1:]:
+        if i != current[-1] + 1:
+            ranges.append((current[0], current[-1]))
+            current = []
+        current.append(i)
+    ranges.append((current[0], current[-1]))
+    return ranges
+
+
 def main():
 
     with open("log_em1.txt", "r") as log1_file:
@@ -41,11 +56,18 @@ def main():
         mistakes += [i]
         if len(mistakes) > 64:
             print("ending because too many mistakes")
-            print("mistake lines are", mistakes)
-            return
+            break
 
     if len(mistakes) == 0:
         print("no mistakes found! celebrate!")
+    else:
+        mis_ranges = ranges(mistakes)
+        print(
+            "mistakes are",
+            ", ".join(
+                [str(r[0]) if r[0] == r[1] else f"{r[0]}..{r[1]}" for r in mis_ranges]
+            ),
+        )
 
 
 if __name__ == "__main__":
