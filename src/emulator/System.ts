@@ -12,9 +12,10 @@ import {
 import GameInput from "./GameInput";
 import GPU from "./GPU";
 import JoypadInput from "./JoypadInput";
-import { RAM, ROM } from "./Memory";
-import OAM from "./oam";
+import { RAM } from "./Memory";
+import OAM from "./OAM";
 import { SubRegister } from "./Register";
+import ROM from "./ROM";
 import Timer from "./Timer";
 import VideoOutput from "./VideoOutput";
 
@@ -104,6 +105,8 @@ class System implements Addressable {
         if (0x0000 <= pos && pos <= 0x7fff) return [this.rom, pos];
         // Video RAM (VRAM)
         if (0x8000 <= pos && pos <= 0x9fff) return [this.gpu, pos];
+        // External RAM (ERAM)
+        if (0xa000 <= pos && pos <= 0xbfff) return [this.rom, pos];
         // Work RAM (WRAM)
         if (0xc000 <= pos && pos <= 0xdfff) return [this.wram, pos - 0xc000];
         // OAM

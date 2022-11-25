@@ -22,21 +22,6 @@ class AbstractMemory implements Addressable {
 }
 
 /**
- * ROM memory - a memory location that can not be edited and is defined
- * on creation.
- */
-class ROM extends AbstractMemory {
-    constructor(data: Uint8Array) {
-        super(data.length, data);
-        console.log("saved data ", this.data);
-    }
-
-    write(pos: number, data: number): void {
-        console.warn(`ignored writing ${data.toString(16)} to rom at ${pos.toString(16)}`);
-    }
-}
-
-/**
  * Live memory, that can be read from and written to.
  */
 class RAM extends AbstractMemory {
@@ -45,4 +30,4 @@ class RAM extends AbstractMemory {
     }
 }
 
-export { ROM, RAM };
+export { AbstractMemory, RAM };
