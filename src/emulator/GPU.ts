@@ -22,22 +22,21 @@ const MODE_SEARCHING_OAM = {
 };
 const MODE_TRANSFERRING = {
     FLAG: 0b11,
-    CYCLES: 80 + 172,
+    CYCLES: 172,
 };
 const MODE_HBLANK = {
     FLAG: 0b00,
-    CYCLES: 80 + 172 + 204,
+    CYCLES: 204,
     INTERRUPT: 1 << 3,
 };
 const MODE_VBLANK = {
     FLAG: 0b01,
-    CYCLES: (80 + 172 + 204) * SCREEN_HEIGHT,
+    CYCLES: 456,
     INTERRUPT: 1 << 4,
 };
 
 // Helpful constants
 const SCREEN_HEIGHT_WOFFSCREEN = 154;
-const CYCLES_VBLANK_EXTRA = 4560;
 
 // LCD control flags
 const LCDC_BG_WIN_PRIO = 1 << 0;
@@ -60,10 +59,8 @@ const STAT_LYC_LY_EQ_INT = 1 << 6;
  * @link https://gbdev.io/pandocs/Rendering.html
  */
 class GPU implements Readable {
-    // Internal counter for cycles at a frame level
+    // Internal counter for cycles
     protected cycleCounter: number = 0;
-    // Internal counter for cycles at a line level
-    protected lineCycleCounter: number = 0;
 
     // Data Store
     protected vram = new RAM(8192); // 8Kb memory
@@ -81,7 +78,7 @@ class GPU implements Readable {
     /** @link https://gbdev.io/pandocs/LCDC.html */
     protected lcdControl = new SubRegister(0x91);
     /** @link https://gbdev.io/pandocs/STAT.html */
-    protected lcdStatus = new SubRegister(0x02);
+    protected lcdStatus = new SubRegister(0x85);
 
     // Positioning
     protected screenY = new SubRegister(0x00); // these two indicate position of the viewport
@@ -115,53 +112,58 @@ class GPU implements Readable {
      */
     tick(cycles: number, system: System) {
         this.cycleCounter += cycles;
-        this.lineCycleCounter += cycles;
 
         const currentMode = this.lcdStatus.get() & STAT_MODE;
 
         let needLcdcInterrupt = false;
 
-        if (this.cycleCounter > MODE_VBLANK.CYCLES) {
-            if (currentMode !== MODE_VBLANK.FLAG) {
-                this.setMode(MODE_VBLANK.FLAG);
-                needLcdcInterrupt = this.lcdStatus.flag(MODE_VBLANK.INTERRUPT);
-                system.requestInterrupt(IFLAG_VBLANK);
-                this.output.receive(this.videoBuffer);
-            }
-
-            if (this.cycleCounter > MODE_VBLANK.CYCLES + CYCLES_VBLANK_EXTRA) {
-                this.cycleCounter %= MODE_VBLANK.CYCLES + CYCLES_VBLANK_EXTRA;
-                this.lineCycleCounter = this.cycleCounter;
-                this.lcdY.set(0);
-                this.setMode(MODE_SEARCHING_OAM.FLAG);
-            }
-        } else {
-            if (this.lineCycleCounter < MODE_SEARCHING_OAM.CYCLES) {
-                if (currentMode !== MODE_SEARCHING_OAM.FLAG) {
-                    this.setMode(MODE_SEARCHING_OAM.FLAG);
-                    needLcdcInterrupt = this.lcdStatus.flag(MODE_SEARCHING_OAM.INTERRUPT);
+        switch (currentMode as Int2) {
+            case MODE_VBLANK.FLAG:
+                if (this.cycleCounter >= MODE_VBLANK.CYCLES) {
+                    this.cycleCounter -= MODE_VBLANK.CYCLES;
+                    this.lcdY.set(wrap8(this.lcdY.get() + 1));
+                    if (this.lcdY.get() >= 0x9a) {
+                        this.lcdY.set(0);
+                        this.setMode(MODE_SEARCHING_OAM.FLAG);
+                        needLcdcInterrupt = this.lcdStatus.flag(MODE_SEARCHING_OAM.INTERRUPT);
+                    }
                 }
-            } else if (this.lineCycleCounter < MODE_TRANSFERRING.CYCLES) {
-                if (currentMode !== MODE_TRANSFERRING.FLAG) {
+                break;
+            case MODE_HBLANK.FLAG:
+                if (this.cycleCounter >= MODE_HBLANK.CYCLES) {
+                    this.cycleCounter -= MODE_HBLANK.CYCLES;
+                    this.lcdY.set(wrap8(this.lcdY.get() + 1));
+                    if (this.lcdY.get() === SCREEN_HEIGHT) {
+                        this.setMode(MODE_VBLANK.FLAG);
+                        needLcdcInterrupt = this.lcdStatus.flag(MODE_VBLANK.INTERRUPT);
+                        system.requestInterrupt(IFLAG_VBLANK);
+                        this.output.receive(this.videoBuffer);
+                    } else {
+                        this.setMode(MODE_SEARCHING_OAM.FLAG);
+                        needLcdcInterrupt = this.lcdStatus.flag(MODE_SEARCHING_OAM.INTERRUPT);
+                    }
+                }
+                break;
+            case MODE_SEARCHING_OAM.FLAG:
+                if (this.cycleCounter >= MODE_SEARCHING_OAM.CYCLES) {
+                    this.cycleCounter -= MODE_SEARCHING_OAM.CYCLES;
                     this.setMode(MODE_TRANSFERRING.FLAG);
                     this.updateScanline(system);
                 }
-            } else if (this.lineCycleCounter < MODE_HBLANK.CYCLES) {
-                if (currentMode !== MODE_HBLANK.FLAG) {
+                break;
+            case MODE_TRANSFERRING.FLAG:
+                if (this.cycleCounter >= MODE_TRANSFERRING.CYCLES) {
+                    this.cycleCounter -= MODE_TRANSFERRING.CYCLES;
                     this.setMode(MODE_HBLANK.FLAG);
                     needLcdcInterrupt = this.lcdStatus.flag(MODE_HBLANK.INTERRUPT);
                 }
-            } else {
-                // Reached end of line, move on to next one
-                this.lcdY.set(wrap8(this.lcdY.get() + 1));
-                this.lineCycleCounter %= MODE_HBLANK.CYCLES;
-            }
+                break;
         }
 
         // The GPU constantly compares the LY and LCY, and needs interrupts when they match
         const doLycLyMatch = this.lcdY.get() == this.lcdYCompare.get();
         this.lcdStatus.sflag(STAT_LYC_LY_EQ_FLAG, doLycLyMatch);
-        needLcdcInterrupt ||= doLycLyMatch;
+        needLcdcInterrupt ||= doLycLyMatch && this.lcdStatus.flag(STAT_LYC_LY_EQ_INT);
 
         // Request interrupt if anything relevant happened
         if (needLcdcInterrupt) {
