@@ -68,11 +68,7 @@ class GPU implements Readable {
 
     // Video output/storage
     protected output: VideoOutput;
-    protected videoBuffer = (() => {
-        const tempBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH);
-        tempBuffer.fill(0xff000000);
-        return tempBuffer;
-    })();
+    protected videoBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH).fill(0xff000000);
 
     // General use
     /** @link https://gbdev.io/pandocs/LCDC.html */
@@ -303,10 +299,10 @@ class GPU implements Readable {
     protected bgAndWinPaletteColor(): Record<Int2, number> {
         const palette = this.bgPalette.get();
         return {
-            0b00: this.colorOptions[((palette >> 0) & 0xff) as Int2],
-            0b01: this.colorOptions[((palette >> 2) & 0xff) as Int2],
-            0b10: this.colorOptions[((palette >> 4) & 0xff) as Int2],
-            0b11: this.colorOptions[((palette >> 6) & 0xff) as Int2],
+            0b00: this.colorOptions[((palette >> 0) & 0b11) as Int2],
+            0b01: this.colorOptions[((palette >> 2) & 0b11) as Int2],
+            0b10: this.colorOptions[((palette >> 4) & 0b11) as Int2],
+            0b11: this.colorOptions[((palette >> 6) & 0b11) as Int2],
         };
     }
     /** An object containing the RGBA colors for each color ID for objects.  */
@@ -314,9 +310,9 @@ class GPU implements Readable {
         const palette = [this.objPalette0, this.objPalette1][id].get();
         return {
             0b00: 0x00000000, // unused, color 0b00 is transparent
-            0b01: this.colorOptions[((palette >> 2) & 0xff) as Int2],
-            0b10: this.colorOptions[((palette >> 4) & 0xff) as Int2],
-            0b11: this.colorOptions[((palette >> 6) & 0xff) as Int2],
+            0b01: this.colorOptions[((palette >> 2) & 0b11) as Int2],
+            0b10: this.colorOptions[((palette >> 4) & 0b11) as Int2],
+            0b11: this.colorOptions[((palette >> 6) & 0b11) as Int2],
         };
     }
 
