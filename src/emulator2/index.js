@@ -498,13 +498,11 @@ GPU.prototype.updateLY = function() {
     var STAT = this.deviceram(this.STAT);
     if (this.deviceram(this.LY) == this.deviceram(this.LYC)) {
         this.deviceram(this.STAT, STAT | (1 << 2));
-        if(this.cpu.counter < 100) console.warn("(emu-2) A set STAT to ", this.deviceram(this.STAT).toString(16), "C=",this.cpu.counter,"/",this.clock)
         if (STAT & (1 << 6)) {
             this.cpu.requestInterrupt(GameboyJS.CPU.INTERRUPTS.LCDC);
         }
     } else {
         this.deviceram(this.STAT, STAT & (0xFF - (1 << 2)));
-        if(this.cpu.counter < 100) console.warn("(emu-2) B set STAT to ", this.deviceram(this.STAT).toString(16), "C=",this.cpu.counter,"/",this.clock)
     }
 };
 
@@ -514,7 +512,6 @@ GPU.prototype.setMode = function(mode) {
     newSTAT &= 0xFC;
     newSTAT |= mode;
     this.deviceram(this.STAT, newSTAT);
-    if(this.cpu.counter < 100) console.warn("(emu-2) C set STAT to ", this.deviceram(this.STAT).toString(16), "C=",this.cpu.counter,"/",this.clock)
 
     if (mode < 3) {
         if (newSTAT & (1 << (3+mode))) {
