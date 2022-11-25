@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import "./app.css";
 import { createRef, FunctionalComponent } from "preact";
 import RomInput from "./RomInput";
@@ -8,6 +8,9 @@ import VideoOutput from "./emulator/VideoOutput";
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
 import GameInput from "./emulator/GameInput";
 import useKeys from "./useKeys";
+
+// @ts-ignore
+import GameboyJS from "./emulator2";
 
 const App: FunctionalComponent = () => {
     const pressedKeys = useKeys();
@@ -19,10 +22,7 @@ const App: FunctionalComponent = () => {
             fetch("/test_cpu.gb")
                 .then((r) => r.blob())
                 .then((b) => b.arrayBuffer())
-                .then((txt) => {
-                    console.log(txt);
-                    loadRom(txt);
-                });
+                .then((txt) => loadRom(txt));
         }
     });
     const loadRom = (rom: ArrayBuffer) => {
@@ -61,6 +61,22 @@ const App: FunctionalComponent = () => {
         const gbc = new GameBoyColor(romArray, gameIn, videoOut, debug);
         setGameboy(gbc);
 
+        setTimeout(() => {
+            // Create Emulator 2 (working)
+            const canvas = document.getElementById("em2");
+            let fileCallback = (d: Uint8Array) => {};
+            new GameboyJS.Gameboy(canvas, {
+                romReaders: [
+                    {
+                        setCallback: (c: (d: Uint8Array) => void) => {
+                            fileCallback = c;
+                        },
+                    },
+                ],
+            });
+            fileCallback(romArray);
+        }, 10);
+
         requestAnimationFrame(() => gbc.run());
     };
 
@@ -70,7 +86,10 @@ const App: FunctionalComponent = () => {
             <h2>The GBC Browser Emulator</h2>
 
             {gameboy ? (
-                <Screen canvasRef={screenRef} />
+                <>
+                    <Screen canvasRef={screenRef} />
+                    <canvas id="em2" width={SCREEN_WIDTH} height={SCREEN_HEIGHT} />
+                </>
             ) : (
                 <RomInput type="gb" onLoad={loadRom} />
             )}
