@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
 import "./app.css";
 import { createRef, FunctionalComponent } from "preact";
 import RomInput from "./RomInput";
-import Screen from "./screen";
+import Screen from "./Screen";
 import GameBoyColor from "./emulator/GameBoyColor";
 import VideoOutput from "./emulator/VideoOutput";
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
@@ -12,14 +12,34 @@ import useKeys from "./useKeys";
 // @ts-ignore
 import GameboyJS from "./emulator2";
 
+const displayData = (
+    data: Uint32Array,
+    ref: Ref<HTMLCanvasElement>,
+    width: number = SCREEN_WIDTH,
+    height: number = SCREEN_HEIGHT
+) => {
+    const canvas = ref.current;
+    if (!canvas) return;
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const dataAsUint8 = new Uint8ClampedArray(data.buffer);
+    const imageData = new ImageData(dataAsUint8, width, height);
+    context.putImageData(imageData, 0, 0);
+};
+
 const App: FunctionalComponent = () => {
     const pressedKeys = useKeys();
-    const screenRef = useRef<HTMLCanvasElement>(null);
+    const emulator1Ref = useRef<HTMLCanvasElement>(null);
+    const emulator2Ref = useRef<HTMLCanvasElement>(null);
+    const backgroundDebugger = useRef<HTMLCanvasElement>(null);
+    const tilesetDebugger = useRef<HTMLCanvasElement>(null);
     const [gameboy, setGameboy] = useState<GameBoyColor>();
 
     document.addEventListener("keydown", (e) => {
         if (e.key === "z" && gameboy === undefined) {
-            fetch("/test_cpu.gb")
+            fetch("/tetris.gb")
                 .then((r) => r.blob())
                 .then((b) => b.arrayBuffer())
                 .then((txt) => loadRom(txt));
@@ -28,34 +48,29 @@ const App: FunctionalComponent = () => {
     const loadRom = (rom: ArrayBuffer) => {
         const gameIn: GameInput = {
             read: () => ({
-                up: pressedKeys.includes("arrowup"),
-                down: pressedKeys.includes("arrowdown"),
-                left: pressedKeys.includes("arrowleft"),
-                right: pressedKeys.includes("arrowright"),
-                a: pressedKeys.includes("q"),
-                b: pressedKeys.includes("a"),
-                start: pressedKeys.includes("w"),
-                select: pressedKeys.includes("s"),
+                up: !pressedKeys.includes("arrowup"),
+                down: !pressedKeys.includes("arrowdown"),
+                left: !pressedKeys.includes("arrowleft"),
+                right: !pressedKeys.includes("arrowright"),
+                a: !pressedKeys.includes("g"),
+                b: !pressedKeys.includes("b"),
+                start: !pressedKeys.includes("h"),
+                select: !pressedKeys.includes("n"),
             }),
         };
 
-        const debug = () => ({
-            canStep: pressedKeys.includes(" "),
-            skipDebug: pressedKeys.includes("escape"),
-        });
+        const debugEnabled = false;
+        const debug = debugEnabled
+            ? () => ({
+                  canStep: pressedKeys.includes(" "),
+                  skipDebug: pressedKeys.includes("escape"),
+              })
+            : undefined;
 
         const videoOut: VideoOutput = {
-            receive: (data) => {
-                const canvas = screenRef.current;
-                if (!canvas) return;
-
-                const context = canvas.getContext("2d");
-                if (!context) return;
-
-                const dataAsUint8 = new Uint8ClampedArray(data.buffer);
-                const imageData = new ImageData(dataAsUint8, SCREEN_WIDTH, SCREEN_HEIGHT);
-                context.putImageData(imageData, 0, 0);
-            },
+            receive: (d) => displayData(d, emulator1Ref),
+            debugBackground: (d) => displayData(d, backgroundDebugger, 256, 256),
+            debugTileset: (d) => displayData(d, tilesetDebugger, 128, 192),
         };
         const romArray = new Uint8Array(rom);
         const gbc = new GameBoyColor(romArray, gameIn, videoOut, debug);
@@ -63,9 +78,8 @@ const App: FunctionalComponent = () => {
 
         setTimeout(() => {
             // Create Emulator 2 (working)
-            const canvas = document.getElementById("em2");
             let fileCallback = (d: Uint8Array) => {};
-            new GameboyJS.Gameboy(canvas, {
+            new GameboyJS.Gameboy(emulator2Ref.current, {
                 romReaders: [
                     {
                         setCallback: (c: (d: Uint8Array) => void) => {
@@ -87,8 +101,10 @@ const App: FunctionalComponent = () => {
 
             {gameboy ? (
                 <>
-                    <Screen canvasRef={screenRef} />
-                    <canvas id="em2" width={SCREEN_WIDTH} height={SCREEN_HEIGHT} />
+                    <Screen canvasRef={emulator1Ref} />
+                    <Screen canvasRef={emulator2Ref} />
+                    <Screen width={256} height={256} canvasRef={backgroundDebugger} />
+                    <Screen width={128} height={192} canvasRef={tilesetDebugger} />
                 </>
             ) : (
                 <RomInput type="gb" onLoad={loadRom} />

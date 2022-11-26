@@ -134,6 +134,14 @@ class GPU implements Readable {
                         needLcdcInterrupt = this.lcdStatus.flag(MODE_VBLANK.INTERRUPT);
                         system.requestInterrupt(IFLAG_VBLANK);
                         this.output.receive(this.videoBuffer);
+                        if (this.output.debugBackground) {
+                            const backgroundImg = this.debugBackground();
+                            this.output.debugBackground(backgroundImg);
+                        }
+                        if (this.output.debugTileset) {
+                            const tilesetImg = this.debugTileset();
+                            this.output.debugTileset(tilesetImg);
+                        }
                     } else {
                         this.setMode(MODE_SEARCHING_OAM.FLAG);
                         needLcdcInterrupt = this.lcdStatus.flag(MODE_SEARCHING_OAM.INTERRUPT);
@@ -182,9 +190,93 @@ class GPU implements Readable {
         //     this.drawBackgroundOrWindow("win", bgPriorities);
         // }
         if (this.lcdControl.flag(LCDC_OBJ_ENABLE)) {
-            console.log("gna draw objs");
             this.drawObjects(system, bgPriorities);
         }
+    }
+
+    /**
+     * Returns the tile data as an 8x8 array
+     */
+    protected getTile(tileAddress: number, palette: Record<Int2, number>): Uint32Array {
+        const data = new Uint32Array(8 * 8);
+        // Draw the 8 lines of the tile
+        for (let tileY = 0; tileY < 8; tileY++) {
+            const tileDataH = this.read(tileAddress + tileY * 2);
+            const tileDataL = this.read(tileAddress + tileY * 2 + 1);
+            for (let tileX = 0; tileX < 8; tileX++) {
+                const shadeH = (tileDataH >> (7 - tileX)) & 0b1;
+                const shadeL = (tileDataL >> (7 - tileX)) & 0b1;
+                const shade = ((shadeH << 1) | shadeL) as Int2;
+                const color = palette[shade];
+                data[tileX + tileY * 8] = color;
+            }
+        }
+        return data;
+    }
+
+    protected debugBackground() {
+        const width = 256;
+        const height = 256;
+        const data = new Uint32Array(width * height);
+
+        // Function to get access to the tile data, ie. the shades of a tile
+        const toAddress = this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
+            ? // Unsigned regular, 0x8000-0x8fff
+              (n: number) => 0x8000 + n
+            : // Signed offset, 0x9000-0x97ff for 0-127 and 0x8800-0x8fff for 128-255
+              (n: number) => (n < 128 ? 0x9000 + n : 0x8800 + (n - 128));
+        // The tilemap used (a map of tile *pointers*)
+        const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
+        // The colors used
+        const palette = this.bgAndWinPaletteColor();
+
+        for (let i = 0; i < 1024; i++) {
+            // Tile positions (0 <= n < 32)
+            const posX = i % 32; // 32 tiles on width
+            const posY = Math.floor(i / 32); // 32 tiles on height
+            // Get the tile address
+            const tileId = this.read(tileMapLoc + i);
+            const tileAddress = toAddress(tileId * 16);
+            // Get tile data
+            const tileData = this.getTile(tileAddress, palette);
+            // Draw the 8 lines of the tile
+            for (let tileY = 0; tileY < 8; tileY++) {
+                for (let tileX = 0; tileX < 8; tileX++) {
+                    const color = tileData[tileX + tileY * 8];
+                    const index = posX * 8 + posY * width * 8 + tileX + tileY * width;
+                    data[index] = color;
+                }
+            }
+        }
+
+        return data;
+    }
+
+    protected debugTileset() {
+        const width = 128; // 16 * 8;
+        const height = 192; // 24 * 8;
+        const data = new Uint32Array(width * height).fill(0xff0000ff);
+
+        // The colors used
+        const palette = this.bgAndWinPaletteColor();
+
+        for (let i = 0; i < 0x180; i++) {
+            const tileAddress = 0x8000 + i * 16;
+            // Tile positions (0 <= n < 32)
+            const posX = i % 16; // 20 tiles on width
+            const posY = Math.floor(i / 16);
+            // Get tile data
+            const tileData = this.getTile(tileAddress, palette);
+            // Draw the 8 lines of the tile
+            for (let tileX = 0; tileX < 8; tileX++) {
+                for (let tileY = 0; tileY < 8; tileY++) {
+                    const color = tileData[tileX + tileY * 8];
+                    const index = posX * 8 + posY * width * 8 + tileX + tileY * width;
+                    data[index] = color;
+                }
+            }
+        }
+        return data;
     }
 
     protected drawBackground(priorities: boolean[]) {
