@@ -5,11 +5,11 @@ class Audio implements Addressable {
         if (pos === 0xff26) {
             return 0x00; // all sounds are off
         }
-        console.warn("Ignore read for audio.");
+        console.debug("Ignore read for audio.");
         return 0x00;
     }
     write(pos: number, data: number): void {
-        console.warn("Ignore write for audio.");
+        console.debug("Ignore write for audio.");
     }
 }
 

@@ -27,7 +27,7 @@ class CPU {
     // for debug purposes
     protected stepCounter: number = 0;
     protected logOffset: number = 0;
-    protected logLimit: number = 200000;
+    protected logLimit: number = 0;
     protected logOutput: string | undefined = "";
 
     protected nextByte(system: System) {

@@ -154,7 +154,7 @@ CPU.prototype.frame = function() {
                 }
                 this.counter++;
                 const offset = 0;
-                const limit = 200000;
+                const limit = 0;
                 if(offset < this.counter && this.counter < offset + limit) {
 
                     const loggedMemory = {
@@ -171,7 +171,6 @@ CPU.prototype.frame = function() {
                     };
                     this.logOut += (
                         `cyc:${this.clock.c - oldInstrCount}/` +
-                        `tIn:${this.timer.mainTime}/`+
                         `op:${opcode.toString(16)}/`+
                         `n-1:${(this.memory.rb(this.r.pc-1) ?? 0).toString(16)}/`+
                         Object.entries(loggedMemory)
