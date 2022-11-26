@@ -74,8 +74,8 @@ class OAM implements Addressable {
             const address = index * 4; // 4 bytes per object
             const attribs = this.data.read(address + 3);
             return {
-                x: this.data.read(address + 0),
-                y: this.data.read(address + 1),
+                y: this.data.read(address + 0) - 16,
+                x: this.data.read(address + 1) - 8,
                 tileIndex: this.data.read(address + 2),
 
                 xFlip: (attribs & ATTRIB_X_FLIP) > 0,

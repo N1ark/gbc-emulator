@@ -93,8 +93,8 @@ class GPU implements Readable {
 
     protected colorOptions: Record<Int2, number> = {
         0b00: 0xffffffff, // white
-        0b01: 0xffaaaaaa, // light gray
-        0b10: 0xff555555, // dark gray
+        0b01: 0xff555555, // dark gray
+        0b10: 0xffaaaaaa, // light gray
         0b11: 0xff000000, // black
     };
 
@@ -306,33 +306,27 @@ class GPU implements Readable {
         // Start of video buffer for this line
         const bufferStart = this.lcdY.get() * SCREEN_WIDTH;
 
-        for (let i = 0; i < SCREEN_WIDTH; i++) {
+        for (let i = 0; i < SCREEN_WIDTH; i += 8) {
             // The currently read X pixel of the bg map
             const x = viewX + i;
             // The currently read X position of the corresponding tile
+            // this determines the tile of the next 8 pixels
             const tileX = Math.floor(x / 8);
-            // The currently read X position *inside* the tile
-            const tileInnerX = x % 8;
 
             // Index of the tile in the current tile data
-            const tileIndex = tileY * 32 + tileX;
-            // Get the actual address of the tile *pointer*
-            const tilePointerAddress = tileMapLoc + tileIndex;
+            const tileIndex = tileMapLoc + tileX + tileY * 32;
             // The ID (pointer) of the tile
-            const tileId = this.read(tilePointerAddress);
+            const tileAddress = this.read(tileIndex);
+            // Convert the ID to the actual address
+            const tileDataAddress = toAddress(tileAddress * 16);
+            // Get the tile data
+            const tileData = this.getTile(tileDataAddress, palette);
 
-            // Get the byte with the lower data for the entire tile line (8 pixels)
-            const shadeLineDataL = this.read(toAddress(tileId + tileInnerY));
-            // Get the byte with the higher data for the entire tile line (8 pixels)
-            const shadeLineDataH = this.read(toAddress(tileId + tileInnerY));
-            // Extract the two shade bits, and combine them to get the correct shade
-            const shadeL = (shadeLineDataL >> tileInnerX) & 0b1;
-            const shadeH = (shadeLineDataH >> tileInnerX) & 0b1;
-            const shade = ((shadeH << 1) | shadeL) as Int2;
-
-            // Get the RGBA color, and draw it!
-            const pixelColor = palette[shade];
-            this.videoBuffer[bufferStart + i] = pixelColor;
+            for (let innerX = 0; innerX < 8; innerX++) {
+                // Get the RGBA color, and draw it!
+                const pixelColor = tileData[innerX + tileInnerY * 8];
+                this.videoBuffer[bufferStart + i + innerX] = pixelColor;
+            }
         }
     }
 
@@ -340,50 +334,40 @@ class GPU implements Readable {
         const y = this.lcdY.get();
         const doubleObjects = this.lcdControl.flag(LCDC_OBJ_SIZE);
         // Height of objects in pixels
-        const objHeight = doubleObjects ? 8 : 16;
+        const objHeight = doubleObjects ? 16 : 8;
         const sprites = system.getSprites();
         const drawnSprites = sprites
             .filter(
                 // only get selected sprites
-                (sprite) => y - objHeight <= sprite.y && sprite.y <= y
+                (sprite) => sprite.y <= y && y < sprite.y + objHeight
             )
             .slice(0, 10); // only 10 sprites per scanline
 
-        console.log("all sprites are ", sprites);
-
         for (const sprite of drawnSprites) {
+            // Get tile id (to get the actual data pointer)
+            const tileId = sprite.tileIndex + (doubleObjects && y - sprite.y >= 8 ? 1 : 0);
             // We need to check if we have double height sprites and this is the lower half of
             // the sprite, in which case the actual tile address is the next byte
-            const tileAddress =
-                0x8000 + sprite.tileIndex + (doubleObjects && y - sprite.y >= 8 ? 1 : 0);
+            const tileAddress = 0x8000 + tileId * 16;
             // The currently read Y position inside the corresponding tile
             const tileY = (y - sprite.y) % 8;
             //
             const palette = this.objPaletteColors(sprite.paletteNumber ? 1 : 0);
 
             // Start of video buffer for this line
-            const bufferStart = this.lcdY.get() * SCREEN_WIDTH + (sprite.x - 8);
+            const bufferStart = y * SCREEN_WIDTH + sprite.x;
+
+            // Get tile colors
+            const tileData = this.getTile(tileAddress, palette);
 
             for (let innerX = 0; innerX < 8; innerX++) {
                 // The X value of the sprite is offset by 8 to the left, so we skip off-screen
-                if (sprite.x - 8 + innerX < 0) continue;
-
-                // Get the byte with the lower data for the entire tile line (8 pixels)
-                const shadeLineDataL = this.read(tileAddress + tileY * 2);
-                // Get the byte with the higher data for the entire tile line (8 pixels)
-                const shadeLineDataH = this.read(tileAddress + tileY * 2);
-                // Extract the two shade bits, and combine them to get the correct shade
-                const shadeL = (shadeLineDataL >> innerX) & 0b1;
-                const shadeH = (shadeLineDataH >> innerX) & 0b1;
-                const shade = ((shadeH << 1) | shadeL) as Int2;
-
-                // Get the RGBA color, and draw it!
-                const pixelColor = palette[shade];
+                if (sprite.x + innerX < 0) continue;
+                const pixelColor = tileData[innerX + tileY * 8];
                 // if transparent, skip
                 if (pixelColor === 0x00000000) continue;
                 this.videoBuffer[bufferStart + innerX] = pixelColor;
             }
-            console.log("drew sprite", sprite);
         }
     }
 
