@@ -37,11 +37,11 @@ class OAM implements Addressable {
     tick(cycles: number, system: System) {
         // If we're transferring...
         if (this.transferStep !== -1) {
-            const baseAddress = this.transferStart.get() * 0x100;
+            const baseAddress = this.transferStart.get() << 8;
             const transferStart = this.transferStep;
             const transferEnd = Math.min(transferStart + cycles, 160);
             // Copy all bytes one by one (one byte per cycle)
-            for (let step = transferStart; transferStart < transferEnd; step++) {
+            for (let step = transferStart; step < transferEnd; step++) {
                 const transferredByte = system.read(baseAddress + step);
                 this.data.write(step, transferredByte);
             }
