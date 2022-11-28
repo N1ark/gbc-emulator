@@ -4,7 +4,7 @@ import { IFLAG_LCDC, IFLAG_VBLANK, SCREEN_HEIGHT, SCREEN_WIDTH } from "./constan
 import { RAM } from "./Memory";
 import { SubRegister } from "./Register";
 import System from "./System";
-import { wrap8 } from "./util";
+import { asSignedInt8, wrap8 } from "./util";
 import VideoOutput from "./VideoOutput";
 
 type Int2 = 0 | 1 | 2 | 3;
@@ -93,8 +93,8 @@ class GPU implements Readable {
 
     protected colorOptions: Record<Int2, number> = {
         0b00: 0xffffffff, // white
-        0b01: 0xff555555, // dark gray
-        0b10: 0xffaaaaaa, // light gray
+        0b01: 0xffaaaaaa, // light gray
+        0b10: 0xff555555, // dark gray
         0b11: 0xff000000, // black
     };
 
@@ -182,7 +182,7 @@ class GPU implements Readable {
 
     /** Updates the current scanline, by rendering the background, window and then objects. */
     protected updateScanline(system: System) {
-        const bgPriorities = [...new Array(SCREEN_WIDTH)].map(() => false);
+        const bgPriorities = [...new Array(SCREEN_WIDTH)].fill(false);
         if (this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
             this.drawBackground(bgPriorities);
         }
@@ -195,20 +195,19 @@ class GPU implements Readable {
     }
 
     /**
-     * Returns the tile data as an 8x8 array
+     * Returns the tile data as a 2D 8x8 array of shades (0-3)
      */
-    protected getTile(tileAddress: number, palette: Record<Int2, number>): Uint32Array {
-        const data = new Uint32Array(8 * 8);
+    protected getTile(tileAddress: number): Int2[][] {
+        const data: Int2[][] = [...new Array(8)].map(() => new Array(8));
         // Draw the 8 lines of the tile
         for (let tileY = 0; tileY < 8; tileY++) {
             const tileDataH = this.read(tileAddress + tileY * 2);
             const tileDataL = this.read(tileAddress + tileY * 2 + 1);
             for (let tileX = 0; tileX < 8; tileX++) {
-                const shadeH = (tileDataH >> (7 - tileX)) & 0b1;
-                const shadeL = (tileDataL >> (7 - tileX)) & 0b1;
+                const shadeL = (tileDataH >> (7 - tileX)) & 0b1;
+                const shadeH = (tileDataL >> (7 - tileX)) & 0b1;
                 const shade = ((shadeH << 1) | shadeL) as Int2;
-                const color = palette[shade];
-                data[tileX + tileY * 8] = color;
+                data[tileX][tileY] = shade;
             }
         }
         return data;
@@ -222,9 +221,9 @@ class GPU implements Readable {
         // Function to get access to the tile data, ie. the shades of a tile
         const toAddress = this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
             ? // Unsigned regular, 0x8000-0x8fff
-              (n: number) => 0x8000 + n
+              (n: number) => 0x8000 + n * 16
             : // Signed offset, 0x9000-0x97ff for 0-127 and 0x8800-0x8fff for 128-255
-              (n: number) => (n < 128 ? 0x9000 + n : 0x8800 + (n - 128));
+              (n: number) => 0x9000 + asSignedInt8(n) * 16;
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
         // The colors used
@@ -236,15 +235,15 @@ class GPU implements Readable {
             const posY = Math.floor(i / 32); // 32 tiles on height
             // Get the tile address
             const tileId = this.read(tileMapLoc + i);
-            const tileAddress = toAddress(tileId * 16);
+            const tileAddress = toAddress(tileId);
             // Get tile data
-            const tileData = this.getTile(tileAddress, palette);
+            const tileData = this.getTile(tileAddress);
             // Draw the 8 lines of the tile
             for (let tileY = 0; tileY < 8; tileY++) {
                 for (let tileX = 0; tileX < 8; tileX++) {
-                    const color = tileData[tileX + tileY * 8];
+                    const colorId = tileData[tileX][tileY];
                     const index = posX * 8 + posY * width * 8 + tileX + tileY * width;
-                    data[index] = color;
+                    data[index] = palette[colorId];
                 }
             }
         }
@@ -266,13 +265,13 @@ class GPU implements Readable {
             const posX = i % 16; // 20 tiles on width
             const posY = Math.floor(i / 16);
             // Get tile data
-            const tileData = this.getTile(tileAddress, palette);
+            const tileData = this.getTile(tileAddress);
             // Draw the 8 lines of the tile
             for (let tileX = 0; tileX < 8; tileX++) {
                 for (let tileY = 0; tileY < 8; tileY++) {
-                    const color = tileData[tileX + tileY * 8];
+                    const colorId = tileData[tileX][tileY];
                     const index = posX * 8 + posY * width * 8 + tileX + tileY * width;
-                    data[index] = color;
+                    data[index] = palette[colorId];
                 }
             }
         }
@@ -283,9 +282,9 @@ class GPU implements Readable {
         // Function to get access to the tile data, ie. the shades of a tile
         const toAddress = this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
             ? // Unsigned regular, 0x8000-0x8fff
-              (n: number) => 0x8000 + n
+              (n: number) => 0x8000 + n * 16
             : // Signed offset, 0x9000-0x97ff for 0-127 and 0x8800-0x8fff for 128-255
-              (n: number) => (n < 128 ? 0x9000 + n : 0x8800 + (n - 128));
+              (n: number) => 0x9000 + asSignedInt8(n) * 16;
 
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
@@ -297,7 +296,7 @@ class GPU implements Readable {
         const viewY = this.screenY.get();
 
         // The currently read Y pixel of the bg map
-        const y = viewY + this.lcdY.get();
+        const y = wrap8(viewY + this.lcdY.get());
         // The currently read Y position of the corresponding tile (one tile is 8 pixels long)
         const tileY = Math.floor(y / 8);
         // The currently read Y position *inside* the tile
@@ -306,9 +305,11 @@ class GPU implements Readable {
         // Start of video buffer for this line
         const bufferStart = this.lcdY.get() * SCREEN_WIDTH;
 
-        for (let i = 0; i < SCREEN_WIDTH; i += 8) {
+        const scrollOffsetX = viewX % 8;
+
+        for (let i = 0; i < SCREEN_WIDTH + scrollOffsetX; i += 8) {
             // The currently read X pixel of the bg map
-            const x = viewX + i;
+            const x = wrap8(viewX + i);
             // The currently read X position of the corresponding tile
             // this determines the tile of the next 8 pixels
             const tileX = Math.floor(x / 8);
@@ -318,14 +319,19 @@ class GPU implements Readable {
             // The ID (pointer) of the tile
             const tileAddress = this.read(tileIndex);
             // Convert the ID to the actual address
-            const tileDataAddress = toAddress(tileAddress * 16);
+            const tileDataAddress = toAddress(tileAddress);
             // Get the tile data
-            const tileData = this.getTile(tileDataAddress, palette);
+            const tileData = this.getTile(tileDataAddress);
 
             for (let innerX = 0; innerX < 8; innerX++) {
+                const posX = i + innerX - scrollOffsetX;
+                if (posX < 0) continue;
                 // Get the RGBA color, and draw it!
-                const pixelColor = tileData[innerX + tileInnerY * 8];
-                this.videoBuffer[bufferStart + i + innerX] = pixelColor;
+                const colorId = tileData[innerX][tileInnerY];
+                this.videoBuffer[bufferStart + posX] = palette[colorId];
+                if (colorId > 0) {
+                    priorities[posX] = true;
+                }
             }
         }
     }
@@ -350,23 +356,27 @@ class GPU implements Readable {
             // the sprite, in which case the actual tile address is the next byte
             const tileAddress = 0x8000 + tileId * 16;
             // The currently read Y position inside the corresponding tile
-            const tileY = (y - sprite.y) % 8;
-            //
+            let tileY = (y - sprite.y) % 8;
+            tileY = sprite.yFlip ? 7 - tileY : tileY;
+            // Get the palette for the object
             const palette = this.objPaletteColors(sprite.paletteNumber ? 1 : 0);
 
             // Start of video buffer for this line
-            const bufferStart = y * SCREEN_WIDTH + sprite.x;
+            const bufferStart = y * SCREEN_WIDTH;
 
             // Get tile colors
-            const tileData = this.getTile(tileAddress, palette);
+            const tileData = this.getTile(tileAddress);
 
             for (let innerX = 0; innerX < 8; innerX++) {
+                const x = innerX + sprite.x;
                 // The X value of the sprite is offset by 8 to the left, so we skip off-screen
-                if (sprite.x + innerX < 0) continue;
-                const pixelColor = tileData[innerX + tileY * 8];
+                if (x < 0) continue;
+                const tileX = sprite.xFlip ? 7 - innerX : innerX;
+                const colorId = tileData[tileX][tileY];
                 // if transparent, skip
-                if (pixelColor === 0x00000000) continue;
-                this.videoBuffer[bufferStart + innerX] = pixelColor;
+                // also skip if bg/win should be above, and priority is set
+                if (colorId === 0 || (sprite.bgAndWinOverObj && priorities[x])) continue;
+                this.videoBuffer[bufferStart + x] = palette[colorId];
             }
         }
     }
@@ -383,7 +393,7 @@ class GPU implements Readable {
     }
     /** An object containing the RGBA colors for each color ID for objects.  */
     protected objPaletteColors(id: 0 | 1) {
-        const palette = [this.objPalette0, this.objPalette1][id].get();
+        const palette = (id === 0 ? this.objPalette0 : this.objPalette1).get();
         return {
             0b00: 0x00000000, // unused, color 0b00 is transparent
             0b01: this.colorOptions[((palette >> 2) & 0b11) as Int2],
