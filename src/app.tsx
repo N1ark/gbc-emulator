@@ -29,6 +29,9 @@ const displayData = (
     context.putImageData(imageData, 0, 0);
 };
 
+const emulator2Enabled = false;
+const debugEnabled = false;
+
 const App: FunctionalComponent = () => {
     const pressedKeys = useKeys();
     const emulator1Ref = useRef<HTMLCanvasElement>(null);
@@ -59,7 +62,6 @@ const App: FunctionalComponent = () => {
             }),
         };
 
-        const debugEnabled = false;
         const debug = debugEnabled
             ? () => ({
                   canStep: pressedKeys.includes(" "),
@@ -69,27 +71,31 @@ const App: FunctionalComponent = () => {
 
         const videoOut: VideoOutput = {
             receive: (d) => displayData(d, emulator1Ref),
-            debugBackground: (d) => displayData(d, backgroundDebugger, 256, 256),
-            debugTileset: (d) => displayData(d, tilesetDebugger, 128, 192),
         };
+        if (debugEnabled) {
+            videoOut.debugBackground = (d) => displayData(d, backgroundDebugger, 256, 256);
+            videoOut.debugTileset = (d) => displayData(d, tilesetDebugger, 128, 192);
+        }
         const romArray = new Uint8Array(rom);
         const gbc = new GameBoyColor(romArray, gameIn, videoOut, debug);
         setGameboy(gbc);
 
-        setTimeout(() => {
-            // Create Emulator 2 (working)
-            let fileCallback = (d: Uint8Array) => {};
-            new GameboyJS.Gameboy(emulator2Ref.current, {
-                romReaders: [
-                    {
-                        setCallback: (c: (d: Uint8Array) => void) => {
-                            fileCallback = c;
+        if (emulator2Enabled) {
+            setTimeout(() => {
+                // Create Emulator 2 (working)
+                let fileCallback = (d: Uint8Array) => {};
+                new GameboyJS.Gameboy(emulator2Ref.current, {
+                    romReaders: [
+                        {
+                            setCallback: (c: (d: Uint8Array) => void) => {
+                                fileCallback = c;
+                            },
                         },
-                    },
-                ],
-            });
-            fileCallback(romArray);
-        }, 10);
+                    ],
+                });
+                fileCallback(romArray);
+            }, 10);
+        }
 
         requestAnimationFrame(() => gbc.run());
     };
@@ -102,9 +108,13 @@ const App: FunctionalComponent = () => {
             {gameboy ? (
                 <>
                     <Screen canvasRef={emulator1Ref} />
-                    <Screen canvasRef={emulator2Ref} />
-                    <Screen width={256} height={256} canvasRef={backgroundDebugger} />
-                    <Screen width={128} height={192} canvasRef={tilesetDebugger} />
+                    {emulator2Enabled && <Screen canvasRef={emulator2Ref} />}
+                    {debugEnabled && (
+                        <>
+                            <Screen width={256} height={256} canvasRef={backgroundDebugger} />
+                            <Screen width={128} height={192} canvasRef={tilesetDebugger} />
+                        </>
+                    )}
                 </>
             ) : (
                 <RomInput type="gb" onLoad={loadRom} />
