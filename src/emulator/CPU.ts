@@ -10,6 +10,9 @@ const FLAG_CARRY = 1 << 4;
 type SubRegisterName = "a" | "b" | "c" | "d" | "e" | "f" | "h" | "l";
 type InstructionObject = (system: System) => number;
 
+type InstructionMethod<E = {}> = (system: System, extra: E) => InstructionReturn;
+type InstructionReturn = InstructionMethod | number | null;
+
 /**
  * The CPU of the GBC, responsible for reading the code and executing instructions.
  */
@@ -35,10 +38,15 @@ class CPU {
         return byte;
     }
 
-    protected nextWord(system: System) {
-        const low = this.nextByte(system);
-        const high = this.nextByte(system);
-        return combine(high, low);
+    protected nextWord(receiver: InstructionMethod<{ value: number }>): InstructionMethod {
+        return (system: System) => {
+            const low = this.nextByte(system);
+            return (s: System) => {
+                const high = this.nextByte(system);
+                const value = combine(high, low);
+                return (s: System) => receiver(s, { value });
+            };
+        };
     }
 
     protected handleInterrupts(system: System) {}
@@ -51,51 +59,63 @@ class CPU {
         this.halted = false;
     }
 
+    protected nextStep: InstructionMethod | null = null;
+
     /**
      * Steps through one line of the code, and returns the M-cycles required for the
      * operation
      */
     step(system: System, verbose?: boolean): number {
-        // Check if any interrupt is requested. This also stops HALTing.
-        const execNext = system.executeNext();
-        if (execNext !== null) {
-            this.halted = false;
-            this.call(system, execNext);
-            if (verbose) console.log("[CPU] interrupt execute, goto", execNext.toString(16));
+        if (this.nextStep === null) {
+            // Check if any interrupt is requested. This also stops HALTing.
+            const execNext = system.executeNext();
+            if (execNext !== null) {
+                this.halted = false;
+                this.call(system, execNext);
+                if (verbose)
+                    console.log("[CPU] interrupt execute, goto", execNext.toString(16));
+            }
+
+            // Do nothing if halted
+            if (this.halted) {
+                if (verbose) console.log("[CPU] halted");
+                return 1;
+            }
+
+            // Execute next instruction
+            const opcode = this.nextByte(system);
+            ++this.stepCounter;
+            if (verbose)
+                console.log(
+                    `[CPU] ${this.stepCounter} - (0x${(this.regPC.get() - 1).toString(
+                        16
+                    )}) executing op 0x${opcode.toString(16)}`
+                );
+            const instruction = this.instructionSet[opcode];
+            if (instruction === undefined) {
+                throw Error(
+                    `Unrecognized opcode ${opcode.toString(16)} at address ${(
+                        this.regPC.get() - 1
+                    ).toString(16)}`
+                );
+            }
+            this.nextStep = instruction;
+            this.logDebug(system, opcode);
         }
 
-        // Do nothing if halted
-        if (this.halted) {
-            if (verbose) console.log("[CPU] halted");
-            return 1;
+        const stepResult = this.nextStep(system, {});
+        if (typeof stepResult === "number") {
+            this.nextStep = null;
+            return stepResult;
         }
-
-        // Execute next instruction
-        const opcode = this.nextByte(system);
-        ++this.stepCounter;
-        if (verbose)
-            console.log(
-                `[CPU] ${this.stepCounter} - (0x${(this.regPC.get() - 1).toString(
-                    16
-                )}) executing op 0x${opcode.toString(16)}`
-            );
-        const instruction = this.instructionSet[opcode];
-        if (instruction === undefined) {
-            throw Error(
-                `Unrecognized opcode ${opcode.toString(16)} at address ${(
-                    this.regPC.get() - 1
-                ).toString(16)}`
-            );
-        }
-        const cycles = instruction(system);
-        this.logDebug(system, opcode, cycles);
-        return cycles;
+        this.nextStep = stepResult;
+        return 1;
     }
 
     /**
      * Debug function that logs the gameboy state to a log string that is then saved as a file.
      */
-    protected logDebug(system: System, opcode: number, cycles: number) {
+    protected logDebug(system: System, opcode: number) {
         if (
             this.logOffset < this.stepCounter &&
             this.stepCounter < this.logOffset + this.logLimit
@@ -113,7 +133,6 @@ class CPU {
                 LYC: 0xff45,
             };
             this.logOutput +=
-                `cyc:${cycles * 4}/` +
                 `op:${opcode.toString(16)}/` +
                 `n-1:${system.read(this.regPC.get() - 1).toString(16)}/` +
                 Object.entries(loggedMemory)
@@ -146,57 +165,121 @@ class CPU {
         }
     }
 
-    /* prettier-ignore */
     /**
      * A list of all 8-bit opcodes.
      * Each callable executes the instruction, and returns the number of M-cycles that the
      * instruction took.
      * @link https://meganesulli.com/generate-gb-opcodes/
      * */
-    protected instructionSet: Partial<Record<number, InstructionObject>> = {
+    protected instructionSet: Partial<Record<number, InstructionMethod>> = {
         // NOP
-        0x00: () => 1,
+        0x00: () => null,
         // extended instructions
         0xcb: (s) => {
             const opcode = this.nextByte(s);
             const instruction = this.extendedInstructionSet[opcode];
-            if(instruction === undefined) {
-                throw Error(
-                    `Unrecognized extended opcode ${opcode.toString(16)} at address ${(
-                        this.regPC.get() - 1
-                    ).toString(16)}`
-                );
-            }
-            return instruction(s);
+            return (s) => {
+                if (instruction === undefined) {
+                    throw Error(
+                        `Unrecognized extended opcode ${opcode.toString(16)} at address ${(
+                            this.regPC.get() - 1
+                        ).toString(16)}`
+                    );
+                }
+                return instruction(s, {});
+            };
         },
         // LD BC/DE/HL/SP, d16
-        0x01: (s) => { this.regBC.set(this.nextWord(s)); return 3; },
-        0x11: (s) => { this.regDE.set(this.nextWord(s)); return 3; },
-        0x21: (s) => { this.regHL.set(this.nextWord(s)); return 3; },
-        0x31: (s) => { this.regSP.set(this.nextWord(s)); return 3; },
+        ...this.generateOperation(
+            0x01,
+            0x10,
+            [this.regBC, this.regDE, this.regHL, this.regSP],
+            (register) =>
+                this.nextWord((s, { value }) => {
+                    register.set(value);
+                    return null;
+                })
+        ),
         // INC BC/DE/HL/SP
-        0x03: () => { this.regBC.inc(); return 2; },
-        0x13: () => { this.regDE.inc(); return 2; },
-        0x23: () => { this.regHL.inc(); return 2; },
-        0x33: () => { this.regSP.inc(); return 2; },
+        0x03: () => {
+            this.regBC.inc();
+            return 2;
+        },
+        0x13: () => {
+            this.regDE.inc();
+            return 2;
+        },
+        0x23: () => {
+            this.regHL.inc();
+            return 2;
+        },
+        0x33: () => {
+            this.regSP.inc();
+            return 2;
+        },
         // DEC BC/DE/HL/SP
-        0x0b: () => { this.regBC.dec(); return 2; },
-        0x1b: () => { this.regDE.dec(); return 2; },
-        0x2b: () => { this.regHL.dec(); return 2; },
-        0x3b: () => { this.regSP.dec(); return 2; },
+        0x0b: () => {
+            this.regBC.dec();
+            return 2;
+        },
+        0x1b: () => {
+            this.regDE.dec();
+            return 2;
+        },
+        0x2b: () => {
+            this.regHL.dec();
+            return 2;
+        },
+        0x3b: () => {
+            this.regSP.dec();
+            return 2;
+        },
         // ADD HL, BC/DE/HL/SP
-        0x09: () => { this.addRToHL(this.regBC); return 2; },
-        0x19: () => { this.addRToHL(this.regDE); return 2; },
-        0x29: () => { this.addRToHL(this.regHL); return 2; },
-        0x39: () => { this.addRToHL(this.regSP); return 2; },
+        0x09: () => {
+            this.addRToHL(this.regBC);
+            return 2;
+        },
+        0x19: () => {
+            this.addRToHL(this.regDE);
+            return 2;
+        },
+        0x29: () => {
+            this.addRToHL(this.regHL);
+            return 2;
+        },
+        0x39: () => {
+            this.addRToHL(this.regSP);
+            return 2;
+        },
         // INC B/D/H/C/E/L/A
-        0x04: () => { this.incSr("b"); return 1; },
-        0x14: () => { this.incSr("d"); return 1; },
-        0x24: () => { this.incSr("h"); return 1; },
-        0x0c: () => { this.incSr("c"); return 1; },
-        0x1c: () => { this.incSr("e"); return 1; },
-        0x2c: () => { this.incSr("l"); return 1; },
-        0x3c: () => { this.incSr("a"); return 1; },
+        0x04: () => {
+            this.incSr("b");
+            return 1;
+        },
+        0x14: () => {
+            this.incSr("d");
+            return 1;
+        },
+        0x24: () => {
+            this.incSr("h");
+            return 1;
+        },
+        0x0c: () => {
+            this.incSr("c");
+            return 1;
+        },
+        0x1c: () => {
+            this.incSr("e");
+            return 1;
+        },
+        0x2c: () => {
+            this.incSr("l");
+            return 1;
+        },
+        0x3c: () => {
+            this.incSr("a");
+            return 1;
+        },
         // INC (HL)
         0x34: (s) => {
             const hl = this.regHL.get();
@@ -204,13 +287,34 @@ class CPU {
             return 3;
         },
         // DEC B/D/H/C/E/L/A
-        0x05: () => { this.decSr("b"); return 1; },
-        0x15: () => { this.decSr("d"); return 1; },
-        0x25: () => { this.decSr("h"); return 1; },
-        0x0d: () => { this.decSr("c"); return 1; },
-        0x1d: () => { this.decSr("e"); return 1; },
-        0x2d: () => { this.decSr("l"); return 1; },
-        0x3d: () => { this.decSr("a"); return 1; },
+        0x05: () => {
+            this.decSr("b");
+            return 1;
+        },
+        0x15: () => {
+            this.decSr("d");
+            return 1;
+        },
+        0x25: () => {
+            this.decSr("h");
+            return 1;
+        },
+        0x0d: () => {
+            this.decSr("c");
+            return 1;
+        },
+        0x1d: () => {
+            this.decSr("e");
+            return 1;
+        },
+        0x2d: () => {
+            this.decSr("l");
+            return 1;
+        },
+        0x3d: () => {
+            this.decSr("a");
+            return 1;
+        },
         // DEC (HL)
         0x35: (s) => {
             const hl = this.regHL.get();
@@ -218,252 +322,907 @@ class CPU {
             return 3;
         },
         // LD (BC/DE/HL+/HL-), A
-        0x02: (s) => { s.write(this.regBC.get(), this.regAF.h.get()); return 2; },
-        0x12: (s) => { s.write(this.regDE.get(), this.regAF.h.get()); return 2; },
-        0x22: (s) => { s.write(this.regHL.inc(), this.regAF.h.get()); return 2; },
-        0x32: (s) => { s.write(this.regHL.dec(), this.regAF.h.get()); return 2; },
-        // LD A, (BC/DE/HL+/HL-)
-        0x0a: (s) => { this.regAF.h.set(s.read(this.regBC.get())); return 2; },
-        0x1a: (s) => { this.regAF.h.set(s.read(this.regDE.get())); return 2; },
-        0x2a: (s) => { this.regAF.h.set(s.read(this.regHL.inc())); return 2; },
-        0x3a: (s) => { this.regAF.h.set(s.read(this.regHL.dec())); return 2; },
-        // LD B/D/H/C/E/L/A, d8
-        0x06: (s) => { this.sr("b").set(this.nextByte(s)); return 2; },
-        0x16: (s) => { this.sr("d").set(this.nextByte(s)); return 2; },
-        0x26: (s) => { this.sr("h").set(this.nextByte(s)); return 2; },
-        0x0e: (s) => { this.sr("c").set(this.nextByte(s)); return 2; },
-        0x1e: (s) => { this.sr("e").set(this.nextByte(s)); return 2; },
-        0x2e: (s) => { this.sr("l").set(this.nextByte(s)); return 2; },
-        0x3e: (s) => { this.sr("a").set(this.nextByte(s)); return 2; },
-        // LD (HL), d8
-        0x36: (s) => { s.write(this.regHL.get(), this.nextByte(s)); return 3; },
-        // LD (a16), SP
-        0x08: (s) => {
-            const a = this.nextWord(s);
-            s.write(a, this.regSP.l.get());
-            s.write(a + 1, this.regSP.h.get());
-            return 5;
+        0x02: (s) => {
+            s.write(this.regBC.get(), this.regAF.h.get());
+            return 2;
         },
+        0x12: (s) => {
+            s.write(this.regDE.get(), this.regAF.h.get());
+            return 2;
+        },
+        0x22: (s) => {
+            s.write(this.regHL.inc(), this.regAF.h.get());
+            return 2;
+        },
+        0x32: (s) => {
+            s.write(this.regHL.dec(), this.regAF.h.get());
+            return 2;
+        },
+        // LD A, (BC/DE/HL+/HL-)
+        0x0a: (s) => {
+            this.regAF.h.set(s.read(this.regBC.get()));
+            return 2;
+        },
+        0x1a: (s) => {
+            this.regAF.h.set(s.read(this.regDE.get()));
+            return 2;
+        },
+        0x2a: (s) => {
+            this.regAF.h.set(s.read(this.regHL.inc()));
+            return 2;
+        },
+        0x3a: (s) => {
+            this.regAF.h.set(s.read(this.regHL.dec()));
+            return 2;
+        },
+        // LD B/D/H/C/E/L/A, d8
+        0x06: (s) => {
+            this.sr("b").set(this.nextByte(s));
+            return 2;
+        },
+        0x16: (s) => {
+            this.sr("d").set(this.nextByte(s));
+            return 2;
+        },
+        0x26: (s) => {
+            this.sr("h").set(this.nextByte(s));
+            return 2;
+        },
+        0x0e: (s) => {
+            this.sr("c").set(this.nextByte(s));
+            return 2;
+        },
+        0x1e: (s) => {
+            this.sr("e").set(this.nextByte(s));
+            return 2;
+        },
+        0x2e: (s) => {
+            this.sr("l").set(this.nextByte(s));
+            return 2;
+        },
+        0x3e: (s) => {
+            this.sr("a").set(this.nextByte(s));
+            return 2;
+        },
+        // LD (HL), d8
+        0x36: (s) => {
+            s.write(this.regHL.get(), this.nextByte(s));
+            return 3;
+        },
+        // LD (a16), SP
+        0x08: this.nextWord((s, { value }) => {
+            s.write(value, this.regSP.l.get());
+            s.write(value + 1, this.regSP.h.get());
+            return 3;
+        }),
         // LD B, B/C/D/E/H/L/(HL)/A
-        0x40: () => { this.loadSrToSr("b", "b"); return 1; },
-        0x41: () => { this.loadSrToSr("b", "c"); return 1; },
-        0x42: () => { this.loadSrToSr("b", "d"); return 1; },
-        0x43: () => { this.loadSrToSr("b", "e"); return 1; },
-        0x44: () => { this.loadSrToSr("b", "h"); return 1; },
-        0x45: () => { this.loadSrToSr("b", "l"); return 1; },
-        0x46: (s) => { this.sr("b").set(s.read(this.regHL.get())); return 2; },
-        0x47: () => { this.loadSrToSr("b", "a"); return 1; },
+        0x40: () => {
+            this.loadSrToSr("b", "b");
+            return 1;
+        },
+        0x41: () => {
+            this.loadSrToSr("b", "c");
+            return 1;
+        },
+        0x42: () => {
+            this.loadSrToSr("b", "d");
+            return 1;
+        },
+        0x43: () => {
+            this.loadSrToSr("b", "e");
+            return 1;
+        },
+        0x44: () => {
+            this.loadSrToSr("b", "h");
+            return 1;
+        },
+        0x45: () => {
+            this.loadSrToSr("b", "l");
+            return 1;
+        },
+        0x46: (s) => {
+            this.sr("b").set(s.read(this.regHL.get()));
+            return 2;
+        },
+        0x47: () => {
+            this.loadSrToSr("b", "a");
+            return 1;
+        },
         // LD C, B/C/D/E/H/L/(HL)/A
-        0x48: () => { this.loadSrToSr("c", "b"); return 1; },
-        0x49: () => { this.loadSrToSr("c", "c"); return 1; },
-        0x4a: () => { this.loadSrToSr("c", "d"); return 1; },
-        0x4b: () => { this.loadSrToSr("c", "e"); return 1; },
-        0x4c: () => { this.loadSrToSr("c", "h"); return 1; },
-        0x4d: () => { this.loadSrToSr("c", "l"); return 1; },
-        0x4e: (s) => { this.sr("c").set(s.read(this.regHL.get())); return 2; },
-        0x4f: () => { this.loadSrToSr("c", "a"); return 1; },
+        0x48: () => {
+            this.loadSrToSr("c", "b");
+            return 1;
+        },
+        0x49: () => {
+            this.loadSrToSr("c", "c");
+            return 1;
+        },
+        0x4a: () => {
+            this.loadSrToSr("c", "d");
+            return 1;
+        },
+        0x4b: () => {
+            this.loadSrToSr("c", "e");
+            return 1;
+        },
+        0x4c: () => {
+            this.loadSrToSr("c", "h");
+            return 1;
+        },
+        0x4d: () => {
+            this.loadSrToSr("c", "l");
+            return 1;
+        },
+        0x4e: (s) => {
+            this.sr("c").set(s.read(this.regHL.get()));
+            return 2;
+        },
+        0x4f: () => {
+            this.loadSrToSr("c", "a");
+            return 1;
+        },
         // LD D, B/C/D/E/H/L/(HL)/A
-        0x50: () => { this.loadSrToSr("d", "b"); return 1; },
-        0x51: () => { this.loadSrToSr("d", "c"); return 1; },
-        0x52: () => { this.loadSrToSr("d", "d"); return 1; },
-        0x53: () => { this.loadSrToSr("d", "e"); return 1; },
-        0x54: () => { this.loadSrToSr("d", "h"); return 1; },
-        0x55: () => { this.loadSrToSr("d", "l"); return 1; },
-        0x56: (s) => { this.sr("d").set(s.read(this.regHL.get())); return 2; },
-        0x57: () => { this.loadSrToSr("d", "a"); return 1; },
+        0x50: () => {
+            this.loadSrToSr("d", "b");
+            return 1;
+        },
+        0x51: () => {
+            this.loadSrToSr("d", "c");
+            return 1;
+        },
+        0x52: () => {
+            this.loadSrToSr("d", "d");
+            return 1;
+        },
+        0x53: () => {
+            this.loadSrToSr("d", "e");
+            return 1;
+        },
+        0x54: () => {
+            this.loadSrToSr("d", "h");
+            return 1;
+        },
+        0x55: () => {
+            this.loadSrToSr("d", "l");
+            return 1;
+        },
+        0x56: (s) => {
+            this.sr("d").set(s.read(this.regHL.get()));
+            return 2;
+        },
+        0x57: () => {
+            this.loadSrToSr("d", "a");
+            return 1;
+        },
         // LD E, B/C/D/E/H/L/(HL)/A
-        0x58: () => { this.loadSrToSr("e", "b"); return 1; },
-        0x59: () => { this.loadSrToSr("e", "c"); return 1; },
-        0x5a: () => { this.loadSrToSr("e", "d"); return 1; },
-        0x5b: () => { this.loadSrToSr("e", "e"); return 1; },
-        0x5c: () => { this.loadSrToSr("e", "h"); return 1; },
-        0x5d: () => { this.loadSrToSr("e", "l"); return 1; },
-        0x5e: (s) => { this.sr("e").set(s.read(this.regHL.get())); return 2; },
-        0x5f: () => { this.loadSrToSr("e", "a"); return 1; },
+        0x58: () => {
+            this.loadSrToSr("e", "b");
+            return 1;
+        },
+        0x59: () => {
+            this.loadSrToSr("e", "c");
+            return 1;
+        },
+        0x5a: () => {
+            this.loadSrToSr("e", "d");
+            return 1;
+        },
+        0x5b: () => {
+            this.loadSrToSr("e", "e");
+            return 1;
+        },
+        0x5c: () => {
+            this.loadSrToSr("e", "h");
+            return 1;
+        },
+        0x5d: () => {
+            this.loadSrToSr("e", "l");
+            return 1;
+        },
+        0x5e: (s) => {
+            this.sr("e").set(s.read(this.regHL.get()));
+            return 2;
+        },
+        0x5f: () => {
+            this.loadSrToSr("e", "a");
+            return 1;
+        },
         // LD H, B/C/D/E/H/L/(HL)/A
-        0x60: () => { this.loadSrToSr("h", "b"); return 1; },
-        0x61: () => { this.loadSrToSr("h", "c"); return 1; },
-        0x62: () => { this.loadSrToSr("h", "d"); return 1; },
-        0x63: () => { this.loadSrToSr("h", "e"); return 1; },
-        0x64: () => { this.loadSrToSr("h", "h"); return 1; },
-        0x65: () => { this.loadSrToSr("h", "l"); return 1; },
-        0x66: (s) => { this.sr("h").set(s.read(this.regHL.get())); return 2; },
-        0x67: () => { this.loadSrToSr("h", "a"); return 1; },
+        0x60: () => {
+            this.loadSrToSr("h", "b");
+            return 1;
+        },
+        0x61: () => {
+            this.loadSrToSr("h", "c");
+            return 1;
+        },
+        0x62: () => {
+            this.loadSrToSr("h", "d");
+            return 1;
+        },
+        0x63: () => {
+            this.loadSrToSr("h", "e");
+            return 1;
+        },
+        0x64: () => {
+            this.loadSrToSr("h", "h");
+            return 1;
+        },
+        0x65: () => {
+            this.loadSrToSr("h", "l");
+            return 1;
+        },
+        0x66: (s) => {
+            this.sr("h").set(s.read(this.regHL.get()));
+            return 2;
+        },
+        0x67: () => {
+            this.loadSrToSr("h", "a");
+            return 1;
+        },
         // LD L, B/C/D/E/H/L/(HL)/A
-        0x68: () => { this.loadSrToSr("l", "b"); return 1; },
-        0x69: () => { this.loadSrToSr("l", "c"); return 1; },
-        0x6a: () => { this.loadSrToSr("l", "d"); return 1; },
-        0x6b: () => { this.loadSrToSr("l", "e"); return 1; },
-        0x6c: () => { this.loadSrToSr("l", "h"); return 1; },
-        0x6d: () => { this.loadSrToSr("l", "l"); return 1; },
-        0x6e: (s) => { this.sr("l").set(s.read(this.regHL.get())); return 2; },
-        0x6f: () => { this.loadSrToSr("l", "a"); return 1; },
+        0x68: () => {
+            this.loadSrToSr("l", "b");
+            return 1;
+        },
+        0x69: () => {
+            this.loadSrToSr("l", "c");
+            return 1;
+        },
+        0x6a: () => {
+            this.loadSrToSr("l", "d");
+            return 1;
+        },
+        0x6b: () => {
+            this.loadSrToSr("l", "e");
+            return 1;
+        },
+        0x6c: () => {
+            this.loadSrToSr("l", "h");
+            return 1;
+        },
+        0x6d: () => {
+            this.loadSrToSr("l", "l");
+            return 1;
+        },
+        0x6e: (s) => {
+            this.sr("l").set(s.read(this.regHL.get()));
+            return 2;
+        },
+        0x6f: () => {
+            this.loadSrToSr("l", "a");
+            return 1;
+        },
         // LD A, B/C/D/E/H/L/(HL)/A
-        0x78: () => { this.loadSrToSr("a", "b"); return 1; },
-        0x79: () => { this.loadSrToSr("a", "c"); return 1; },
-        0x7a: () => { this.loadSrToSr("a", "d"); return 1; },
-        0x7b: () => { this.loadSrToSr("a", "e"); return 1; },
-        0x7c: () => { this.loadSrToSr("a", "h"); return 1; },
-        0x7d: () => { this.loadSrToSr("a", "l"); return 1; },
-        0x7e: (s) => { this.sr("a").set(s.read(this.regHL.get())); return 2; },
-        0x7f: () => { this.loadSrToSr("a", "a"); return 1; },
+        0x78: () => {
+            this.loadSrToSr("a", "b");
+            return 1;
+        },
+        0x79: () => {
+            this.loadSrToSr("a", "c");
+            return 1;
+        },
+        0x7a: () => {
+            this.loadSrToSr("a", "d");
+            return 1;
+        },
+        0x7b: () => {
+            this.loadSrToSr("a", "e");
+            return 1;
+        },
+        0x7c: () => {
+            this.loadSrToSr("a", "h");
+            return 1;
+        },
+        0x7d: () => {
+            this.loadSrToSr("a", "l");
+            return 1;
+        },
+        0x7e: (s) => {
+            this.sr("a").set(s.read(this.regHL.get()));
+            return 2;
+        },
+        0x7f: () => {
+            this.loadSrToSr("a", "a");
+            return 1;
+        },
         // LD (HL), B/C/D/E/H/L/A
-        0x70: (s) => { s.write(this.regHL.get(), this.sr("b").get()); return 2; },
-        0x71: (s) => { s.write(this.regHL.get(), this.sr("c").get()); return 2; },
-        0x72: (s) => { s.write(this.regHL.get(), this.sr("d").get()); return 2; },
-        0x73: (s) => { s.write(this.regHL.get(), this.sr("e").get()); return 2; },
-        0x74: (s) => { s.write(this.regHL.get(), this.sr("h").get()); return 2; },
-        0x75: (s) => { s.write(this.regHL.get(), this.sr("l").get()); return 2; },
-        0x77: (s) => { s.write(this.regHL.get(), this.sr("a").get()); return 2; },
+        0x70: (s) => {
+            s.write(this.regHL.get(), this.sr("b").get());
+            return 2;
+        },
+        0x71: (s) => {
+            s.write(this.regHL.get(), this.sr("c").get());
+            return 2;
+        },
+        0x72: (s) => {
+            s.write(this.regHL.get(), this.sr("d").get());
+            return 2;
+        },
+        0x73: (s) => {
+            s.write(this.regHL.get(), this.sr("e").get());
+            return 2;
+        },
+        0x74: (s) => {
+            s.write(this.regHL.get(), this.sr("h").get());
+            return 2;
+        },
+        0x75: (s) => {
+            s.write(this.regHL.get(), this.sr("l").get());
+            return 2;
+        },
+        0x77: (s) => {
+            s.write(this.regHL.get(), this.sr("a").get());
+            return 2;
+        },
         // ADD A, B/C/D/E/H/L/A/(HL)/d8
-        0x80: () => { this.addNToA(this.sr("b").get(), false); return 1; },
-        0x81: () => { this.addNToA(this.sr("c").get(), false); return 1; },
-        0x82: () => { this.addNToA(this.sr("d").get(), false); return 1; },
-        0x83: () => { this.addNToA(this.sr("e").get(), false); return 1; },
-        0x84: () => { this.addNToA(this.sr("h").get(), false); return 1; },
-        0x85: () => { this.addNToA(this.sr("l").get(), false); return 1; },
-        0x87: () => { this.addNToA(this.sr("a").get(), false); return 1; },
-        0x86: (s) => { this.addNToA(s.read(this.regHL.get()), false); return 2; },
-        0xc6: (s) => { this.addNToA(this.nextByte(s), false); return 2; },
+        0x80: () => {
+            this.addNToA(this.sr("b").get(), false);
+            return 1;
+        },
+        0x81: () => {
+            this.addNToA(this.sr("c").get(), false);
+            return 1;
+        },
+        0x82: () => {
+            this.addNToA(this.sr("d").get(), false);
+            return 1;
+        },
+        0x83: () => {
+            this.addNToA(this.sr("e").get(), false);
+            return 1;
+        },
+        0x84: () => {
+            this.addNToA(this.sr("h").get(), false);
+            return 1;
+        },
+        0x85: () => {
+            this.addNToA(this.sr("l").get(), false);
+            return 1;
+        },
+        0x87: () => {
+            this.addNToA(this.sr("a").get(), false);
+            return 1;
+        },
+        0x86: (s) => {
+            this.addNToA(s.read(this.regHL.get()), false);
+            return 2;
+        },
+        0xc6: (s) => {
+            this.addNToA(this.nextByte(s), false);
+            return 2;
+        },
         // ADDC A, B/C/D/E/H/L/A/(HL)/d8
-        0x88: () => { this.addNToA(this.sr("b").get(), true); return 1; },
-        0x89: () => { this.addNToA(this.sr("c").get(), true); return 1; },
-        0x8a: () => { this.addNToA(this.sr("d").get(), true); return 1; },
-        0x8b: () => { this.addNToA(this.sr("e").get(), true); return 1; },
-        0x8c: () => { this.addNToA(this.sr("h").get(), true); return 1; },
-        0x8d: () => { this.addNToA(this.sr("l").get(), true); return 1; },
-        0x8f: () => { this.addNToA(this.sr("a").get(), true); return 1; },
-        0x8e: (s) => { this.addNToA(s.read(this.regHL.get()), true); return 2; },
-        0xce: (s) => { this.addNToA(this.nextByte(s), true); return 2; },
+        0x88: () => {
+            this.addNToA(this.sr("b").get(), true);
+            return 1;
+        },
+        0x89: () => {
+            this.addNToA(this.sr("c").get(), true);
+            return 1;
+        },
+        0x8a: () => {
+            this.addNToA(this.sr("d").get(), true);
+            return 1;
+        },
+        0x8b: () => {
+            this.addNToA(this.sr("e").get(), true);
+            return 1;
+        },
+        0x8c: () => {
+            this.addNToA(this.sr("h").get(), true);
+            return 1;
+        },
+        0x8d: () => {
+            this.addNToA(this.sr("l").get(), true);
+            return 1;
+        },
+        0x8f: () => {
+            this.addNToA(this.sr("a").get(), true);
+            return 1;
+        },
+        0x8e: (s) => {
+            this.addNToA(s.read(this.regHL.get()), true);
+            return 2;
+        },
+        0xce: (s) => {
+            this.addNToA(this.nextByte(s), true);
+            return 2;
+        },
         // SUB A, B/C/D/E/H/L/A/(HL)/d8
-        0x90: () => { this.subNFromA(this.sr("b").get(), false); return 1; },
-        0x91: () => { this.subNFromA(this.sr("c").get(), false); return 1; },
-        0x92: () => { this.subNFromA(this.sr("d").get(), false); return 1; },
-        0x93: () => { this.subNFromA(this.sr("e").get(), false); return 1; },
-        0x94: () => { this.subNFromA(this.sr("h").get(), false); return 1; },
-        0x95: () => { this.subNFromA(this.sr("l").get(), false); return 1; },
-        0x97: () => { this.subNFromA(this.sr("a").get(), false); return 1; },
-        0x96: (s) => { this.subNFromA(s.read(this.regHL.get()), false); return 2; },
-        0xd6: (s) => { this.subNFromA(this.nextByte(s), false); return 2; },
+        0x90: () => {
+            this.subNFromA(this.sr("b").get(), false);
+            return 1;
+        },
+        0x91: () => {
+            this.subNFromA(this.sr("c").get(), false);
+            return 1;
+        },
+        0x92: () => {
+            this.subNFromA(this.sr("d").get(), false);
+            return 1;
+        },
+        0x93: () => {
+            this.subNFromA(this.sr("e").get(), false);
+            return 1;
+        },
+        0x94: () => {
+            this.subNFromA(this.sr("h").get(), false);
+            return 1;
+        },
+        0x95: () => {
+            this.subNFromA(this.sr("l").get(), false);
+            return 1;
+        },
+        0x97: () => {
+            this.subNFromA(this.sr("a").get(), false);
+            return 1;
+        },
+        0x96: (s) => {
+            this.subNFromA(s.read(this.regHL.get()), false);
+            return 2;
+        },
+        0xd6: (s) => {
+            this.subNFromA(this.nextByte(s), false);
+            return 2;
+        },
         // SBC A, B/C/D/E/H/L/A/(HL)/d8
-        0x98: () => { this.subNFromA(this.sr("b").get(), true); return 1; },
-        0x99: () => { this.subNFromA(this.sr("c").get(), true); return 1; },
-        0x9a: () => { this.subNFromA(this.sr("d").get(), true); return 1; },
-        0x9b: () => { this.subNFromA(this.sr("e").get(), true); return 1; },
-        0x9c: () => { this.subNFromA(this.sr("h").get(), true); return 1; },
-        0x9d: () => { this.subNFromA(this.sr("l").get(), true); return 1; },
-        0x9f: () => { this.subNFromA(this.sr("a").get(), true); return 1; },
-        0x9e: (s) => { this.subNFromA(s.read(this.regHL.get()), true); return 2; },
-        0xde: (s) => { this.subNFromA(this.nextByte(s), true); return 2; },
+        0x98: () => {
+            this.subNFromA(this.sr("b").get(), true);
+            return 1;
+        },
+        0x99: () => {
+            this.subNFromA(this.sr("c").get(), true);
+            return 1;
+        },
+        0x9a: () => {
+            this.subNFromA(this.sr("d").get(), true);
+            return 1;
+        },
+        0x9b: () => {
+            this.subNFromA(this.sr("e").get(), true);
+            return 1;
+        },
+        0x9c: () => {
+            this.subNFromA(this.sr("h").get(), true);
+            return 1;
+        },
+        0x9d: () => {
+            this.subNFromA(this.sr("l").get(), true);
+            return 1;
+        },
+        0x9f: () => {
+            this.subNFromA(this.sr("a").get(), true);
+            return 1;
+        },
+        0x9e: (s) => {
+            this.subNFromA(s.read(this.regHL.get()), true);
+            return 2;
+        },
+        0xde: (s) => {
+            this.subNFromA(this.nextByte(s), true);
+            return 2;
+        },
         // AND B/C/D/E/H/L/A/(HL)/d8
-        0xa0: () => { this.boolNToA(this.sr("b").get(), "&"); return 1; },
-        0xa1: () => { this.boolNToA(this.sr("c").get(), "&"); return 1; },
-        0xa2: () => { this.boolNToA(this.sr("d").get(), "&"); return 1; },
-        0xa3: () => { this.boolNToA(this.sr("e").get(), "&"); return 1; },
-        0xa4: () => { this.boolNToA(this.sr("h").get(), "&"); return 1; },
-        0xa5: () => { this.boolNToA(this.sr("l").get(), "&"); return 1; },
-        0xa7: () => { this.boolNToA(this.sr("a").get(), "&"); return 1; },
-        0xa6: (s) => { this.boolNToA(s.read(this.regHL.get()), "&"); return 2; },
-        0xe6: (s) => { this.boolNToA(this.nextByte(s), "&"); return 2; },
+        0xa0: () => {
+            this.boolNToA(this.sr("b").get(), "&");
+            return 1;
+        },
+        0xa1: () => {
+            this.boolNToA(this.sr("c").get(), "&");
+            return 1;
+        },
+        0xa2: () => {
+            this.boolNToA(this.sr("d").get(), "&");
+            return 1;
+        },
+        0xa3: () => {
+            this.boolNToA(this.sr("e").get(), "&");
+            return 1;
+        },
+        0xa4: () => {
+            this.boolNToA(this.sr("h").get(), "&");
+            return 1;
+        },
+        0xa5: () => {
+            this.boolNToA(this.sr("l").get(), "&");
+            return 1;
+        },
+        0xa7: () => {
+            this.boolNToA(this.sr("a").get(), "&");
+            return 1;
+        },
+        0xa6: (s) => {
+            this.boolNToA(s.read(this.regHL.get()), "&");
+            return 2;
+        },
+        0xe6: (s) => {
+            this.boolNToA(this.nextByte(s), "&");
+            return 2;
+        },
         // XOR B/C/D/E/H/L/A/(HL)/d8
-        0xa8: () => { this.boolNToA(this.sr("b").get(), "^"); return 1; },
-        0xa9: () => { this.boolNToA(this.sr("c").get(), "^"); return 1; },
-        0xaa: () => { this.boolNToA(this.sr("d").get(), "^"); return 1; },
-        0xab: () => { this.boolNToA(this.sr("e").get(), "^"); return 1; },
-        0xac: () => { this.boolNToA(this.sr("h").get(), "^"); return 1; },
-        0xad: () => { this.boolNToA(this.sr("l").get(), "^"); return 1; },
-        0xaf: () => { this.boolNToA(this.sr("a").get(), "^"); return 1; },
-        0xae: (s) => { this.boolNToA(s.read(this.regHL.get()), "^"); return 2; },
-        0xee: (s) => { this.boolNToA(this.nextByte(s), "^"); return 2; },
+        0xa8: () => {
+            this.boolNToA(this.sr("b").get(), "^");
+            return 1;
+        },
+        0xa9: () => {
+            this.boolNToA(this.sr("c").get(), "^");
+            return 1;
+        },
+        0xaa: () => {
+            this.boolNToA(this.sr("d").get(), "^");
+            return 1;
+        },
+        0xab: () => {
+            this.boolNToA(this.sr("e").get(), "^");
+            return 1;
+        },
+        0xac: () => {
+            this.boolNToA(this.sr("h").get(), "^");
+            return 1;
+        },
+        0xad: () => {
+            this.boolNToA(this.sr("l").get(), "^");
+            return 1;
+        },
+        0xaf: () => {
+            this.boolNToA(this.sr("a").get(), "^");
+            return 1;
+        },
+        0xae: (s) => {
+            this.boolNToA(s.read(this.regHL.get()), "^");
+            return 2;
+        },
+        0xee: (s) => {
+            this.boolNToA(this.nextByte(s), "^");
+            return 2;
+        },
         // OR B/C/D/E/H/L/A/(HL)/d8
-        0xb0: () => { this.boolNToA(this.sr("b").get(), "|"); return 1; },
-        0xb1: () => { this.boolNToA(this.sr("c").get(), "|"); return 1; },
-        0xb2: () => { this.boolNToA(this.sr("d").get(), "|"); return 1; },
-        0xb3: () => { this.boolNToA(this.sr("e").get(), "|"); return 1; },
-        0xb4: () => { this.boolNToA(this.sr("h").get(), "|"); return 1; },
-        0xb5: () => { this.boolNToA(this.sr("l").get(), "|"); return 1; },
-        0xb7: () => { this.boolNToA(this.sr("a").get(), "|"); return 1; },
-        0xb6: (s) => { this.boolNToA(s.read(this.regHL.get()), "|"); return 2; },
-        0xf6: (s) => { this.boolNToA(this.nextByte(s), "|"); return 2; },
+        0xb0: () => {
+            this.boolNToA(this.sr("b").get(), "|");
+            return 1;
+        },
+        0xb1: () => {
+            this.boolNToA(this.sr("c").get(), "|");
+            return 1;
+        },
+        0xb2: () => {
+            this.boolNToA(this.sr("d").get(), "|");
+            return 1;
+        },
+        0xb3: () => {
+            this.boolNToA(this.sr("e").get(), "|");
+            return 1;
+        },
+        0xb4: () => {
+            this.boolNToA(this.sr("h").get(), "|");
+            return 1;
+        },
+        0xb5: () => {
+            this.boolNToA(this.sr("l").get(), "|");
+            return 1;
+        },
+        0xb7: () => {
+            this.boolNToA(this.sr("a").get(), "|");
+            return 1;
+        },
+        0xb6: (s) => {
+            this.boolNToA(s.read(this.regHL.get()), "|");
+            return 2;
+        },
+        0xf6: (s) => {
+            this.boolNToA(this.nextByte(s), "|");
+            return 2;
+        },
         // CP B/C/D/E/H/L/A/(HL)/d8
-        0xb8: () => { this.compNToA(this.sr("b").get()); return 1; },
-        0xb9: () => { this.compNToA(this.sr("c").get()); return 1; },
-        0xba: () => { this.compNToA(this.sr("d").get()); return 1; },
-        0xbb: () => { this.compNToA(this.sr("e").get()); return 1; },
-        0xbc: () => { this.compNToA(this.sr("h").get()); return 1; },
-        0xbd: () => { this.compNToA(this.sr("l").get()); return 1; },
-        0xbf: () => { this.compNToA(this.sr("a").get()); return 1; },
-        0xbe: (s) => { this.compNToA(s.read(this.regHL.get())); return 2; },
-        0xfe: (s) => { this.compNToA(this.nextByte(s)); return 2; },
+        0xb8: () => {
+            this.compNToA(this.sr("b").get());
+            return 1;
+        },
+        0xb9: () => {
+            this.compNToA(this.sr("c").get());
+            return 1;
+        },
+        0xba: () => {
+            this.compNToA(this.sr("d").get());
+            return 1;
+        },
+        0xbb: () => {
+            this.compNToA(this.sr("e").get());
+            return 1;
+        },
+        0xbc: () => {
+            this.compNToA(this.sr("h").get());
+            return 1;
+        },
+        0xbd: () => {
+            this.compNToA(this.sr("l").get());
+            return 1;
+        },
+        0xbf: () => {
+            this.compNToA(this.sr("a").get());
+            return 1;
+        },
+        0xbe: (s) => {
+            this.compNToA(s.read(this.regHL.get()));
+            return 2;
+        },
+        0xfe: (s) => {
+            this.compNToA(this.nextByte(s));
+            return 2;
+        },
         // LD (a8), A
-        0xe0: (s) => { s.write(0xff00 | this.nextByte(s), this.regAF.h.get()); return 3; },
+        0xe0: (s) => {
+            s.write(0xff00 | this.nextByte(s), this.regAF.h.get());
+            return 3;
+        },
         // LD A, (a8)
-        0xf0: (s) => { this.regAF.h.set(s.read(0xff00 | this.nextByte(s))); return 3; },
+        0xf0: (s) => {
+            this.regAF.h.set(s.read(0xff00 | this.nextByte(s)));
+            return 3;
+        },
         // LD (C), A
-        0xe2: (s) => { s.write(0xff00 | this.sr("c").get(), this.regAF.h.get()); return 2; },
+        0xe2: (s) => {
+            s.write(0xff00 | this.sr("c").get(), this.regAF.h.get());
+            return 2;
+        },
         // LD A, (C)
-        0xf2: (s) => { this.regAF.h.set(s.read(0xff00 | this.sr("c").get())); return 2; },
+        0xf2: (s) => {
+            this.regAF.h.set(s.read(0xff00 | this.sr("c").get()));
+            return 2;
+        },
         // LD (a16), A
-        0xea: (s) => { s.write(this.nextWord(s), this.regAF.h.get()); return 4; },
+        0xea: this.nextWord((s, { value: address }) => {
+            const value = this.regAF.h.get();
+            return () => {
+                s.write(address, value);
+                return null;
+            };
+        }),
         // LD A, (a16)
-        0xfa: (s) => { this.regAF.h.set(s.read(this.nextWord(s))); return 4; },
+        0xfa: this.nextWord((s, { value }) => {
+            const address = s.read(value);
+            return () => {
+                this.regAF.h.set(address);
+                return null;
+            };
+        }),
         // RST 0/1/2/3/4/5/6/7
-        0xc7: (s) => { this.call(s, 0x00); return 4; },
-        0xcf: (s) => { this.call(s, 0x08); return 4; },
-        0xd7: (s) => { this.call(s, 0x10); return 4; },
-        0xdf: (s) => { this.call(s, 0x18); return 4; },
-        0xe7: (s) => { this.call(s, 0x20); return 4; },
-        0xef: (s) => { this.call(s, 0x28); return 4; },
-        0xf7: (s) => { this.call(s, 0x30); return 4; },
-        0xff: (s) => { this.call(s, 0x38); return 4; },
+        0xc7: (s) => {
+            this.call(s, 0x00);
+            return 4;
+        },
+        0xcf: (s) => {
+            this.call(s, 0x08);
+            return 4;
+        },
+        0xd7: (s) => {
+            this.call(s, 0x10);
+            return 4;
+        },
+        0xdf: (s) => {
+            this.call(s, 0x18);
+            return 4;
+        },
+        0xe7: (s) => {
+            this.call(s, 0x20);
+            return 4;
+        },
+        0xef: (s) => {
+            this.call(s, 0x28);
+            return 4;
+        },
+        0xf7: (s) => {
+            this.call(s, 0x30);
+            return 4;
+        },
+        0xff: (s) => {
+            this.call(s, 0x38);
+            return 4;
+        },
         // CALL a16
-        0xcd: (s) => { this.call(s, this.nextWord(s)); return 6; },
+        0xcd: this.nextWord((s, { value }) => {
+            this.call(s, value);
+            return 4;
+        }),
         // CALL Z/C/NZ/NC a16
-        0xcc: (s) => { const a = this.nextWord(s); if(this.flag(FLAG_ZERO)) { this.call(s, a); return 6; } return 3; },
-        0xdc: (s) => { const a = this.nextWord(s); if(this.flag(FLAG_CARRY)) { this.call(s, a); return 6; } return 3; },
-        0xc4: (s) => { const a = this.nextWord(s); if(!this.flag(FLAG_ZERO)) { this.call(s, a); return 6; } return 3; },
-        0xd4: (s) => { const a = this.nextWord(s); if(!this.flag(FLAG_CARRY)) { this.call(s, a); return 6; } return 3; },
+        0xcc: this.nextWord((s, { value }) => {
+            if (this.flag(FLAG_ZERO)) {
+                this.call(s, value);
+                return 4;
+            }
+            return null;
+        }),
+        0xdc: this.nextWord((s, { value }) => {
+            if (this.flag(FLAG_CARRY)) {
+                this.call(s, value);
+                return 4;
+            }
+            return null;
+        }),
+        0xc4: this.nextWord((s, { value }) => {
+            if (!this.flag(FLAG_ZERO)) {
+                this.call(s, value);
+                return 4;
+            }
+            return null;
+        }),
+        0xd4: this.nextWord((s, { value }) => {
+            if (!this.flag(FLAG_CARRY)) {
+                this.call(s, value);
+                return 4;
+            }
+            return null;
+        }),
         // RET
-        0xc9: (s) => { this.return(s); return 4; },
+        0xc9: (s) => {
+            this.return(s);
+            return 4;
+        },
         // RETI
-        0xd9: (s) => { s.enableInterrupts(); this.return(s); return 4; },
+        0xd9: (s) => {
+            s.enableInterrupts();
+            this.return(s);
+            return 4;
+        },
         // RET Z/C/NZ/NC
-        0xc8: (s) => { if(this.flag(FLAG_ZERO)) { this.return(s); return 5; } return 2; },
-        0xd8: (s) => { if(this.flag(FLAG_CARRY)) { this.return(s); return 5; } return 2; },
-        0xc0: (s) => { if(!this.flag(FLAG_ZERO)) { this.return(s); return 5; } return 2; },
-        0xd0: (s) => { if(!this.flag(FLAG_CARRY)) { this.return(s); return 5; } return 2; },
+        0xc8: (s) => {
+            if (this.flag(FLAG_ZERO)) {
+                this.return(s);
+                return 5;
+            }
+            return 2;
+        },
+        0xd8: (s) => {
+            if (this.flag(FLAG_CARRY)) {
+                this.return(s);
+                return 5;
+            }
+            return 2;
+        },
+        0xc0: (s) => {
+            if (!this.flag(FLAG_ZERO)) {
+                this.return(s);
+                return 5;
+            }
+            return 2;
+        },
+        0xd0: (s) => {
+            if (!this.flag(FLAG_CARRY)) {
+                this.return(s);
+                return 5;
+            }
+            return 2;
+        },
         // JP a16
-        0xc3: (s) => { this.jump(this.nextWord(s)); return 4; },
+        0xc3: this.nextWord((s, { value }) => {
+            this.jump(value);
+            return 2;
+        }),
         // JP HL
-        0xe9: (s) => { this.jump(this.regHL.get()); return 1; },
+        0xe9: (s) => {
+            this.jump(this.regHL.get());
+            return 1;
+        },
         // JP Z/C/NZ/NC, a16
-        0xca: (s) => { const a = this.nextWord(s); if(this.flag(FLAG_ZERO)) { this.jump(a); return 4; } return 3; },
-        0xda: (s) => { const a = this.nextWord(s); if(this.flag(FLAG_CARRY)) { this.jump(a); return 4; } return 3; },
-        0xc2: (s) => { const a = this.nextWord(s); if(!this.flag(FLAG_ZERO)) { this.jump(a); return 4; } return 3; },
-        0xd2: (s) => { const a = this.nextWord(s); if(!this.flag(FLAG_CARRY)) { this.jump(a); return 4; } return 3; },
+        0xca: this.nextWord((s, { value }) => {
+            if (this.flag(FLAG_ZERO)) {
+                this.jump(value);
+                return 2;
+            }
+            return null;
+        }),
+        0xda: this.nextWord((s, { value }) => {
+            if (this.flag(FLAG_CARRY)) {
+                this.jump(value);
+                return 2;
+            }
+            return null;
+        }),
+        0xc2: this.nextWord((s, { value }) => {
+            if (!this.flag(FLAG_ZERO)) {
+                this.jump(value);
+                return 2;
+            }
+            return null;
+        }),
+        0xd2: this.nextWord((s, { value }) => {
+            if (!this.flag(FLAG_CARRY)) {
+                this.jump(value);
+                return 2;
+            }
+            return null;
+        }),
         // JR s8
-        0x18: (s) => { this.jumpr(asSignedInt8(this.nextByte(s))); return 3; },
+        0x18: (s) => {
+            this.jumpr(asSignedInt8(this.nextByte(s)));
+            return 3;
+        },
         // JR Z/C/NZ/NC, s8
-        0x28: (s) => { const a = asSignedInt8(this.nextByte(s)); if(this.flag(FLAG_ZERO)) { this.jumpr(a); return 3; } return 2; },
-        0x38: (s) => { const a = asSignedInt8(this.nextByte(s)); if(this.flag(FLAG_CARRY)) { this.jumpr(a); return 3; } return 2; },
-        0x20: (s) => { const a = asSignedInt8(this.nextByte(s)); if(!this.flag(FLAG_ZERO)) { this.jumpr(a); return 3; } return 2; },
-        0x30: (s) => { const a = asSignedInt8(this.nextByte(s)); if(!this.flag(FLAG_CARRY)) { this.jumpr(a); return 3; } return 2; },
+        0x28: (s) => {
+            const a = asSignedInt8(this.nextByte(s));
+            if (this.flag(FLAG_ZERO)) {
+                this.jumpr(a);
+                return 3;
+            }
+            return 2;
+        },
+        0x38: (s) => {
+            const a = asSignedInt8(this.nextByte(s));
+            if (this.flag(FLAG_CARRY)) {
+                this.jumpr(a);
+                return 3;
+            }
+            return 2;
+        },
+        0x20: (s) => {
+            const a = asSignedInt8(this.nextByte(s));
+            if (!this.flag(FLAG_ZERO)) {
+                this.jumpr(a);
+                return 3;
+            }
+            return 2;
+        },
+        0x30: (s) => {
+            const a = asSignedInt8(this.nextByte(s));
+            if (!this.flag(FLAG_CARRY)) {
+                this.jumpr(a);
+                return 3;
+            }
+            return 2;
+        },
         // POP BC/DE/HL/AF
-        0xc1: (s) => { this.regBC.set(this.pop(s)); return 3; },
-        0xd1: (s) => { this.regDE.set(this.pop(s)); return 3; },
-        0xe1: (s) => { this.regHL.set(this.pop(s)); return 3; },
+        0xc1: (s) => {
+            this.regBC.set(this.pop(s));
+            return 3;
+        },
+        0xd1: (s) => {
+            this.regDE.set(this.pop(s));
+            return 3;
+        },
+        0xe1: (s) => {
+            this.regHL.set(this.pop(s));
+            return 3;
+        },
         // We need to mask lower 4 bits bc hardwired to 0
-        0xf1: (s) => { this.regAF.set(this.pop(s) & 0xfff0); return 3; },
+        0xf1: (s) => {
+            this.regAF.set(this.pop(s) & 0xfff0);
+            return 3;
+        },
         // PUSH BC/DE/HL/AF
-        0xc5: (s) => { this.push(s, this.regBC.get()); return 4; },
-        0xd5: (s) => { this.push(s, this.regDE.get()); return 4; },
-        0xe5: (s) => { this.push(s, this.regHL.get()); return 4; },
-        0xf5: (s) => { this.push(s, this.regAF.get()); return 4; },
+        0xc5: (s) => {
+            this.push(s, this.regBC.get());
+            return 4;
+        },
+        0xd5: (s) => {
+            this.push(s, this.regDE.get());
+            return 4;
+        },
+        0xe5: (s) => {
+            this.push(s, this.regHL.get());
+            return 4;
+        },
+        0xf5: (s) => {
+            this.push(s, this.regAF.get());
+            return 4;
+        },
         // RLCA / RLA / RRCA / RRA
-        0x07: () => { this.rotateLSr("a", false, false); return 1; },
-        0x17: () => { this.rotateLSr("a", true, false); return 1; },
-        0x0f: () => { this.rotateRSr("a", false, false); return 1; },
-        0x1f: () => { this.rotateRSr("a", true, false); return 1; },
+        0x07: () => {
+            this.rotateLSr("a", false, false);
+            return 1;
+        },
+        0x17: () => {
+            this.rotateLSr("a", true, false);
+            return 1;
+        },
+        0x0f: () => {
+            this.rotateRSr("a", false, false);
+            return 1;
+        },
+        0x1f: () => {
+            this.rotateRSr("a", true, false);
+            return 1;
+        },
         // ADD SP, s8
         0xe8: (s) => {
             const s8 = asSignedInt8(this.nextByte(s));
@@ -479,12 +1238,24 @@ class CPU {
             return 3;
         },
         // LD SP, HL
-        0xf9: () => { this.regSP.set(this.regHL.get()); return 2;},
+        0xf9: () => {
+            this.regSP.set(this.regHL.get());
+            return 2;
+        },
         // DI / EI
-        0xf3: (s) => { s.disableInterrupts(); return 1; },
-        0xfb: (s) => { s.enableInterrupts(); return 1; },
+        0xf3: (s) => {
+            s.disableInterrupts();
+            return 1;
+        },
+        0xfb: (s) => {
+            s.enableInterrupts();
+            return 1;
+        },
         // HALT
-        0x76: () => { this.halted = true; return 1; },
+        0x76: () => {
+            this.halted = true;
+            return 1;
+        },
         // SCF / CCF
         0x37: () => {
             this.setFlag(FLAG_SUBSTRACTION, false);
@@ -501,11 +1272,13 @@ class CPU {
         // DAA
         0x27: () => {
             let a = this.regAF.h.get();
-		    let adjust = this.flag(FLAG_CARRY) ? 0x60 : 0x00;
-            if (this.flag(FLAG_HALFCARRY)) { adjust |= 0x06; }
+            let adjust = this.flag(FLAG_CARRY) ? 0x60 : 0x00;
+            if (this.flag(FLAG_HALFCARRY)) {
+                adjust |= 0x06;
+            }
             if (!this.flag(FLAG_SUBSTRACTION)) {
-                if((a & 0x0f) > 0x09) adjust |= 0x06;
-                if(a > 0x99) adjust |= 0x60;
+                if ((a & 0x0f) > 0x09) adjust |= 0x06;
+                if (a > 0x99) adjust |= 0x60;
             }
 
             a = wrap8(a + (this.flag(FLAG_SUBSTRACTION) ? -adjust : adjust));
@@ -517,7 +1290,7 @@ class CPU {
         },
         // CPL
         0x2f: () => {
-            this.regAF.h.set((~this.regAF.h.get()) & 0xFF)
+            this.regAF.h.set(~this.regAF.h.get() & 0xff);
             this.setFlag(FLAG_SUBSTRACTION, true);
             this.setFlag(FLAG_HALFCARRY, true);
             return 1;
@@ -527,100 +1300,108 @@ class CPU {
     /**
      * A list of all 16-bit opcodes. Works the same as instructionSet.
      */
-    protected extendedInstructionSet: Partial<Record<number, InstructionObject>> = {
+    protected extendedInstructionSet: Partial<Record<number, InstructionMethod>> = {
         // RLC ...
-        ...this.generateExtendedOperation(0x00, 2, 4, (s, sr) =>
-            sr.set(this.rotateL(sr.get(), false, true))
+        ...this.generateExtendedOperation(0x00, (s, { get, set }) =>
+            get((value) => set(this.rotateL(value, false, true), null))
         ),
         // RRC ...
-        ...this.generateExtendedOperation(0x08, 2, 4, (s, sr) =>
-            sr.set(this.rotateR(sr.get(), false, true))
+        ...this.generateExtendedOperation(0x08, (s, { get, set }) =>
+            get((value) => set(this.rotateR(value, false, true), null))
         ),
         // RL ...
-        ...this.generateExtendedOperation(0x10, 2, 4, (s, sr) =>
-            sr.set(this.rotateL(sr.get(), true, true))
+        ...this.generateExtendedOperation(0x10, (s, { get, set }) =>
+            get((value) => set(this.rotateL(value, true, true), null))
         ),
         // RC ...
-        ...this.generateExtendedOperation(0x18, 2, 4, (s, sr) =>
-            sr.set(this.rotateR(sr.get(), true, true))
+        ...this.generateExtendedOperation(0x18, (s, { get, set }) =>
+            get((value) => set(this.rotateR(value, true, true), null))
         ),
         // SLA ...
-        ...this.generateExtendedOperation(0x20, 2, 4, (s, sr) => {
-            const val = sr.get();
-            const result = (val << 1) & 0xff;
-            sr.set(result);
-            this.setFlag(FLAG_ZERO, result === 0);
-            this.setFlag(FLAG_SUBSTRACTION, false);
-            this.setFlag(FLAG_HALFCARRY, false);
-            this.setFlag(FLAG_CARRY, ((val >> 7) & 0b1) === 1);
-        }),
+        ...this.generateExtendedOperation(0x20, (s, { get, set }) =>
+            get((value) => {
+                const result = (value << 1) & 0xff;
+                this.setFlag(FLAG_ZERO, result === 0);
+                this.setFlag(FLAG_SUBSTRACTION, false);
+                this.setFlag(FLAG_HALFCARRY, false);
+                this.setFlag(FLAG_CARRY, ((value >> 7) & 0b1) === 1);
+                return set(result, null);
+            })
+        ),
         // SRA ...
-        ...this.generateExtendedOperation(0x28, 2, 4, (s, sr) => {
-            const val = sr.get();
-            const result = ((val >> 1) & 0xff) | (val & (1 << 7)); // bit 7 left unchanged
-            sr.set(result);
-            this.setFlag(FLAG_ZERO, result === 0);
-            this.setFlag(FLAG_SUBSTRACTION, false);
-            this.setFlag(FLAG_HALFCARRY, false);
-            this.setFlag(FLAG_CARRY, (val & 0b1) === 1);
-        }),
+        ...this.generateExtendedOperation(0x28, (s, { get, set }) =>
+            get((value) => {
+                const result = ((value >> 1) & 0xff) | (value & (1 << 7)); // bit 7 left unchanged
+                this.setFlag(FLAG_ZERO, result === 0);
+                this.setFlag(FLAG_SUBSTRACTION, false);
+                this.setFlag(FLAG_HALFCARRY, false);
+                this.setFlag(FLAG_CARRY, (value & 0b1) === 1);
+                return set(result, null);
+            })
+        ),
         // SRL ...
-        ...this.generateExtendedOperation(0x38, 2, 4, (s, sr) => {
-            const val = sr.get();
-            const result = (val >> 1) & 0xff;
-            sr.set(result);
-            this.setFlag(FLAG_ZERO, result === 0);
-            this.setFlag(FLAG_SUBSTRACTION, false);
-            this.setFlag(FLAG_HALFCARRY, false);
-            this.setFlag(FLAG_CARRY, (val & 0b1) === 1);
-        }),
+        ...this.generateExtendedOperation(0x38, (s, { get, set }) =>
+            get((value) => {
+                const result = (value >> 1) & 0xff;
+                this.setFlag(FLAG_ZERO, result === 0);
+                this.setFlag(FLAG_SUBSTRACTION, false);
+                this.setFlag(FLAG_HALFCARRY, false);
+                this.setFlag(FLAG_CARRY, (value & 0b1) === 1);
+                return set(result, null);
+            })
+        ),
         // SWAP ...
-        ...this.generateExtendedOperation(0x30, 2, 4, (s, sr) => {
-            const val = sr.get();
-            const result = ((val & 0x0f) << 4) | ((val & 0xf0) >> 4);
-            sr.set(result);
-            this.setFlag(FLAG_ZERO, result === 0);
-            this.setFlag(FLAG_SUBSTRACTION, false);
-            this.setFlag(FLAG_HALFCARRY, false);
-            this.setFlag(FLAG_CARRY, false);
-        }),
+        ...this.generateExtendedOperation(0x30, (s, { get, set }) =>
+            get((value) => {
+                const result = ((value & 0x0f) << 4) | ((value & 0xf0) >> 4);
+                this.setFlag(FLAG_ZERO, result === 0);
+                this.setFlag(FLAG_SUBSTRACTION, false);
+                this.setFlag(FLAG_HALFCARRY, false);
+                this.setFlag(FLAG_CARRY, false);
+                return set(result, null);
+            })
+        ),
         // BIT 0/1/2/.../7, ...
         ...[...new Array(8)].reduce(
             (previous, _, bit) => ({
                 ...previous,
-                ...this.generateExtendedOperation(0x40 + bit * 8, 2, 3, (s, sr) => {
-                    const val = sr.get();
-                    const out = (val >> bit) & 0b1;
-                    this.setFlag(FLAG_ZERO, out === 0);
-                    this.setFlag(FLAG_SUBSTRACTION, false);
-                    this.setFlag(FLAG_HALFCARRY, true);
-                }),
+                ...this.generateExtendedOperation(0x40 + bit * 8, (s, { get, set }) =>
+                    get((value) => {
+                        const out = (value >> bit) & 0b1;
+                        this.setFlag(FLAG_ZERO, out === 0);
+                        this.setFlag(FLAG_SUBSTRACTION, false);
+                        this.setFlag(FLAG_HALFCARRY, true);
+                        return null;
+                    })
+                ),
             }),
-            {} as Partial<Record<number, InstructionObject>>
+            {} as Partial<Record<number, InstructionMethod>>
         ),
         // RES 0/1/2/.../7, ...
         ...[...new Array(8)].reduce(
             (previous, _, bit) => ({
                 ...previous,
-                ...this.generateExtendedOperation(0x80 + bit * 8, 2, 4, (s, sr) => {
-                    const val = sr.get();
-                    const result = val & ~(1 << bit);
-                    sr.set(result);
-                }),
+                ...this.generateExtendedOperation(0x80 + bit * 8, (s, { get, set }) =>
+                    get((value) => {
+                        const result = value & ~(1 << bit);
+                        return set(result, null);
+                    })
+                ),
             }),
-            {} as Partial<Record<number, InstructionObject>>
+            {} as Partial<Record<number, InstructionMethod>>
         ),
         // SET 0/1/2/.../7, ...
         ...[...new Array(8)].reduce(
             (previous, _, bit) => ({
                 ...previous,
-                ...this.generateExtendedOperation(0xc0 + bit * 8, 2, 4, (s, sr) => {
-                    const val = sr.get();
-                    const result = val | (1 << bit);
-                    sr.set(result);
-                }),
+                ...this.generateExtendedOperation(0xc0 + bit * 8, (s, { get, set }) =>
+                    get((value) => {
+                        const result = value | (1 << bit);
+                        return set(result, null);
+                    })
+                ),
             }),
-            {} as Partial<Record<number, InstructionObject>>
+            {} as Partial<Record<number, InstructionMethod>>
         ),
     };
 
@@ -800,6 +1581,26 @@ class CPU {
         const sr = this.sr(srName);
         sr.set(this.rotateR(sr.get(), useCarry, setZero));
     }
+
+    /**
+     * Helper function for instructions that do the same operations for a set of registers.
+     * @param baseCode The base code of the instruction (e.g. 0x50)
+     * @param gapSize The gap between two instructions (e.g. 0x10, 0x01)
+     * @param registers The instructions the operation runs on. Order matters.
+     * @param execute A function that executes the instruction for a given register.
+     * @returns An object with the completed instructions
+     */
+    protected generateOperation(
+        baseCode: number,
+        gapSize: number,
+        registers: Register[],
+        execute: (r: Register) => InstructionMethod
+    ): Partial<Record<number, InstructionMethod>> {
+        return Object.fromEntries(
+            registers.map((register, i) => [baseCode + gapSize * i, execute(register)])
+        );
+    }
+
     /**
      * Helper function for instructions that follow the same B-C-D-E-H-L-(HL)-A pattern
      * @param baseCode The base code of the instruction (e.g. 0x50)
@@ -810,47 +1611,43 @@ class CPU {
      */
     protected generateExtendedOperation(
         baseCode: number,
-        cost: number,
-        hlCost: number,
-        execute: (s: System, sr: Pick<SubRegister, "get" | "set">) => void
-    ): Partial<Record<number, InstructionObject>> {
+        execute: InstructionMethod<{
+            get: (r: (value: number) => InstructionReturn) => InstructionReturn;
+            set: (x: number, r: InstructionReturn) => InstructionReturn;
+        }>
+    ): Partial<Record<number, InstructionMethod>> {
+        const make = (s: System, sr: SubRegister) => ({
+            get: (r: (value: number) => InstructionReturn) => {
+                const value = sr.get();
+                return r(value);
+            },
+            set: (x: number, r: InstructionReturn) => {
+                sr.set(x);
+                return r;
+            },
+        });
         // order matters: B/C/D/E/H/L/(HL)/A
         return {
-            [baseCode + 0]: (s) => {
-                execute(s, this.regBC.h);
-                return cost;
-            },
-            [baseCode + 1]: (s) => {
-                execute(s, this.regBC.l);
-                return cost;
-            },
-            [baseCode + 2]: (s) => {
-                execute(s, this.regDE.h);
-                return cost;
-            },
-            [baseCode + 3]: (s) => {
-                execute(s, this.regDE.l);
-                return cost;
-            },
-            [baseCode + 4]: (s) => {
-                execute(s, this.regHL.h);
-                return cost;
-            },
-            [baseCode + 5]: (s) => {
-                execute(s, this.regHL.l);
-                return cost;
-            },
-            [baseCode + 6]: (s) => {
+            [baseCode + 0]: (s) => execute(s, make(s, this.regBC.h)),
+            [baseCode + 1]: (s) => execute(s, make(s, this.regBC.l)),
+            [baseCode + 2]: (s) => execute(s, make(s, this.regDE.h)),
+            [baseCode + 3]: (s) => execute(s, make(s, this.regDE.l)),
+            [baseCode + 4]: (s) => execute(s, make(s, this.regHL.h)),
+            [baseCode + 5]: (s) => execute(s, make(s, this.regHL.l)),
+            [baseCode + 6]: (s) =>
                 execute(s, {
-                    get: () => s.read(this.regHL.get()),
-                    set: (n: number) => s.write(this.regHL.get(), n),
-                });
-                return hlCost;
-            },
-            [baseCode + 7]: (s) => {
-                execute(s, this.regAF.h);
-                return cost;
-            },
+                    get: (r: (value: number) => InstructionReturn) => {
+                        const value = s.read(this.regHL.get());
+                        return () => r(value);
+                    },
+                    set: (x: number, r: InstructionReturn) => {
+                        return () => {
+                            s.write(this.regHL.get(), x);
+                            return r;
+                        };
+                    },
+                }),
+            [baseCode + 7]: (s) => execute(s, make(s, this.regAF.h)),
         };
     }
 }

@@ -30,6 +30,8 @@ class ROM implements Addressable {
                 this.mbc = new NoMBC(data);
                 break;
             case 0x01:
+            case 0x02:
+            case 0x03:
                 this.mbc = new MBC1(data);
                 break;
             default:
