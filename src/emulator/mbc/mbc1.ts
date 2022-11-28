@@ -37,7 +37,7 @@ class MBC1 extends MBC {
             return this.data[address];
         }
 
-        throw new Error(`Invalid address to read frmo MCB1: ${pos.toString(16)}`);
+        throw new Error(`Invalid address to read from MCB1: ${pos.toString(16)}`);
     }
 
     write(pos: number, data: number): void {

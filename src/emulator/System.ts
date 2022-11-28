@@ -113,13 +113,24 @@ class System implements Addressable {
         if (0xc000 <= pos && pos <= 0xdfff) return [this.wram, pos - 0xc000];
         // OAM
         if (0xfe00 <= pos && pos <= 0xfe9f) return [this.oam, pos];
+        // Illegal Area
+        if (0xfea0 <= pos && pos <= 0xfeff) {
+            console.debug(
+                `Accessed illegal area ${pos
+                    .toString(16)
+                    .padStart(4, "0")}, return a fake 0x00 register`
+            );
+            return [{ read: () => 0x00, write: () => {} }, 0];
+        }
         // High RAM (HRAM)
         if (0xff80 <= pos && pos <= 0xfffe) return [this.hram, pos - 0xff80];
 
-        console.warn(
-            `Accessed invalid address ${pos.toString(16)}, returned a fake 0xFF register`
+        console.debug(
+            `Accessed unmapped area ${pos
+                .toString(16)
+                .padStart(4, "0")}, return a fake 0xff register`
         );
-        return [new SubRegister(0xff), 0];
+        return [{ read: () => 0xff, write: () => {} }, 0];
     }
 
     /**

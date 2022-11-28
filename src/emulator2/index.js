@@ -285,8 +285,6 @@ CPU.prototype.checkInterrupt = function() {
 
 // Set an interrupt flag
 CPU.prototype.requestInterrupt = function(type) {
-    if (this.counter < 100)
-        console.debug("(em-2) requested lcdc interrupt at step ", this.counter)
     var IFval = this.memory.rb(0xFF0F);
     IFval |= (1 << type)
     this.memory.wb(0xFF0F, IFval) ;
