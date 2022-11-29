@@ -76,6 +76,11 @@ code.failed {
     color: orangered;
 }
 
+code.error {
+    color: white;
+    background-color: maroon;
+}
+
 button {
     border-radius: 8px;
     border: 1px solid transparent;

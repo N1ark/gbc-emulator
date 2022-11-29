@@ -21,6 +21,7 @@ class GameBoyColor {
     protected cycles: number;
 
     protected debug?: () => DebugData;
+    protected errorCatcher?: (error: unknown) => void;
     protected breakpoints?: (number | [number, (c: CPU) => boolean])[];
 
     constructor(
@@ -32,6 +33,7 @@ class GameBoyColor {
         this.cpu = new CPU();
         this.system = new System(rom, input, output, () => this.cpu.unhalt());
         this.cycles = 0;
+        this.errorCatcher = output.errorOut;
         this.debug = debug;
         console.log("[debug] Created GBC", this);
 
@@ -67,21 +69,25 @@ class GameBoyColor {
     }
 
     run() {
-        if (!this.isRunning) return;
-        const breakpoint = this.drawFrame();
+        try {
+            if (!this.isRunning) return;
+            const breakpoint = this.drawFrame();
 
-        if ((this.debug && !this.debug().skipDebug) || breakpoint) {
-            // force a "button up, button down, button up" cycle (ie full button press)
-            setTimeout(async () => {
-                if (!this.debug) return;
-                while (this.debug().canStep) await sleep(10);
-                while (!this.debug().canStep) await sleep(10);
-                this.run();
-            }, 10);
-            return;
+            if ((this.debug && !this.debug().skipDebug) || breakpoint) {
+                // force a "button up, button down, button up" cycle (ie full button press)
+                setTimeout(async () => {
+                    if (!this.debug) return;
+                    while (this.debug().canStep) await sleep(10);
+                    while (!this.debug().canStep) await sleep(10);
+                    this.run();
+                }, 10);
+                return;
+            }
+
+            window.requestAnimationFrame(() => this.run());
+        } catch (error) {
+            this.errorCatcher && this.errorCatcher(error);
         }
-
-        window.requestAnimationFrame(() => this.run());
     }
 
     stop() {

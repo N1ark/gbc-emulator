@@ -18,6 +18,11 @@ interface GameBoyOutput {
      * Optional method that receives the serial output of the gameboy, character by character.
      */
     serialOut?(data: number): void;
+
+    /**
+     * Optional method that receives errors raised by the gameboy while it's running.
+     */
+    errorOut?(error: unknown): void;
 }
 
 export default GameBoyOutput;

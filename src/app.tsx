@@ -85,6 +85,7 @@ const App: FunctionalComponent = () => {
             const gbOut: GameBoyOutput = {
                 receive: (d) => displayData(d, emulator1Ref),
                 serialOut: (d) => setSerialOut((prev) => prev + String.fromCharCode(d)),
+                errorOut: (e) => setSerialOut(`${e}`),
             };
             if (debugEnabled) {
                 gbOut.debugBackground = (d) => displayData(d, bgDebugger, 256, 256);
@@ -187,6 +188,8 @@ const App: FunctionalComponent = () => {
                                     ? "passed"
                                     : serialOut.toLowerCase().includes("failed")
                                     ? "failed"
+                                    : serialOut.toLowerCase().includes("error")
+                                    ? "error"
                                     : undefined
                             }
                         >
