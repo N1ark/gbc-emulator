@@ -2,7 +2,7 @@ import { CYCLES_PER_FRAME } from "./constants";
 import CPU from "./CPU";
 import GameInput from "./GameInput";
 import System from "./System";
-import VideoOutput from "./VideoOutput";
+import GameBoyOutput from "./GameBoyOutput";
 
 type DebugData = {
     canStep: boolean;
@@ -26,7 +26,7 @@ class GameBoyColor {
     constructor(
         rom: Uint8Array,
         input: GameInput,
-        output: VideoOutput,
+        output: GameBoyOutput,
         debug?: () => DebugData
     ) {
         this.cpu = new CPU();

@@ -17,7 +17,7 @@ import OAM from "./OAM";
 import { SubRegister } from "./Register";
 import ROM from "./ROM";
 import Timer from "./Timer";
-import VideoOutput from "./VideoOutput";
+import GameBoyOutput from "./GameBoyOutput";
 
 type AddressData = [Addressable, number];
 
@@ -41,13 +41,14 @@ class System implements Addressable {
     protected unhalt: () => void;
 
     // Debug
-    protected serialOut: string = "";
+    protected serialOut: undefined | ((data: number) => void);
 
-    constructor(rom: Uint8Array, input: GameInput, output: VideoOutput, unhalt: () => void) {
+    constructor(rom: Uint8Array, input: GameInput, output: GameBoyOutput, unhalt: () => void) {
         this.rom = new ROM(rom);
         this.joypad = new JoypadInput(input);
         this.gpu = new GPU(output);
         this.unhalt = unhalt;
+        this.serialOut = output.serialOut;
     }
 
     /** Ticks the whole system for the given number of cycles. */
@@ -87,11 +88,7 @@ class System implements Addressable {
         if (pos === 0xff01) {
             const spy = new SubRegister();
             spy.read = () => 0;
-            spy.write = (pos, data) => {
-                console.warn(
-                    `[Serial Out] (${data}): ${(this.serialOut += String.fromCharCode(data))}`
-                );
-            };
+            spy.write = (pos, data) => this.serialOut && this.serialOut(data);
             return [spy, 0];
         }
 

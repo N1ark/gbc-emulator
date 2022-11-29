@@ -41,6 +41,42 @@ canvas {
     image-rendering: pixelated;
 }
 
+#emu-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 75vw;
+}
+
+#emu-screens {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+}
+
+#emu-screens > * {
+    height: fit-content;
+    margin: 8px;
+}
+
+#emu-stack code {
+    padding: 2em;
+    white-space: break-spaces;
+    overflow-wrap: anywhere;
+}
+
+code {
+    transition: color 0.5s ease;
+}
+
+code.passed {
+    color: greenyellow;
+}
+
+code.failed {
+    color: orangered;
+}
+
 button {
     border-radius: 8px;
     border: 1px solid transparent;

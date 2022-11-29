@@ -5,7 +5,7 @@ import { RAM } from "./Memory";
 import { SubRegister } from "./Register";
 import System from "./System";
 import { asSignedInt8, wrap8 } from "./util";
-import VideoOutput from "./VideoOutput";
+import GameBoyOutput from "./GameBoyOutput";
 
 type Int2 = 0 | 1 | 2 | 3;
 
@@ -67,7 +67,7 @@ class GPU implements Readable {
     protected oam = new RAM(160); //
 
     // Video output/storage
-    protected output: VideoOutput;
+    protected output: GameBoyOutput;
     protected videoBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH).fill(0xff000000);
 
     // General use
@@ -98,7 +98,7 @@ class GPU implements Readable {
         0b11: 0xff000000, // black
     };
 
-    constructor(output: VideoOutput) {
+    constructor(output: GameBoyOutput) {
         this.output = output;
     }
 

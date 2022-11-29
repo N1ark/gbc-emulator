@@ -1,4 +1,4 @@
-interface VideoOutput {
+interface GameBoyOutput {
     /**
      * Receives the GameBoy's output, as an array of RGBA values.
      */
@@ -13,6 +13,11 @@ interface VideoOutput {
      * Optional method that receives an image with the current tileset in 128x192.
      */
     debugTileset?(data: Uint32Array): void;
+
+    /**
+     * Optional method that receives the serial output of the gameboy, character by character.
+     */
+    serialOut?(data: number): void;
 }
 
-export default VideoOutput;
+export default GameBoyOutput;
