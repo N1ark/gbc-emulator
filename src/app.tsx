@@ -1,16 +1,17 @@
-import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
-import "./app.css";
-import { createRef, FunctionalComponent } from "preact";
-import RomInput from "./RomInput";
-import Screen from "./Screen";
-import GameBoyColor from "./emulator/GameBoyColor";
-import GameBoyOutput from "./emulator/GameBoyOutput";
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
-import GameInput from "./emulator/GameInput";
-import useKeys from "./useKeys";
-
 // @ts-ignore
 import GameboyJS from "./emulator2";
+
+import { FunctionalComponent } from "preact";
+import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
+import "./app.css";
+import GameInput from "./emulator/GameInput";
+import RomInput from "./RomInput";
+import Screen from "./Screen";
+import useKeys from "./useKeys";
+
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
+import GameBoyColor from "./emulator/GameBoyColor";
+import GameBoyOutput from "./emulator/GameBoyOutput";
 
 const displayData = (
     data: Uint32Array,
@@ -49,23 +50,11 @@ const App: FunctionalComponent = () => {
     const bgDebugger = useRef<HTMLCanvasElement>(null);
     const tilesetDebugger = useRef<HTMLCanvasElement>(null);
 
+    const [loadedGame, setLoadedGame] = useState<Uint8Array>();
     const [gameboy, setGameboy] = useState<GameBoyColor>();
     const [serialOut, setSerialOut] = useState<String>("");
 
-    useEffect(() => {
-        if (gameboy !== undefined) return;
-
-        const listener = (e: KeyboardEvent) =>
-            e.key === "z" &&
-            fetch("/tetris.gb")
-                .then((r) => r.blob())
-                .then((b) => b.arrayBuffer())
-                .then((txt) => loadRom(txt));
-
-        document.addEventListener("keydown", listener);
-        return () => document.removeEventListener("keydown", listener);
-    }, [gameboy]);
-    const loadRom = useCallback((rom: ArrayBuffer) => {
+    const loadGame = useCallback((rom: Uint8Array) => {
         const gameIn: GameInput = {
             read: () => ({
                 up: !pressedKeys.includes("arrowup"),
@@ -94,8 +83,8 @@ const App: FunctionalComponent = () => {
             gbOut.debugBackground = (d) => displayData(d, bgDebugger, 256, 256);
             gbOut.debugTileset = (d) => displayData(d, tilesetDebugger, 128, 192);
         }
-        const romArray = new Uint8Array(rom);
-        const gbc = new GameBoyColor(romArray, gameIn, gbOut, debug);
+
+        const gbc = new GameBoyColor(rom, gameIn, gbOut, debug);
         setGameboy(gbc);
 
         if (emulator2Enabled) {
@@ -111,11 +100,37 @@ const App: FunctionalComponent = () => {
                         },
                     ],
                 });
-                fileCallback(romArray);
+                fileCallback(rom);
             }, 10);
         }
 
         requestAnimationFrame(() => gbc.run());
+    }, []);
+
+    useEffect(() => {
+        const listener =
+            gameboy === undefined || loadedGame === undefined
+                ? (e: KeyboardEvent) =>
+                      e.key === "z" &&
+                      fetch("/tetris.gb")
+                          .then((r) => r.blob())
+                          .then((b) => b.arrayBuffer())
+                          .then((txt) => loadRom(txt))
+                : (e: KeyboardEvent) =>
+                      e.key === "r" &&
+                      Promise.resolve()
+                          .then(() => gameboy.stop())
+                          .then(() => setSerialOut(""))
+                          .then(() => loadGame(loadedGame));
+
+        document.addEventListener("keydown", listener);
+        return () => document.removeEventListener("keydown", listener);
+    }, [gameboy, loadedGame]);
+
+    const loadRom = useCallback((rom: ArrayBuffer) => {
+        const romArray = new Uint8Array(rom);
+        setLoadedGame(romArray);
+        loadGame(romArray);
     }, []);
 
     return (

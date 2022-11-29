@@ -83,6 +83,10 @@ class GameBoyColor {
 
         window.requestAnimationFrame(() => this.run());
     }
+
+    stop() {
+        this.isRunning = false;
+    }
 }
 
 export default GameBoyColor;
