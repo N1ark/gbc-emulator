@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "localforage": "^1.10.0",
     "preact": "^10.11.2"
   },
   "devDependencies": {

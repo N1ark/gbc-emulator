@@ -12,6 +12,7 @@ import useKeys from "./useKeys";
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
 import GameBoyColor from "./emulator/GameBoyColor";
 import GameBoyOutput from "./emulator/GameBoyOutput";
+import localforage from "localforage";
 
 const displayData = (
     data: Uint32Array,
@@ -32,6 +33,7 @@ const displayData = (
 
 const emulator2Enabled = false;
 const debugEnabled = false;
+const CACHE_KEY = "rom";
 
 const App: FunctionalComponent = () => {
     const pressedKeys = useKeys([
@@ -54,83 +56,109 @@ const App: FunctionalComponent = () => {
     const [gameboy, setGameboy] = useState<GameBoyColor>();
     const [serialOut, setSerialOut] = useState<String>("");
 
-    const loadGame = useCallback((rom: Uint8Array) => {
-        const gameIn: GameInput = {
-            read: () => ({
-                up: !pressedKeys.includes("arrowup"),
-                down: !pressedKeys.includes("arrowdown"),
-                left: !pressedKeys.includes("arrowleft"),
-                right: !pressedKeys.includes("arrowright"),
-                a: !pressedKeys.includes("g"),
-                b: !pressedKeys.includes("b"),
-                start: !pressedKeys.includes("h"),
-                select: !pressedKeys.includes("n"),
-            }),
-        };
+    const loadGame = useCallback(
+        (rom: Uint8Array) => {
+            if (gameboy) {
+                gameboy.stop();
+                setSerialOut("");
+            }
+            const gameIn: GameInput = {
+                read: () => ({
+                    up: !pressedKeys.includes("arrowup"),
+                    down: !pressedKeys.includes("arrowdown"),
+                    left: !pressedKeys.includes("arrowleft"),
+                    right: !pressedKeys.includes("arrowright"),
+                    a: !pressedKeys.includes("g"),
+                    b: !pressedKeys.includes("b"),
+                    start: !pressedKeys.includes("h"),
+                    select: !pressedKeys.includes("n"),
+                }),
+            };
 
-        const debug = debugEnabled
-            ? () => ({
-                  canStep: pressedKeys.includes(" "),
-                  skipDebug: pressedKeys.includes("escape"),
-              })
-            : undefined;
+            const debug = debugEnabled
+                ? () => ({
+                      canStep: pressedKeys.includes(" "),
+                      skipDebug: pressedKeys.includes("escape"),
+                  })
+                : undefined;
 
-        const gbOut: GameBoyOutput = {
-            receive: (d) => displayData(d, emulator1Ref),
-            serialOut: (d) => setSerialOut((prev) => prev + String.fromCharCode(d)),
-        };
-        if (debugEnabled) {
-            gbOut.debugBackground = (d) => displayData(d, bgDebugger, 256, 256);
-            gbOut.debugTileset = (d) => displayData(d, tilesetDebugger, 128, 192);
-        }
+            const gbOut: GameBoyOutput = {
+                receive: (d) => displayData(d, emulator1Ref),
+                serialOut: (d) => setSerialOut((prev) => prev + String.fromCharCode(d)),
+            };
+            if (debugEnabled) {
+                gbOut.debugBackground = (d) => displayData(d, bgDebugger, 256, 256);
+                gbOut.debugTileset = (d) => displayData(d, tilesetDebugger, 128, 192);
+            }
 
-        const gbc = new GameBoyColor(rom, gameIn, gbOut, debug);
-        setGameboy(gbc);
+            const gbc = new GameBoyColor(rom, gameIn, gbOut, debug);
+            setGameboy(gbc);
 
-        if (emulator2Enabled) {
-            setTimeout(() => {
-                // Create Emulator 2 (working)
-                let fileCallback = (d: Uint8Array) => {};
-                new GameboyJS.Gameboy(emulator2Ref.current, {
-                    romReaders: [
-                        {
-                            setCallback: (c: (d: Uint8Array) => void) => {
-                                fileCallback = c;
+            if (emulator2Enabled) {
+                setTimeout(() => {
+                    // Create Emulator 2 (working)
+                    let fileCallback = (d: Uint8Array) => {};
+                    new GameboyJS.Gameboy(emulator2Ref.current, {
+                        romReaders: [
+                            {
+                                setCallback: (c: (d: Uint8Array) => void) => {
+                                    fileCallback = c;
+                                },
                             },
-                        },
-                    ],
-                });
-                fileCallback(rom);
-            }, 10);
-        }
+                        ],
+                    });
+                    fileCallback(rom);
+                }, 10);
+            }
 
-        requestAnimationFrame(() => gbc.run());
-    }, []);
+            requestAnimationFrame(() => gbc.run());
+        },
+        [gameboy]
+    );
 
+    /**
+     * Utility refresh: gets the caches ROM and plays it.
+     */
     useEffect(() => {
-        const listener =
-            gameboy === undefined || loadedGame === undefined
-                ? (e: KeyboardEvent) =>
-                      e.key === "z" &&
-                      fetch("/tetris.gb")
-                          .then((r) => r.blob())
-                          .then((b) => b.arrayBuffer())
-                          .then((txt) => loadRom(txt))
-                : (e: KeyboardEvent) =>
-                      e.key === "r" &&
-                      Promise.resolve()
-                          .then(() => gameboy.stop())
-                          .then(() => setSerialOut(""))
-                          .then(() => loadGame(loadedGame));
+        const listener = (e: KeyboardEvent) =>
+            e.key === "r" &&
+            localforage.getItem(CACHE_KEY, (err, value) => {
+                if (!value) return;
+                setLoadedGame(value as Uint8Array);
+                loadGame(value as Uint8Array);
+            });
 
         document.addEventListener("keydown", listener);
         return () => document.removeEventListener("keydown", listener);
-    }, [gameboy, loadedGame]);
+    }, [loadGame, setLoadedGame]);
 
-    const loadRom = useCallback((rom: ArrayBuffer) => {
-        const romArray = new Uint8Array(rom);
-        setLoadedGame(romArray);
-        loadGame(romArray);
+    /**
+     * Cache the loaded ROM, and load it in.
+     */
+    const loadRom = useCallback(
+        (rom: ArrayBuffer) => {
+            const romArray = new Uint8Array(rom);
+            // try caching the rom for reloads / refreshes
+            localforage.setItem(
+                CACHE_KEY,
+                romArray,
+                (err) => err && console.warn("Error caching ROM: ", err)
+            );
+            setLoadedGame(romArray);
+            loadGame(romArray);
+        },
+        [loadGame, setLoadedGame]
+    );
+
+    /**
+     * Hot load: if a ROM is cached, instantly loads it on startup.
+     */
+    useEffect(() => {
+        localforage.getItem(CACHE_KEY, (err, value) => {
+            if (!value) return;
+            setLoadedGame(value as Uint8Array);
+            loadGame(value as Uint8Array);
+        });
     }, []);
 
     return (
@@ -138,7 +166,9 @@ const App: FunctionalComponent = () => {
             <h1>Emmy</h1>
             <h2>The GBC Browser Emulator</h2>
 
-            {gameboy ? (
+            <RomInput type="gb" onLoad={loadRom} />
+
+            {gameboy && (
                 <div id="emu-stack">
                     <div id="emu-screens">
                         <Screen canvasRef={emulator1Ref} />
@@ -164,8 +194,6 @@ const App: FunctionalComponent = () => {
                         </code>
                     )}
                 </div>
-            ) : (
-                <RomInput type="gb" onLoad={loadRom} />
             )}
         </>
     );
