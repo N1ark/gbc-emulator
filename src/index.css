@@ -47,6 +47,17 @@ canvas {
     max-width: 75vw;
 }
 
+#emu-options {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    margin: 16px 0;
+}
+
+#emu-options > * {
+    margin: 0 8px;
+}
+
 #emu-screens {
     display: flex;
     flex-direction: row;
@@ -65,6 +76,7 @@ canvas {
 }
 
 code {
+    font-family: "Fira Code", monospace;
     transition: color 0.5s ease;
 }
 
@@ -89,15 +101,34 @@ button {
     font-weight: 500;
     font-family: inherit;
     background-color: #1a1a1a;
-    cursor: pointer;
-    transition: border-color 0.25s;
+    transition: border-color 0.25s ease, background-color 0.25s ease;
 }
-button:hover {
+button:not(:disabled) {
+    cursor: pointer;
+}
+button:hover:not(:disabled) {
     border-color: #646cff;
 }
 button:focus,
 button:focus-visible {
-    outline: 4px auto -webkit-focus-ring-color;
+    outline: 0;
+    background-color: #202020;
+    border-color: mediumslateblue;
+}
+
+button.icon-button {
+    border-radius: 4px;
+    padding: 0.3em 0.6em;
+    font-size: 0.5em;
+    aspect-ratio: 1/1;
+}
+
+button.icon-button svg {
+    transform: scale(0.5);
+}
+
+button.icon-button.toggled {
+    border-color: greenyellow;
 }
 
 @media (prefers-color-scheme: light) {

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "localforage": "^1.10.0",
+    "lucide-preact": "^0.102.0",
     "preact": "^10.11.2"
   },
   "devDependencies": {

@@ -3,6 +3,8 @@ import GameboyJS from "./emulator2";
 
 import { FunctionalComponent } from "preact";
 import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { Play, Pause, Redo, Bug, FlipHorizontal } from "lucide-preact";
+
 import "./app.css";
 import GameInput from "./emulator/GameInput";
 import RomInput from "./RomInput";
@@ -31,8 +33,6 @@ const displayData = (
     context.putImageData(imageData, 0, 0);
 };
 
-const emulator2Enabled = false;
-const debugEnabled = false;
 const CACHE_KEY = "rom";
 
 const App: FunctionalComponent = () => {
@@ -47,6 +47,12 @@ const App: FunctionalComponent = () => {
         "n",
     ]);
 
+    const [emulator2Enabled, setEmulator2Enabled] = useState<boolean>(false);
+    const [debugEnabled, setDebugEnabled] = useState<boolean>(false);
+    const emulatorRunning = useRef<boolean>(true);
+    const [emulatorRunningState, setEmulatorRunningState] = useState<boolean>(true);
+    const canStep = useRef<boolean>(true);
+
     const emulator1Ref = useRef<HTMLCanvasElement>(null);
     const emulator2Ref = useRef<HTMLCanvasElement>(null);
     const bgDebugger = useRef<HTMLCanvasElement>(null);
@@ -54,7 +60,14 @@ const App: FunctionalComponent = () => {
 
     const [loadedGame, setLoadedGame] = useState<Uint8Array>();
     const [gameboy, setGameboy] = useState<GameBoyColor>();
-    const [serialOut, setSerialOut] = useState<String>("");
+    const [emulator2, setEmulator2] = useState<any>();
+    const [serialOut, setSerialOut] = useState<string>("");
+
+    useEffect(() => {
+        if (emulator2 && !emulator2Enabled) {
+            emulator2.error("stop");
+        }
+    }, [emulator2Enabled, emulator2]);
 
     const loadGame = useCallback(
         (rom: Uint8Array) => {
@@ -75,31 +88,37 @@ const App: FunctionalComponent = () => {
                 }),
             };
 
-            const debug = debugEnabled
-                ? () => ({
-                      canStep: pressedKeys.includes(" "),
-                      skipDebug: pressedKeys.includes("escape"),
-                  })
-                : undefined;
+            const debug = () => {
+                const step = canStep.current;
+                if (step) {
+                    canStep.current = false;
+                }
+                return {
+                    canStep: step,
+                    skipDebug: emulatorRunning.current,
+                };
+            };
 
             const gbOut: GameBoyOutput = {
                 receive: (d) => displayData(d, emulator1Ref),
                 serialOut: (d) => setSerialOut((prev) => prev + String.fromCharCode(d)),
                 errorOut: (e) => setSerialOut(`${e}`),
+                debugBackground: (d) => displayData(d, bgDebugger, 256, 256),
+                debugTileset: (d) => displayData(d, tilesetDebugger, 128, 192),
             };
-            if (debugEnabled) {
-                gbOut.debugBackground = (d) => displayData(d, bgDebugger, 256, 256);
-                gbOut.debugTileset = (d) => displayData(d, tilesetDebugger, 128, 192);
-            }
 
             const gbc = new GameBoyColor(rom, gameIn, gbOut, debug);
             setGameboy(gbc);
+            requestAnimationFrame(() => gbc.start());
 
             if (emulator2Enabled) {
                 setTimeout(() => {
+                    if (emulator2) {
+                        emulator2.error("stop");
+                    }
                     // Create Emulator 2 (working)
                     let fileCallback = (d: Uint8Array) => {};
-                    new GameboyJS.Gameboy(emulator2Ref.current, {
+                    const em2 = new GameboyJS.Gameboy(emulator2Ref.current, {
                         romReaders: [
                             {
                                 setCallback: (c: (d: Uint8Array) => void) => {
@@ -108,13 +127,12 @@ const App: FunctionalComponent = () => {
                             },
                         ],
                     });
+                    setEmulator2(em2);
                     fileCallback(rom);
                 }, 10);
             }
-
-            requestAnimationFrame(() => gbc.run());
         },
-        [gameboy]
+        [gameboy, emulator2, emulator2Enabled, debugEnabled]
     );
 
     /**
@@ -122,13 +140,7 @@ const App: FunctionalComponent = () => {
      */
     useEffect(() => {
         const listener = (e: KeyboardEvent) =>
-            e.key === "r" &&
-            localforage.getItem(CACHE_KEY, (err, value) => {
-                if (!value) return;
-                setLoadedGame(value as Uint8Array);
-                loadGame(value as Uint8Array);
-            });
-
+            e.key === "r" && loadedGame && loadGame(loadedGame);
         document.addEventListener("keydown", listener);
         return () => document.removeEventListener("keydown", listener);
     }, [loadGame, setLoadedGame]);
@@ -168,6 +180,45 @@ const App: FunctionalComponent = () => {
             <h2>The GBC Browser Emulator</h2>
 
             <RomInput type="gb" onLoad={loadRom} />
+
+            <div id="emu-options">
+                <button
+                    title="Play/Pause"
+                    className="icon-button"
+                    onClick={(e) => {
+                        const running = !emulatorRunning.current;
+                        canStep.current = emulatorRunning.current = running;
+                        setEmulatorRunningState(running);
+                    }}
+                >
+                    {emulatorRunningState ? <Pause /> : <Play />}
+                </button>
+
+                <button
+                    title="Step"
+                    className="icon-button"
+                    onClick={(e) => (canStep.current = true)}
+                    disabled={emulatorRunningState}
+                >
+                    <Redo />
+                </button>
+
+                <button
+                    title="Debug"
+                    className={`icon-button ${debugEnabled ? "toggled" : ""}`}
+                    onClick={() => setDebugEnabled(!debugEnabled)}
+                >
+                    <Bug />
+                </button>
+
+                <button
+                    title="Emulator 2 Enabled"
+                    className={`icon-button ${emulator2Enabled ? "toggled" : ""}`}
+                    onChange={() => setEmulator2Enabled(!emulator2Enabled)}
+                >
+                    <FlipHorizontal />
+                </button>
+            </div>
 
             {gameboy && (
                 <div id="emu-stack">
