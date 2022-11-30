@@ -15,6 +15,8 @@ import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
 import GameBoyColor from "./emulator/GameBoyColor";
 import GameBoyOutput from "./emulator/GameBoyOutput";
 import localforage from "localforage";
+import CPU from "./emulator/CPU";
+import System from "./emulator/System";
 
 const displayData = (
     data: Uint32Array,
@@ -78,14 +80,14 @@ const App: FunctionalComponent = () => {
             }
             const gameIn: GameInput = {
                 read: () => ({
-                    up: !pressedKeys.includes("arrowup"),
-                    down: !pressedKeys.includes("arrowdown"),
-                    left: !pressedKeys.includes("arrowleft"),
-                    right: !pressedKeys.includes("arrowright"),
-                    a: !pressedKeys.includes("g"),
-                    b: !pressedKeys.includes("b"),
-                    start: !pressedKeys.includes("h"),
-                    select: !pressedKeys.includes("n"),
+                    up: pressedKeys.includes("arrowup"),
+                    down: pressedKeys.includes("arrowdown"),
+                    left: pressedKeys.includes("arrowleft"),
+                    right: pressedKeys.includes("arrowright"),
+                    a: pressedKeys.includes("g"),
+                    b: pressedKeys.includes("b"),
+                    start: pressedKeys.includes("h"),
+                    select: pressedKeys.includes("n"),
                 }),
             };
 
@@ -103,7 +105,10 @@ const App: FunctionalComponent = () => {
             const gbOut: GameBoyOutput = {
                 receive: (d) => displayData(d, emulator1Ref),
                 serialOut: (d) => setSerialOut((prev) => prev + String.fromCharCode(d)),
-                errorOut: (e) => setSerialOut(`${e}`),
+                errorOut: (e) => {
+                    setSerialOut(`${e}`);
+                    console.error(e);
+                },
                 debugBackground: (d) => displayData(d, bgDebugger, 256, 256),
                 debugTileset: (d) => displayData(d, tilesetDebugger, 128, 192),
                 stepCount: (s) => setStepCount(s),
@@ -174,7 +179,50 @@ const App: FunctionalComponent = () => {
             setLoadedGame(value as Uint8Array);
             loadGame(value as Uint8Array);
         });
+
+        const testFunction = (opcode: number) => {
+            const noInput = {
+                a: false,
+                b: false,
+                start: false,
+                select: false,
+                up: false,
+                down: false,
+                left: false,
+                right: false,
+            };
+
+            const rom = new Uint8Array(0x200);
+            rom[0x100] = opcode;
+
+            const system = new System(
+                rom,
+                { read: () => noInput },
+                { receive: () => {} },
+                () => {}
+            );
+
+            const cpu = new CPU();
+            let steps = 0;
+
+            do {
+                steps += cpu.step(system, true);
+                console.log(`stepped, $${cpu.getPC().toString(16).padStart(4, "0")}`);
+            } while (cpu["nextStep"] !== null);
+            console.log(
+                `Operation ${opcode.toString(16).padStart(2, "0")} takes ${steps} cycles.`
+            );
+        };
+        // @ts-ignore
+        window.opTestFunction = testFunction;
     }, []);
+
+    /**
+     * Sync state with ref
+     */
+    useEffect(() => {
+        emulatorRunning.current = canStep.current = emulatorRunningState;
+    }, [emulatorRunningState]);
 
     return (
         <>
@@ -187,11 +235,7 @@ const App: FunctionalComponent = () => {
                 <button
                     title="Play/Pause"
                     className="icon-button"
-                    onClick={(e) => {
-                        const running = !emulatorRunning.current;
-                        canStep.current = emulatorRunning.current = running;
-                        setEmulatorRunningState(running);
-                    }}
+                    onClick={(e) => setEmulatorRunningState((s) => !s)}
                 >
                     {emulatorRunningState ? <Pause /> : <Play />}
                 </button>
@@ -216,7 +260,7 @@ const App: FunctionalComponent = () => {
                 <button
                     title="Emulator 2 Enabled"
                     className={`icon-button ${emulator2Enabled ? "toggled" : ""}`}
-                    onChange={() => setEmulator2Enabled(!emulator2Enabled)}
+                    onClick={() => setEmulator2Enabled(!emulator2Enabled)}
                 >
                     <FlipHorizontal />
                 </button>

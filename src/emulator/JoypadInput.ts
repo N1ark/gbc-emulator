@@ -39,15 +39,15 @@ class JoypadInput implements Addressable {
     readInput(): void {
         const data = this.input.read();
         this.buttonData =
-            (data.a ? BUTTON_A : 0) |
-            (data.b ? BUTTON_B : 0) |
-            (data.start ? BUTTON_START : 0) |
-            (data.select ? BUTTON_SELECT : 0);
+            (data.a ? 0 : BUTTON_A) |
+            (data.b ? 0 : BUTTON_B) |
+            (data.start ? 0 : BUTTON_START) |
+            (data.select ? 0 : BUTTON_SELECT);
         this.arrowsData =
-            (data.up ? ARROW_UP : 0) |
-            (data.down ? ARROW_DOWN : 0) |
-            (data.left ? ARROW_LEFT : 0) |
-            (data.right ? ARROW_RIGHT : 0);
+            (data.up ? 0 : ARROW_UP) |
+            (data.down ? 0 : ARROW_DOWN) |
+            (data.left ? 0 : ARROW_LEFT) |
+            (data.right ? 0 : ARROW_RIGHT);
     }
 
     read(): number {
