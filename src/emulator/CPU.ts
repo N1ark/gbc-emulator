@@ -377,148 +377,90 @@ class CPU {
             s.write(value + 1, this.regSP.h.get());
             return 3;
         }),
-        // LD B, B/C/D/E/H/L/(HL)/A
+        // LD B/C/D/E/H/L/A, B/C/D/E/H/L/A
+        ...this.generateOperation<number, [SubRegister, SubRegister]>(
+            {
+                0x40: [this.srB, this.srB],
+                0x41: [this.srB, this.srC],
+                0x42: [this.srB, this.srD],
+                0x43: [this.srB, this.srE],
+                0x44: [this.srB, this.srH],
+                0x45: [this.srB, this.srL],
+                0x47: [this.srB, this.srA],
+
+                0x48: [this.srC, this.srB],
+                0x49: [this.srC, this.srC],
+                0x4a: [this.srC, this.srD],
+                0x4b: [this.srC, this.srE],
+                0x4c: [this.srC, this.srH],
+                0x4d: [this.srC, this.srL],
+                0x4f: [this.srC, this.srA],
+
+                0x50: [this.srD, this.srB],
+                0x51: [this.srD, this.srC],
+                0x52: [this.srD, this.srD],
+                0x53: [this.srD, this.srE],
+                0x54: [this.srD, this.srH],
+                0x55: [this.srD, this.srL],
+                0x57: [this.srD, this.srA],
+
+                0x58: [this.srE, this.srB],
+                0x59: [this.srE, this.srC],
+                0x5a: [this.srE, this.srD],
+                0x5b: [this.srE, this.srE],
+                0x5c: [this.srE, this.srH],
+                0x5d: [this.srE, this.srL],
+                0x5f: [this.srE, this.srA],
+
+                0x60: [this.srH, this.srB],
+                0x61: [this.srH, this.srC],
+                0x62: [this.srH, this.srD],
+                0x63: [this.srH, this.srE],
+                0x64: [this.srH, this.srH],
+                0x65: [this.srH, this.srL],
+                0x67: [this.srH, this.srA],
+
+                0x68: [this.srL, this.srB],
+                0x69: [this.srL, this.srC],
+                0x6a: [this.srL, this.srD],
+                0x6b: [this.srL, this.srE],
+                0x6c: [this.srL, this.srH],
+                0x6d: [this.srL, this.srL],
+                0x6f: [this.srL, this.srA],
+
+                0x78: [this.srA, this.srB],
+                0x79: [this.srA, this.srC],
+                0x7a: [this.srA, this.srD],
+                0x7b: [this.srA, this.srE],
+                0x7c: [this.srA, this.srH],
+                0x7d: [this.srA, this.srL],
+                0x7f: [this.srA, this.srA],
+            },
+            ([to, from]) =>
+                () => {
+                    to.set(from.get());
+                    return null;
+                }
+        ),
+        // LD B/C/D/E/H/L/A (HL)
         ...this.generateOperation(
             {
-                0x40: this.srB,
-                0x41: this.srC,
-                0x42: this.srD,
-                0x43: this.srE,
-                0x44: this.srH,
-                0x45: this.srL,
-                0x47: this.srA,
+                0x46: this.srB,
+                0x4e: this.srC,
+                0x56: this.srD,
+                0x5e: this.srE,
+                0x66: this.srH,
+                0x6e: this.srL,
+                0x7e: this.srA,
             },
-            (r) => () => {
-                this.srB.set(r.get());
-                return null;
-            }
-        ),
-        0x46: (s) => {
-            this.srB.set(s.read(this.regHL.get()));
-            return 2;
-        },
-        // LD C, B/C/D/E/H/L/(HL)/A
-        ...this.generateOperation(
-            {
-                0x48: this.srB,
-                0x49: this.srC,
-                0x4a: this.srD,
-                0x4b: this.srE,
-                0x4c: this.srH,
-                0x4d: this.srL,
-                0x4f: this.srA,
-            },
-            (r) => () => {
-                this.srC.set(r.get());
-                return null;
-            }
-        ),
-        0x4e: (s) => {
-            this.srC.set(s.read(this.regHL.get()));
-            return 2;
-        },
-        // LD D, B/C/D/E/H/L/(HL)/A
-        ...this.generateOperation(
-            {
-                0x50: this.srB,
-                0x51: this.srC,
-                0x52: this.srD,
-                0x53: this.srE,
-                0x54: this.srH,
-                0x55: this.srL,
-                0x57: this.srA,
-            },
-            (r) => () => {
-                this.srD.set(r.get());
-                return null;
-            }
-        ),
-        0x56: (s) => {
-            this.srD.set(s.read(this.regHL.get()));
-            return 2;
-        },
-        // LD E, B/C/D/E/H/L/(HL)/A
-        ...this.generateOperation(
-            {
-                0x58: this.srB,
-                0x59: this.srC,
-                0x5a: this.srD,
-                0x5b: this.srE,
-                0x5c: this.srH,
-                0x5d: this.srL,
-                0x5f: this.srA,
-            },
-            (r) => () => {
-                this.srE.set(r.get());
-                return null;
-            }
-        ),
-        0x5e: (s) => {
-            this.srE.set(s.read(this.regHL.get()));
-            return 2;
-        },
-        // LD H, B/C/D/E/H/L/(HL)/A
-        ...this.generateOperation(
-            {
-                0x60: this.srB,
-                0x61: this.srC,
-                0x62: this.srD,
-                0x63: this.srE,
-                0x64: this.srH,
-                0x65: this.srL,
-                0x67: this.srA,
-            },
-            (r) => () => {
-                this.srH.set(r.get());
-                return null;
-            }
-        ),
-        0x66: (s) => {
-            this.srH.set(s.read(this.regHL.get()));
-            return 2;
-        },
-        // LD L, B/C/D/E/H/L/(HL)/A
-        ...this.generateOperation(
-            {
-                0x68: this.srB,
-                0x69: this.srC,
-                0x6a: this.srD,
-                0x6b: this.srE,
-                0x6c: this.srH,
-                0x6d: this.srL,
-                0x6f: this.srA,
-            },
-            (r) => () => {
-                this.srL.set(r.get());
-                return null;
-            }
-        ),
-        0x6e: (s) => {
-            this.srL.set(s.read(this.regHL.get()));
-            return 2;
-        },
-        // LD A, B/C/D/E/H/L/(HL)/A
-        ...this.generateOperation(
-            {
-                0x78: this.srB,
-                0x79: this.srC,
-                0x7a: this.srD,
-                0x7b: this.srE,
-                0x7c: this.srH,
-                0x7d: this.srL,
-                0x7f: this.srA,
-            },
-            (r) => () => {
-                this.srA.set(r.get());
-                return null;
-            }
-        ),
-        0x7e: this.readAddress(
-            () => this.regHL.get(),
-            (value) => () => {
-                this.srA.set(value);
-                return null;
-            }
+            (r) =>
+                this.readAddress(
+                    () => this.regHL.get(),
+                    (value) => () => {
+                        r.set(value);
+                        return null;
+                    }
+                )
         ),
         // LD (HL), B/C/D/E/H/L/A
         ...this.generateOperation(
