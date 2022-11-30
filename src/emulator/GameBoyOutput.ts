@@ -23,6 +23,11 @@ interface GameBoyOutput {
      * Optional method that receives errors raised by the gameboy while it's running.
      */
     errorOut?(error: unknown): void;
+
+    /**
+     * Optional method that receives the number of cycles executed so far by the system.
+     */
+    stepCount?(steps: number): void;
 }
 
 export default GameBoyOutput;

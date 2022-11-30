@@ -51,6 +51,10 @@ class CPU {
 
     protected handleInterrupts(system: System) {}
 
+    getStepCounts() {
+        return this.stepCounter;
+    }
+
     getPC() {
         return this.regPC.get();
     }

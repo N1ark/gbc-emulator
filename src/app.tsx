@@ -62,6 +62,7 @@ const App: FunctionalComponent = () => {
     const [gameboy, setGameboy] = useState<GameBoyColor>();
     const [emulator2, setEmulator2] = useState<any>();
     const [serialOut, setSerialOut] = useState<string>("");
+    const [stepCount, setStepCount] = useState<number>(0);
 
     useEffect(() => {
         if (emulator2 && !emulator2Enabled) {
@@ -105,6 +106,7 @@ const App: FunctionalComponent = () => {
                 errorOut: (e) => setSerialOut(`${e}`),
                 debugBackground: (d) => displayData(d, bgDebugger, 256, 256),
                 debugTileset: (d) => displayData(d, tilesetDebugger, 128, 192),
+                stepCount: (s) => setStepCount(s),
             };
 
             const gbc = new GameBoyColor(rom, gameIn, gbOut, debug);
@@ -222,6 +224,7 @@ const App: FunctionalComponent = () => {
 
             {gameboy && (
                 <div id="emu-stack">
+                    <div id="step-count">{stepCount}</div>
                     <div id="emu-screens">
                         <Screen canvasRef={emulator1Ref} />
                         {emulator2Enabled && <Screen canvasRef={emulator2Ref} />}
