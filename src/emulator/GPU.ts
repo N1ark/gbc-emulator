@@ -205,7 +205,7 @@ class GPU implements Readable {
 
         // Create cached tile if not done
         if (!cachedTile) {
-            cachedTile = { valid: false, data: [...new Array(8)].map(() => new Array(8)) };
+            cachedTile = { valid: false, data: Array.from(Array(8), () => new Array(8)) };
             this.tileCache[tileAddress] = cachedTile;
         }
 
