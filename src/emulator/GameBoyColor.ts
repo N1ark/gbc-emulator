@@ -46,6 +46,7 @@ class GameBoyColor {
     /** Draws a full frame and returns if a breakpoint was reached */
     drawFrame(): boolean {
         const debugging = this.debug && !this.debug().skipDebug;
+        this.frameDrawStart = Date.now();
 
         while (this.cycles < CYCLES_PER_FRAME) {
             // one CPU step, convert M-cycles to CPU cycles
@@ -70,7 +71,6 @@ class GameBoyColor {
         // Output
         this.output.frameDrawDuration &&
             this.output.frameDrawDuration(Date.now() - this.frameDrawStart);
-        this.frameDrawStart = Date.now();
         if (this.output.cyclesPerSec && Date.now() - this.cycleChrono.time >= 1000) {
             const count = (this.cpu.getStepCounts() - this.cycleChrono.count) * 4;
             this.cycleChrono = {
