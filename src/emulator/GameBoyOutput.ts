@@ -28,6 +28,16 @@ interface GameBoyOutput {
      * Optional method that receives the number of cycles executed so far by the system.
      */
     stepCount?(steps: number): void;
+
+    /**
+     * Optional method that returns the number of clock cycles per second.
+     */
+    cyclesPerSec?(cycles: number): void;
+
+    /**
+     * Optional method that receives the number of milliseconds taken between the two last frames.
+     */
+    frameDrawDuration?(ms: number): void;
 }
 
 export default GameBoyOutput;

@@ -21,9 +21,10 @@ class GameBoyColor {
     protected cycles: number;
 
     protected debug?: () => DebugData;
-    protected errorCatcher?: (error: unknown) => void;
-    protected stepCounts?: (steps: number) => void;
+    protected output: GameBoyOutput;
     protected breakpoints?: (number | [number, (c: CPU) => boolean])[];
+    protected frameDrawStart: number = Date.now();
+    protected cycleChrono: { count: number; time: number } = { count: 0, time: Date.now() };
 
     constructor(
         rom: Uint8Array,
@@ -34,8 +35,7 @@ class GameBoyColor {
         this.cpu = new CPU();
         this.system = new System(rom, input, output, () => this.cpu.unhalt());
         this.cycles = 0;
-        this.errorCatcher = output.errorOut;
-        this.stepCounts = output.stepCount;
+        this.output = output;
         this.debug = debug;
         console.log("[debug] Created GBC", this);
 
@@ -46,7 +46,6 @@ class GameBoyColor {
     /** Draws a full frame and returns if a breakpoint was reached */
     drawFrame(): boolean {
         const debugging = this.debug && !this.debug().skipDebug;
-        // new video sink
 
         while (this.cycles < CYCLES_PER_FRAME) {
             // one CPU step, convert M-cycles to CPU cycles
@@ -68,6 +67,19 @@ class GameBoyColor {
         // Read input
         this.system.readInput();
 
+        // Output
+        this.output.frameDrawDuration &&
+            this.output.frameDrawDuration(Date.now() - this.frameDrawStart);
+        this.frameDrawStart = Date.now();
+        if (this.output.cyclesPerSec && Date.now() - this.cycleChrono.time >= 1000) {
+            const count = (this.cpu.getStepCounts() - this.cycleChrono.count) * 4;
+            this.cycleChrono = {
+                time: Date.now(),
+                count: this.cpu.getStepCounts(),
+            };
+            this.output.cyclesPerSec(count);
+        }
+
         return false;
     }
 
@@ -77,7 +89,7 @@ class GameBoyColor {
             const breakpoint = this.drawFrame();
 
             // Outputs
-            this.stepCounts && this.stepCounts(this.cpu.getStepCounts());
+            this.output.stepCount && this.output.stepCount(this.cpu.getStepCounts());
 
             if ((this.debug && !this.debug().skipDebug) || breakpoint) {
                 // force a "button up, button down, button up" cycle (ie full button press)
@@ -92,7 +104,7 @@ class GameBoyColor {
 
             window.requestAnimationFrame(() => this.run());
         } catch (error) {
-            this.errorCatcher && this.errorCatcher(error);
+            this.output.errorOut && this.output.errorOut(error);
         }
     }
 
