@@ -194,23 +194,37 @@ class GPU implements Readable {
         }
     }
 
+    protected tileCache: { [key in number]: { valid: boolean; data: Int2[][] } | undefined } =
+        {};
+
     /**
      * Returns the tile data as a 2D 8x8 array of shades (0-3)
      */
     protected getTile(tileAddress: number): Int2[][] {
-        const data: Int2[][] = [...new Array(8)].map(() => new Array(8));
-        // Draw the 8 lines of the tile
-        for (let tileY = 0; tileY < 8; tileY++) {
-            const tileDataH = this.read(tileAddress + tileY * 2);
-            const tileDataL = this.read(tileAddress + tileY * 2 + 1);
-            for (let tileX = 0; tileX < 8; tileX++) {
-                const shadeL = (tileDataH >> (7 - tileX)) & 0b1;
-                const shadeH = (tileDataL >> (7 - tileX)) & 0b1;
-                const shade = ((shadeH << 1) | shadeL) as Int2;
-                data[tileX][tileY] = shade;
-            }
+        let cachedTile = this.tileCache[tileAddress];
+
+        // Create cached tile if not done
+        if (!cachedTile) {
+            cachedTile = { valid: false, data: [...new Array(8)].map(() => new Array(8)) };
+            this.tileCache[tileAddress] = cachedTile;
         }
-        return data;
+
+        if (!cachedTile.valid) {
+            // Draw the 8 lines of the tile
+            for (let tileY = 0; tileY < 8; tileY++) {
+                const tileDataH = this.read(tileAddress + tileY * 2);
+                const tileDataL = this.read(tileAddress + tileY * 2 + 1);
+                for (let tileX = 0; tileX < 8; tileX++) {
+                    const shadeL = (tileDataH >> (7 - tileX)) & 0b1;
+                    const shadeH = (tileDataL >> (7 - tileX)) & 0b1;
+                    const shade = ((shadeH << 1) | shadeL) as Int2;
+                    cachedTile.data[tileX][tileY] = shade;
+                }
+            }
+            cachedTile.valid = true;
+        }
+
+        return cachedTile.data;
     }
 
     protected debugBackground() {
@@ -438,6 +452,11 @@ class GPU implements Readable {
     write(pos: number, data: number): void {
         const [component, address] = this.address(pos);
         component.write(address, data);
+        if (component === this.vram && 0x8000 <= pos && pos <= 0x9800) {
+            const tileId = pos; // one tile every 16 bytes
+            const cachedTile = this.tileCache[tileId];
+            if (cachedTile) cachedTile.valid = false;
+        }
     }
 }
 
