@@ -69,6 +69,9 @@ class GPU implements Readable {
     // Video output/storage
     protected output: GameBoyOutput;
     protected videoBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH).fill(0xff000000);
+    // Debug video output/storage
+    protected backgroundVideoBuffer?: Uint32Array;
+    protected tilesetVideoBuffer?: Uint32Array;
 
     // General use
     /** @link https://gbdev.io/pandocs/LCDC.html */
@@ -230,7 +233,8 @@ class GPU implements Readable {
     protected debugBackground() {
         const width = 256;
         const height = 256;
-        const data = new Uint32Array(width * height);
+        if (this.backgroundVideoBuffer === undefined)
+            this.backgroundVideoBuffer = new Uint32Array(width * height);
 
         // Function to get access to the tile data, ie. the shades of a tile
         const toAddress = this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
@@ -257,18 +261,19 @@ class GPU implements Readable {
                 for (let tileX = 0; tileX < 8; tileX++) {
                     const colorId = tileData[tileX][tileY];
                     const index = posX * 8 + posY * width * 8 + tileX + tileY * width;
-                    data[index] = palette[colorId];
+                    this.backgroundVideoBuffer[index] = palette[colorId];
                 }
             }
         }
 
-        return data;
+        return this.backgroundVideoBuffer;
     }
 
     protected debugTileset() {
         const width = 128; // 16 * 8;
         const height = 192; // 24 * 8;
-        const data = new Uint32Array(width * height).fill(0xff0000ff);
+        if (this.tilesetVideoBuffer === undefined)
+            this.tilesetVideoBuffer = new Uint32Array(width * height);
 
         // The colors used
         const palette = this.bgAndWinPaletteColor();
@@ -285,11 +290,11 @@ class GPU implements Readable {
                 for (let tileY = 0; tileY < 8; tileY++) {
                     const colorId = tileData[tileX][tileY];
                     const index = posX * 8 + posY * width * 8 + tileX + tileY * width;
-                    data[index] = palette[colorId];
+                    this.tilesetVideoBuffer[index] = palette[colorId];
                 }
             }
         }
-        return data;
+        return this.tilesetVideoBuffer;
     }
 
     protected drawBackground(priorities: boolean[]) {
