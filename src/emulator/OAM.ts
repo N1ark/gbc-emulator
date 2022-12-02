@@ -41,9 +41,10 @@ class OAM implements Addressable {
             const transferStart = this.transferStep;
             const transferEnd = Math.min(transferStart + cycles, 160);
             // Copy all bytes one by one (one byte per cycle)
-            for (let step = transferStart; step < transferEnd; step++) {
-                const transferredByte = system.read(baseAddress + step);
-                this.data.write(step, transferredByte);
+            for (let address = transferStart; address < transferEnd; address++) {
+                const transferredByte = system.read(baseAddress + address);
+                this.data.write(address, transferredByte);
+                this.spriteCache[address >> 2].valid = false;
             }
             // Update status
             this.transferStep = transferEnd === 160 ? -1 : transferEnd;
@@ -66,24 +67,38 @@ class OAM implements Addressable {
         device.write(at, data);
         if (pos === 0xff46) {
             this.transferStep = 0;
+        } else if (device === this.data) {
+            this.spriteCache[at >> 2].valid = false;
         }
     }
 
-    getSprites(): Sprite[] {
-        return [...new Array(40)].map((_, index) => {
-            const address = index * 4; // 4 bytes per object
-            const attribs = this.data.read(address + 3);
-            return {
-                y: this.data.read(address + 0) - 16,
-                x: this.data.read(address + 1) - 8,
-                tileIndex: this.data.read(address + 2),
+    protected spriteCache: (Sprite & { valid: boolean })[] = [...new Array(40)].map(() => ({
+        y: 0,
+        x: 0,
+        tileIndex: 0,
+        xFlip: false,
+        yFlip: false,
+        paletteNumber: false,
+        bgAndWinOverObj: false,
+        valid: false,
+    }));
 
-                xFlip: (attribs & ATTRIB_X_FLIP) > 0,
-                yFlip: (attribs & ATTRIB_Y_FLIP) > 0,
-                paletteNumber: (attribs & ATTRIB_PALETTE_NUM) > 0,
-                bgAndWinOverObj: (attribs & ATTRIB_BG_AND_WIN_OVER_OBJ) > 0,
-            };
+    getSprites(): Sprite[] {
+        this.spriteCache.forEach((sprite, index) => {
+            const address = index << 2;
+            if (!sprite.valid) {
+                const attribs = this.data.read(address + 3);
+                sprite.y = this.data.read(address + 0) - 16;
+                sprite.x = this.data.read(address + 1) - 8;
+                sprite.tileIndex = this.data.read(address + 2);
+                sprite.xFlip = (attribs & ATTRIB_X_FLIP) !== 0;
+                sprite.yFlip = (attribs & ATTRIB_Y_FLIP) !== 0;
+                sprite.paletteNumber = (attribs & ATTRIB_PALETTE_NUM) !== 0;
+                sprite.bgAndWinOverObj = (attribs & ATTRIB_BG_AND_WIN_OVER_OBJ) !== 0;
+                sprite.valid = true;
+            }
         });
+        return this.spriteCache;
     }
 }
 
