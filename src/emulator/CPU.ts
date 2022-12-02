@@ -1253,7 +1253,7 @@ class CPU {
             set: (x: number) => InstructionReturn;
         }) => InstructionReturn
     ): Partial<Record<number, InstructionMethod>> {
-        const make = (s: System, sr: SubRegister) => ({
+        const make = (sr: SubRegister) => ({
             get: (r: (value: number) => InstructionReturn) => {
                 const value = sr.get();
                 return r(value);
@@ -1263,14 +1263,23 @@ class CPU {
                 return null;
             },
         });
+        const subregisters = {
+            b: make(this.srB),
+            c: make(this.srC),
+            d: make(this.srD),
+            e: make(this.srE),
+            h: make(this.srH),
+            l: make(this.srL),
+            a: make(this.srA),
+        };
         // order matters: B/C/D/E/H/L/(HL)/A
         return {
-            [baseCode + 0]: (s) => execute(make(s, this.srB)),
-            [baseCode + 1]: (s) => execute(make(s, this.srC)),
-            [baseCode + 2]: (s) => execute(make(s, this.srD)),
-            [baseCode + 3]: (s) => execute(make(s, this.srE)),
-            [baseCode + 4]: (s) => execute(make(s, this.srH)),
-            [baseCode + 5]: (s) => execute(make(s, this.srL)),
+            [baseCode + 0]: (s) => execute(subregisters.b),
+            [baseCode + 1]: (s) => execute(subregisters.c),
+            [baseCode + 2]: (s) => execute(subregisters.d),
+            [baseCode + 3]: (s) => execute(subregisters.e),
+            [baseCode + 4]: (s) => execute(subregisters.h),
+            [baseCode + 5]: (s) => execute(subregisters.l),
             [baseCode + 6]: (s) =>
                 execute({
                     get: (r: (value: number) => InstructionReturn) => {
@@ -1282,7 +1291,7 @@ class CPU {
                         return () => null;
                     },
                 }),
-            [baseCode + 7]: (s) => execute(make(s, this.srA)),
+            [baseCode + 7]: (s) => execute(subregisters.a),
         };
     }
 }
