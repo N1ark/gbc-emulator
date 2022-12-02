@@ -147,6 +147,22 @@ class System implements Addressable {
         component.write(address, data);
     }
 
+    /**
+     * Returns the chain of bytes at the given address, for the given length.
+     * @param pos The start position of the inspection
+     * @param length The number of inspected bytes
+     * @param format The formatting of the values (e.g. 16 for hexadecimal)
+     */
+    inspect(pos: number, length: number = 16, format: number = 16): string {
+        return [...new Array(length)]
+            .map((_, index) =>
+                this.read(pos + index)
+                    .toString(format)
+                    .padStart((255).toString(format).length, "0")
+            )
+            .join("");
+    }
+
     /** Reads user input */
     readInput() {
         this.joypad.readInput();

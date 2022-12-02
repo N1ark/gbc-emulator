@@ -125,7 +125,7 @@ class CPU {
             const instruction = this.instructionSet[opcode];
             if (instruction === undefined) {
                 throw Error(
-                    `Unrecognized opcode ${opcode.toString(16)} at address ${(
+                    `Unrecognized opcode ${opcode?.toString(16)} at address ${(
                         this.regPC.get() - 1
                     ).toString(16)}`
                 );

@@ -4,7 +4,7 @@ import Addressable from "./Addressable";
  * Simple abstract memory object.
  */
 class AbstractMemory implements Addressable {
-    protected size: number;
+    size: number;
     protected data: Uint8Array;
 
     constructor(size: number, data?: Uint8Array) {
