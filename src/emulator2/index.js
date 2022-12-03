@@ -147,7 +147,7 @@ CPU.prototype.frame = function() {
                 this.r.F &= 0xF0; // tmp fix
 
                 if(this.logOut === undefined) {
-                    this.logOut = "";
+                    this.logOut = [];
                 }
                 if(this.counter === undefined) {
                     this.counter = 0;
@@ -169,10 +169,8 @@ CPU.prototype.frame = function() {
                         LY: 0xff44,
                         LYC: 0xff45,
                     };
-                    this.logOut += (
-                        `cyc:${this.clock.c - oldInstrCount}/` +
+                    this.logOut.push(
                         `op:${opcode.toString(16)}/`+
-                        `n-1:${(this.memory.rb(this.r.pc-1) ?? 0).toString(16)}/`+
                         Object.entries(loggedMemory)
                             .map(([n, a]) => `${n}:${(this.memory.rb(a)??0).toString(16)}/`)
                             .join('') +
@@ -190,7 +188,7 @@ CPU.prototype.frame = function() {
                 } else if (this.counter === offset + limit && limit) {
                     console.log("exporting logs for emulator 2")
                     let filename = "log_em2.txt";
-                    let blob = new Blob([this.logOut], {type:'text/plain'});
+                    let blob = new Blob(this.logOut, {type:'text/plain'});
                     delete this.logOut;
                     let link = document.createElement("a");
                     link.download = filename;

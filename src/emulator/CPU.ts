@@ -36,7 +36,7 @@ class CPU {
     protected stepCounter: number = 0;
     protected logOffset: number = 0;
     protected logLimit: number = 0;
-    protected logOutput: string | undefined = "";
+    protected logOutput: string[] | undefined = [];
 
     /** @deprecated pls don't */
     protected nextByteInstant(system: System) {
@@ -164,26 +164,26 @@ class CPU {
                 LY: 0xff44,
                 LYC: 0xff45,
             };
-            this.logOutput +=
+            this.logOutput?.push(
                 `op:${opcode.toString(16)}/` +
-                `n-1:${system.read(this.regPC.get() - 1).toString(16)}/` +
-                Object.entries(loggedMemory)
-                    .map(([n, a]) => `${n}:${system.read(a).toString(16)}/`)
-                    .join("") +
-                `a:${this.srA.get().toString(16)}/` +
-                `f:${this.regAF.l.get().toString(16)}/` +
-                `b:${this.srB.get().toString(16)}/` +
-                `c:${this.srC.get().toString(16)}/` +
-                `d:${this.srD.get().toString(16)}/` +
-                `e:${this.srE.get().toString(16)}/` +
-                `h:${this.srH.get().toString(16)}/` +
-                `l:${this.srL.get().toString(16)}/` +
-                `pc:${this.regPC.get().toString(16)}/` +
-                `sp:${this.regSP.get().toString(16)}\n`;
+                    Object.entries(loggedMemory)
+                        .map(([n, a]) => `${n}:${system.read(a).toString(16)}/`)
+                        .join("") +
+                    `a:${this.srA.get().toString(16)}/` +
+                    `f:${this.regAF.l.get().toString(16)}/` +
+                    `b:${this.srB.get().toString(16)}/` +
+                    `c:${this.srC.get().toString(16)}/` +
+                    `d:${this.srD.get().toString(16)}/` +
+                    `e:${this.srE.get().toString(16)}/` +
+                    `h:${this.srH.get().toString(16)}/` +
+                    `l:${this.srL.get().toString(16)}/` +
+                    `pc:${this.regPC.get().toString(16)}/` +
+                    `sp:${this.regSP.get().toString(16)}\n`
+            );
         } else if (this.stepCounter === this.logLimit + this.logOffset && this.logLimit) {
             console.log("exporting logs for emulator 1");
             let filename = "log_em1.txt";
-            let blob = new Blob([this.logOutput ?? ""], { type: "text/plain" });
+            let blob = new Blob(this.logOutput ?? [], { type: "text/plain" });
             delete this.logOutput;
             let link = document.createElement("a");
             link.download = filename;
@@ -1114,7 +1114,7 @@ class CPU {
     /** Adds a value to subregister A, updates flags Z/0/H/CY */
     protected addNToA(n: number, carry: boolean) {
         const a = this.srA.get();
-        const carryVal = carry && this.regAF.l.flag(FLAG_CARRY) ? 1 : 0;
+        const carryVal = carry && this.flag(FLAG_CARRY) ? 1 : 0;
         const result = wrap8(a + n + carryVal);
         this.srA.set(result);
         this.setFlag(FLAG_ZERO, result === 0);
@@ -1134,7 +1134,7 @@ class CPU {
     /** Substracts a value from subregister A, updates flags Z/1/H/CY */
     protected subNFromA(n: number, carry: boolean) {
         const a = this.srA.get();
-        const carryVal = carry && this.regAF.l.flag(FLAG_CARRY) ? 1 : 0;
+        const carryVal = carry && this.flag(FLAG_CARRY) ? 1 : 0;
         const result = wrap8(a - n - carryVal);
         this.srA.set(result);
         this.setFlag(FLAG_ZERO, result === 0);
