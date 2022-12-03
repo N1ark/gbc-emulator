@@ -143,7 +143,7 @@ CPU.prototype.frame = function() {
             if (!this.isHalted) {
                 var opcode = this.fetchOpcode();
 
-                GameboyJS.opcodeMap[opcode](this);
+                const instructionFn = GameboyJS.opcodeMap[opcode];
                 this.r.F &= 0xF0; // tmp fix
 
                 if(this.logOut === undefined) {
@@ -182,7 +182,7 @@ CPU.prototype.frame = function() {
                         `e:${this.r.E.toString(16)}/`+
                         `h:${this.r.H.toString(16)}/`+
                         `l:${this.r.L.toString(16)}/`+
-                        `pc:${this.r.pc.toString(16)}/`+
+                        `pc:${(this.r.pc-1).toString(16)}/`+
                         `sp:${this.r.sp.toString(16)}\n`
                     );
                 } else if (this.counter === offset + limit && limit) {
@@ -200,6 +200,8 @@ CPU.prototype.frame = function() {
                         window.URL.revokeObjectURL(link.href);
                     }, 100);
                 }
+
+                instructionFn(this);
 
                 if (this.enableSerial) {
                     var instr = this.clock.c - oldInstrCount;

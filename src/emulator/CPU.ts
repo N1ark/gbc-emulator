@@ -177,7 +177,7 @@ class CPU {
                     `e:${this.srE.get().toString(16)}/` +
                     `h:${this.srH.get().toString(16)}/` +
                     `l:${this.srL.get().toString(16)}/` +
-                    `pc:${this.regPC.get().toString(16)}/` +
+                    `pc:${(this.regPC.get() - 1).toString(16)}/` +
                     `sp:${this.regSP.get().toString(16)}\n`
             );
         } else if (this.stepCounter === this.logLimit + this.logOffset && this.logLimit) {
