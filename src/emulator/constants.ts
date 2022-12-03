@@ -9,7 +9,7 @@ export const SCREEN_HEIGHT = 144;
 
 // Memory
 export const HRAM_SIZE = 352;
-export const WRAM_SIZE = 32768;
+export const WRAM_SIZE = 8 * 1024;
 
 // Inputs
 export const BUTTON_A = 1 << 0;

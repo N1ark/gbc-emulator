@@ -107,7 +107,9 @@ class System implements Addressable {
         // External RAM (ERAM)
         if (0xa000 <= pos && pos <= 0xbfff) return [this.rom, pos];
         // Work RAM (WRAM)
-        if (0xc000 <= pos && pos <= 0xdfff) return [this.wram, pos - 0xc000];
+        if (0xc000 <= pos && pos <= 0xdfff) return [this.wram, pos & (WRAM_SIZE - 1)];
+        // Echo RAM
+        if (0xe000 <= pos && pos <= 0xfdff) return [this.wram, pos & (WRAM_SIZE - 1)];
         // OAM
         if (0xfe00 <= pos && pos <= 0xfe9f) return [this.oam, pos];
         // Illegal Area

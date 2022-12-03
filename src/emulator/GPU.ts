@@ -135,7 +135,9 @@ class GPU implements Readable {
                         this.setMode(MODE_VBLANK.FLAG);
                         needLcdcInterrupt = this.lcdStatus.flag(MODE_VBLANK.INTERRUPT);
                         system.requestInterrupt(IFLAG_VBLANK);
-                        this.output.receive(this.videoBuffer);
+                        if (this.output.receive) {
+                            this.output.receive(this.videoBuffer);
+                        }
                         if (this.output.debugBackground) {
                             const backgroundImg = this.debugBackground();
                             this.output.debugBackground(backgroundImg);

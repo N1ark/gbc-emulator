@@ -2,7 +2,7 @@ interface GameBoyOutput {
     /**
      * Receives the GameBoy's output, as an array of RGBA values.
      */
-    receive(data: Uint32Array): void;
+    receive?(data: Uint32Array): void;
 
     /**
      * Optional method that receives the currently loaded background data in 256x256.
