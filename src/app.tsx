@@ -3,7 +3,7 @@ import GameboyJS from "./emulator2";
 
 import { FunctionalComponent } from "preact";
 import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
-import { Play, Pause, Redo, Bug, FlipHorizontal } from "lucide-preact";
+import { Play, Pause, Redo, Bug, FlipHorizontal, FileQuestion } from "lucide-preact";
 
 import "./app.css";
 import GameInput from "./emulator/GameInput";
@@ -15,8 +15,7 @@ import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
 import GameBoyColor from "./emulator/GameBoyColor";
 import GameBoyOutput from "./emulator/GameBoyOutput";
 import localforage from "localforage";
-import CPU from "./emulator/CPU";
-import System from "./emulator/System";
+import { testConfig, testFiles } from "./testConfig";
 
 const displayData = (
     data: Uint32Array,
@@ -49,32 +48,43 @@ const App: FunctionalComponent = () => {
         "n",
     ]);
 
+    // Interaction
     const [emulator2Enabled, setEmulator2Enabled] = useState<boolean>(false);
     const [debugEnabled, setDebugEnabled] = useState<boolean>(false);
     const emulatorRunning = useRef<boolean>(true);
     const [emulatorRunningState, setEmulatorRunningState] = useState<boolean>(true);
+    const [isTesting, setIsTesting] = useState<boolean>(false);
     const canStep = useRef<boolean>(true);
 
+    // DOM Refs
     const emulator1Ref = useRef<HTMLCanvasElement>(null);
     const emulator2Ref = useRef<HTMLCanvasElement>(null);
     const bgDebugger = useRef<HTMLCanvasElement>(null);
     const tilesetDebugger = useRef<HTMLCanvasElement>(null);
 
+    // Emulator data
     const [loadedGame, setLoadedGame] = useState<Uint8Array>();
     const [gameboy, setGameboy] = useState<GameBoyColor>();
     const [emulator2, setEmulator2] = useState<any>();
     const [serialOut, setSerialOut] = useState<string>("");
 
+    // Debug state
     const [cyclesPerSec, setCyclesPerSec] = useState<number>(0);
     const [stepCount, setStepCount] = useState<number>(0);
     const [millisPerFrame, setMillisPerFrame] = useState<number>(0);
 
+    /**
+     * Stop em2 if needed
+     */
     useEffect(() => {
         if (emulator2 && !emulator2Enabled) {
             emulator2.error("stop");
         }
     }, [emulator2Enabled, emulator2]);
 
+    /**
+     * Loads a ROM into the gameboy, instantiating it. Also creates the 2nd emulator if needed
+     */
     const loadGame = useCallback(
         (rom: Uint8Array) => {
             if (gameboy) {
@@ -143,6 +153,8 @@ const App: FunctionalComponent = () => {
                     fileCallback(rom);
                 }, 10);
             }
+
+            return gbc;
         },
         [gameboy, emulator2, emulator2Enabled, debugEnabled]
     );
@@ -184,42 +196,6 @@ const App: FunctionalComponent = () => {
             setLoadedGame(value as Uint8Array);
             loadGame(value as Uint8Array);
         });
-
-        const testFunction = (opcode: number) => {
-            const noInput = {
-                a: false,
-                b: false,
-                start: false,
-                select: false,
-                up: false,
-                down: false,
-                left: false,
-                right: false,
-            };
-
-            const rom = new Uint8Array(0x200);
-            rom[0x100] = opcode;
-
-            const system = new System(
-                rom,
-                { read: () => noInput },
-                { receive: () => {} },
-                () => {}
-            );
-
-            const cpu = new CPU();
-            let steps = 0;
-
-            do {
-                steps += cpu.step(system, true);
-                console.log(`stepped, $${cpu.getPC().toString(16).padStart(4, "0")}`);
-            } while (cpu["nextStep"] !== null);
-            console.log(
-                `Operation ${opcode.toString(16).padStart(2, "0")} takes ${steps} cycles.`
-            );
-        };
-        // @ts-ignore
-        window.opTestFunction = testFunction;
     }, []);
 
     /**
@@ -228,6 +204,41 @@ const App: FunctionalComponent = () => {
     useEffect(() => {
         emulatorRunning.current = canStep.current = emulatorRunningState;
     }, [emulatorRunningState]);
+
+    /**
+     * Handles the testing system
+     */
+    useEffect(() => {
+        if (!isTesting) return;
+
+        (async () => {
+            let typeData: Record<string, { type: string; state: string }> = {};
+            for (let testType in testFiles) {
+                console.log(`---- Starting tests "${testType}" ----`);
+                for (let testFile of testFiles[testType as keyof typeof testFiles]) {
+                    console.log(`Running test ${testType} -> ${testFile}`);
+                    const romResponse = await fetch(`/tests/${testType}/${testFile}.gb`);
+                    const romBlob = await romResponse.blob();
+                    const romArrayBuffer = await romBlob.arrayBuffer();
+                    const gbc = loadGame(new Uint8Array(romArrayBuffer));
+                    while (isTesting) {
+                        const state = testConfig[testType as keyof typeof testFiles](gbc);
+                        if (state !== null) {
+                            typeData[testFile] = {
+                                type: testType,
+                                state: state === "failure" ? "❌" : "✅",
+                            };
+                            break;
+                        }
+                        await new Promise((resolve) => setTimeout(resolve, 100));
+                    }
+                    gbc.stop();
+                    if (!isTesting) return;
+                    console.table(typeData);
+                }
+            }
+        })();
+    }, [isTesting]);
 
     return (
         <>
@@ -268,6 +279,14 @@ const App: FunctionalComponent = () => {
                     onClick={() => setEmulator2Enabled(!emulator2Enabled)}
                 >
                     <FlipHorizontal />
+                </button>
+
+                <button
+                    title="Testing"
+                    className={`icon-button ${isTesting ? "toggled" : ""}`}
+                    onClick={() => setIsTesting(!isTesting)}
+                >
+                    <FileQuestion />
                 </button>
             </div>
 
