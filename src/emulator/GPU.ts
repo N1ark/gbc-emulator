@@ -64,7 +64,6 @@ class GPU implements Readable {
 
     // Data Store
     protected vram = new RAM(8192); // 8Kb memory
-    protected oam = new RAM(160); //
 
     // Video output/storage
     protected output: GameBoyOutput;
@@ -204,19 +203,19 @@ class GPU implements Readable {
      * Returns the tile data as a 2D 8x8 array of shades (0-3)
      */
     protected getTile(tileAddress: number): Int2[][] {
-        let cachedTile = this.tileCache[tileAddress];
+        let cachedTile = this.tileCache[tileAddress >> 4];
 
         // Create cached tile if not done
         if (!cachedTile) {
             cachedTile = { valid: false, data: Array.from(Array(8), () => new Array(8)) };
-            this.tileCache[tileAddress] = cachedTile;
+            this.tileCache[tileAddress >> 4] = cachedTile;
         }
 
         if (!cachedTile.valid) {
             // Draw the 8 lines of the tile
             for (let tileY = 0; tileY < 8; tileY++) {
-                const tileDataH = this.read(tileAddress + tileY * 2);
-                const tileDataL = this.read(tileAddress + tileY * 2 + 1);
+                const tileDataH = this.readVram(tileAddress + tileY * 2);
+                const tileDataL = this.readVram(tileAddress + tileY * 2 + 1);
                 for (let tileX = 0; tileX < 8; tileX++) {
                     const shadeL = (tileDataH >> (7 - tileX)) & 0b1;
                     const shadeH = (tileDataL >> (7 - tileX)) & 0b1;
@@ -456,12 +455,18 @@ class GPU implements Readable {
     }
     write(pos: number, data: number): void {
         const [component, address] = this.address(pos);
-        component.write(address, data);
-        if (component === this.vram && 0x8000 <= pos && pos <= 0x9800) {
-            const tileId = pos; // one tile every 16 bytes
-            const cachedTile = this.tileCache[tileId];
+
+        if (
+            component === this.vram &&
+            0x8000 <= pos &&
+            pos <= 0x9800 &&
+            data !== component.read(address)
+        ) {
+            const cachedTile = this.tileCache[pos >> 4];
             if (cachedTile) cachedTile.valid = false;
         }
+
+        component.write(address, data);
     }
 }
 
