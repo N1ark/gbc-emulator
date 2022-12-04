@@ -371,7 +371,11 @@ class GPU implements Readable {
 
         for (const sprite of drawnSprites) {
             // Get tile id (to get the actual data pointer)
-            const tileId = sprite.tileIndex + (doubleObjects && y - sprite.y >= 8 ? 1 : 0);
+            let tileId = sprite.tileIndex;
+            if (doubleObjects) {
+                // if below tile and not flipped, or upper tile but flipped
+                if (y - sprite.y >= 8 !== sprite.yFlip) tileId += 1;
+            }
             // We need to check if we have double height sprites and this is the lower half of
             // the sprite, in which case the actual tile address is the next byte
             const tileAddress = 0x8000 + tileId * 16;
