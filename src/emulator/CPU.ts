@@ -456,9 +456,9 @@ class CPU {
             (r) =>
                 this.readAddress(
                     () => this.regHL.get(),
-                    (value) => () => {
+                    (value) => {
                         r.set(value);
-                        return null;
+                        return () => null;
                     }
                 )
         ),
@@ -728,7 +728,7 @@ class CPU {
                 0xf7: 0x30,
                 0xff: 0x38,
             },
-            (jumpAdr) => this.call(jumpAdr, () => () => null)
+            (jumpAdr) => () => this.call(jumpAdr, () => null)
         ),
         // CALL a16
         0xcd: this.nextWord((value) => this.call(value, () => () => null)),
@@ -742,7 +742,7 @@ class CPU {
             },
             (condition) =>
                 this.nextWord(
-                    (value) => () => condition() ? this.call(value, () => () => null) : null
+                    (value) => () => condition() ? this.call(value, () => null) : null
                 )
         ),
         // RET
@@ -760,7 +760,7 @@ class CPU {
                 0xd0: () => !this.flag(FLAG_CARRY),
                 0xd8: () => this.flag(FLAG_CARRY),
             },
-            (condition) => () => condition() ? this.return(() => () => null) : 2
+            (condition) => () => condition() ? this.return(() => () => null) : () => null
         ),
         // JP a16
         0xc3: this.nextWord((value) => (s) => {
@@ -839,7 +839,11 @@ class CPU {
                 0xe5: this.regHL,
                 0xf5: this.regAF,
             },
-            (register) => this.push(register.get(), () => () => null)
+            (register) =>
+                this.push(
+                    () => register.get(),
+                    () => () => null
+                )
         ),
         // RLCA / RLA / RRCA / RRA
         0x07: () => {
@@ -1136,13 +1140,17 @@ class CPU {
      * Pushes the given data to the stack pointer's position, and moves it back by two
      * Takes 3 cycles
      */
-    protected push(data: number, receiver: () => InstructionMethod): InstructionMethod {
+    protected push(
+        data: number | (() => number),
+        receiver: () => InstructionReturn
+    ): InstructionMethod {
         return () => (system) => {
+            const effectiveData = typeof data === "number" ? data : data();
             this.regSP.dec();
-            system.write(this.regSP.get(), high(data));
+            system.write(this.regSP.get(), high(effectiveData));
             return (system) => {
                 this.regSP.dec();
-                system.write(this.regSP.get(), low(data));
+                system.write(this.regSP.get(), low(effectiveData));
                 return receiver();
             };
         };
@@ -1164,11 +1172,14 @@ class CPU {
      * Pushes the current PC to memory, and jump to the given address.
      * Takes 3 cycles.
      */
-    protected call(address: number, receiver: () => InstructionMethod): InstructionMethod {
-        return this.push(this.regPC.get(), () => {
-            this.regPC.set(address);
-            return receiver;
-        });
+    protected call(address: number, receiver: () => InstructionReturn): InstructionMethod {
+        return this.push(
+            () => this.regPC.get(),
+            () => {
+                this.regPC.set(address);
+                return receiver();
+            }
+        );
     }
 
     protected callInstant(system: System, address: number) {
