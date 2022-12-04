@@ -101,7 +101,7 @@ class CPU {
             const execNext = system.executeNext();
             if (execNext !== null) {
                 this.halted = false;
-                this.call(system, execNext);
+                this.callInstant(system, execNext);
                 if (verbose)
                     console.log("[CPU] interrupt execute, goto", execNext.toString(16));
             }
@@ -728,16 +728,10 @@ class CPU {
                 0xf7: 0x30,
                 0xff: 0x38,
             },
-            (jumpAdr) => (s) => {
-                this.call(s, jumpAdr);
-                return 4;
-            }
+            (jumpAdr) => this.call(jumpAdr, () => () => null)
         ),
         // CALL a16
-        0xcd: this.nextWord((value) => (s) => {
-            this.call(s, value);
-            return 4;
-        }),
+        0xcd: this.nextWord((value) => this.call(value, () => () => null)),
         // CALL NZ/Z/NC/C a16
         ...this.generateOperation(
             {
@@ -747,25 +741,17 @@ class CPU {
                 0xdc: () => this.flag(FLAG_CARRY),
             },
             (condition) =>
-                this.nextWord((value) => (s) => {
-                    if (condition()) {
-                        this.call(s, value);
-                        return 4;
-                    }
-                    return null;
-                })
+                this.nextWord(
+                    (value) => () => condition() ? this.call(value, () => () => null) : null
+                )
         ),
         // RET
-        0xc9: (s) => {
-            this.return(s);
-            return 4;
-        },
+        0xc9: this.return(() => () => null),
         // RETI
-        0xd9: (s) => {
+        0xd9: this.return(() => (s) => {
             s.enableInterrupts();
-            this.return(s);
-            return 4;
-        },
+            return null;
+        }),
         // RET Z/C/NZ/NC
         ...this.generateOperation(
             {
@@ -774,13 +760,7 @@ class CPU {
                 0xd0: () => !this.flag(FLAG_CARRY),
                 0xd8: () => this.flag(FLAG_CARRY),
             },
-            (condition) => (system) => {
-                if (condition()) {
-                    this.return(system);
-                    return 5;
-                }
-                return 2;
-            }
+            (condition) => () => condition() ? this.return(() => () => null) : 2
         ),
         // JP a16
         0xc3: this.nextWord((value) => (s) => {
@@ -840,33 +820,27 @@ class CPU {
                 0xd1: this.regDE,
                 0xe1: this.regHL,
             },
-            (r) => (s) => {
-                r.set(this.pop(s));
-                return 3;
-            }
+            (r) =>
+                this.pop((value) => () => {
+                    r.set(value);
+                    return null;
+                })
         ),
         // We need to mask lower 4 bits bc hardwired to 0
-        0xf1: (s) => {
-            this.regAF.set(this.pop(s) & 0xfff0);
-            return 3;
-        },
+        0xf1: this.pop((value) => () => {
+            this.regAF.set(value & 0xfff0);
+            return null;
+        }),
         // PUSH BC/DE/HL/AF
-        0xc5: (s) => {
-            this.push(s, this.regBC.get());
-            return 4;
-        },
-        0xd5: (s) => {
-            this.push(s, this.regDE.get());
-            return 4;
-        },
-        0xe5: (s) => {
-            this.push(s, this.regHL.get());
-            return 4;
-        },
-        0xf5: (s) => {
-            this.push(s, this.regAF.get());
-            return 4;
-        },
+        ...this.generateOperation(
+            {
+                0xc5: this.regBC,
+                0xd5: this.regDE,
+                0xe5: this.regHL,
+                0xf5: this.regAF,
+            },
+            (register) => this.push(register.get(), () => () => null)
+        ),
         // RLCA / RLA / RRCA / RRA
         0x07: () => {
             this.rotateLSr(this.srA, false, false);
@@ -1158,30 +1132,63 @@ class CPU {
         this.subNFromA(n, false);
         this.srA.set(a);
     }
-    /** Pushes the given data to the stack pointer's position, and moves it back by two */
-    protected push(s: System, data: number) {
-        this.regSP.dec();
-        s.write(this.regSP.get(), high(data));
-        this.regSP.dec();
-        s.write(this.regSP.get(), low(data));
+    /**
+     * Pushes the given data to the stack pointer's position, and moves it back by two
+     * Takes 3 cycles
+     */
+    protected push(data: number, receiver: () => InstructionMethod): InstructionMethod {
+        return () => (system) => {
+            this.regSP.dec();
+            system.write(this.regSP.get(), high(data));
+            return (system) => {
+                this.regSP.dec();
+                system.write(this.regSP.get(), low(data));
+                return receiver();
+            };
+        };
     }
-    /** Pops a 16bit address from the stack pointer's position, and moves it forward by two */
-    protected pop(s: System) {
-        const low = s.read(this.regSP.get());
-        this.regSP.inc();
-        const high = s.read(this.regSP.get());
-        this.regSP.inc();
-        return combine(high, low);
+    /**
+     * Pops a 16bit address from the stack pointer's position, and moves it forward by two.
+     * Takes two cycles.
+     */
+    protected pop(receiver: (value: number) => InstructionMethod): InstructionMethod {
+        return (s) => {
+            const low = s.read(this.regSP.inc());
+            return (s) => {
+                const high = s.read(this.regSP.inc());
+                return receiver(combine(high, low));
+            };
+        };
     }
-    /** Pushes the current PC to memory, and jump to the given address. */
-    protected call(s: System, address: number) {
-        const pc = this.regPC.get();
-        this.push(s, pc);
+    /**
+     * Pushes the current PC to memory, and jump to the given address.
+     * Takes 3 cycles.
+     */
+    protected call(address: number, receiver: () => InstructionMethod): InstructionMethod {
+        return this.push(this.regPC.get(), () => {
+            this.regPC.set(address);
+            return receiver;
+        });
+    }
+
+    protected callInstant(system: System, address: number) {
+        const data = this.regPC.get();
+        this.regSP.dec();
+        system.write(this.regSP.get(), high(data));
+        this.regSP.dec();
+        system.write(this.regSP.get(), low(data));
         this.regPC.set(address);
     }
-    /** Returns the current call (ie. consumes a pointer at SP and sets it to PC) */
-    protected return(s: System) {
-        this.regPC.set(this.pop(s));
+
+    /**
+     * Returns the current call (ie. consumes a pointer at SP and sets it to PC).
+     * Takes 3 cycles.
+     */
+    protected return(receiver: () => InstructionMethod): InstructionMethod {
+        return this.pop((value) => () => {
+            this.regPC.set(value);
+            return receiver();
+        });
     }
     /** Jumps to the given 16bit address */
     protected jump(n: number) {
