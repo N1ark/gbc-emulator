@@ -763,17 +763,13 @@ class CPU {
             (condition) => () => condition() ? this.return(() => () => null) : () => null
         ),
         // JP a16
-        0xc3: this.nextWord((value) => (s) => {
-            this.jump(value);
-            return 2;
-        }),
+        0xc3: this.nextWord((value) => this.jump(value, () => () => null)),
         // JP HL
-        0xe9: (s) => {
-            this.jump(this.regHL.get());
-            return null;
-        },
+        0xe9: this.jump(
+            () => this.regHL.get(),
+            () => null
+        ),
         // JP Z/C/NZ/NC, a16
-
         ...this.generateOperation(
             {
                 0xc2: () => !this.flag(FLAG_ZERO),
@@ -782,13 +778,9 @@ class CPU {
                 0xda: () => this.flag(FLAG_CARRY),
             },
             (condition) =>
-                this.nextWord((value) => (s) => {
-                    if (condition()) {
-                        this.jump(value);
-                        return 2;
-                    }
-                    return null;
-                })
+                this.nextWord(
+                    (value) => () => condition() ? this.jump(value, () => null) : null
+                )
         ),
         // JR s8
         0x18: this.nextByte((value) => (s) => {
@@ -1201,9 +1193,19 @@ class CPU {
             return receiver();
         });
     }
-    /** Jumps to the given 16bit address */
-    protected jump(n: number) {
-        this.regPC.set(n);
+    /**
+     * Jumps to the given 16bit address
+     * Takes one cycle
+     */
+    protected jump(
+        n: number | (() => number),
+        receiver: () => InstructionReturn
+    ): InstructionMethod {
+        return () => {
+            const address = typeof n === "number" ? n : n();
+            this.regPC.set(address);
+            return receiver();
+        };
     }
     /** Relative-jumps by the given 8-bit value */
     protected jumpr(n: number) {
