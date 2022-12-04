@@ -37,7 +37,7 @@ class GameBoyColor {
         this.cycles = 0;
         this.output = output;
         this.debug = debug;
-        console.log("[debug] Created GBC", this);
+        console.debug("[debug] Created GBC", this);
 
         // @ts-ignore helpful for debugging :)
         window.gbc = this;
