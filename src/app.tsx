@@ -16,6 +16,8 @@ import GameBoyColor from "./emulator/GameBoyColor";
 import GameBoyOutput from "./emulator/GameBoyOutput";
 import localforage from "localforage";
 import { testConfig, testFiles } from "./testConfig";
+import CPU from "./emulator/CPU";
+import System from "./emulator/System";
 
 const displayData = (
     data: Uint32Array,
@@ -196,6 +198,58 @@ const App: FunctionalComponent = () => {
             setLoadedGame(value as Uint8Array);
             loadGame(value as Uint8Array);
         });
+
+        const testOpSpeed = () => {
+            const speeds = [
+                1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, 0, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2,
+                2, 1, 1, 2, 1, 2, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1, 2, 3, 2, 2, 3, 3,
+                3, 1, 2, 2, 2, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1,
+                1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1,
+                1, 1, 2, 1, 2, 2, 2, 2, 2, 2, 0, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2,
+                1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1,
+                1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1,
+                1, 2, 1, 2, 3, 3, 4, 3, 4, 2, 4, 2, 4, 3, 0, 3, 6, 2, 4, 2, 3, 3, 0, 3, 4, 2, 4,
+                2, 4, 3, 0, 3, 0, 2, 4, 3, 3, 2, 0, 0, 4, 2, 4, 4, 1, 4, 0, 0, 0, 2, 4, 3, 3, 2,
+                1, 0, 4, 2, 4, 3, 2, 4, 1, 0, 0, 2, 4,
+            ];
+            for (let op = 0; op < 0xff; op++) {
+                if (speeds[op] === 0) continue;
+                const rom = new Uint8Array(0x200);
+                rom[0x100] = op;
+                const system = new System(
+                    rom,
+                    {
+                        read: () => ({
+                            a: false,
+                            b: false,
+                            select: false,
+                            start: false,
+                            down: false,
+                            up: false,
+                            left: false,
+                            right: false,
+                        }),
+                    },
+                    {},
+                    () => {}
+                );
+                const cpu = new CPU();
+                let steps = 0;
+                do {
+                    cpu.step(system);
+                    steps++;
+                } while (cpu["nextStep"] !== null);
+                if (speeds[op] !== steps) {
+                    console.log(
+                        `Step mismatch for op ${op.toString(16)}: got ${steps}, expected ${
+                            speeds[op]
+                        }`
+                    );
+                }
+            }
+        };
+        // @ts-ignore
+        window.opTest = testOpSpeed;
     }, []);
 
     /**
@@ -255,13 +309,13 @@ const App: FunctionalComponent = () => {
                     if (!isTesting) return;
                     console.table(testResults);
                 }
-                setEmulatorRunningState(false);
-                console.log(
-                    `Finished running tests! Passed ${
-                        Object.values(testResults).filter((x) => x.state === "✅").length
-                    }/${Object.keys(testResults).length}`
-                );
             }
+            setEmulatorRunningState(false);
+            console.log(
+                `Finished running tests! Passed ${
+                    Object.values(testResults).filter((x) => x.state === "✅").length
+                }/${Object.keys(testResults).length}`
+            );
         })();
     }, [isTesting]);
 
