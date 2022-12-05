@@ -64,7 +64,21 @@ const testFiles = {
         "reti_intr_timing",
         "reti_timing",
         "rst_timing",
-        // MBC1
+        // Timer
+        "timer_div_write",
+        "timer_rapid_toggle",
+        "timer_tim00",
+        "timer_tim00_div_trigger",
+        "timer_tim01",
+        "timer_tim01_div_trigger",
+        "timer_tim10",
+        "timer_tim10_div_trigger",
+        "timer_tim11",
+        "timer_tim11_div_trigger",
+        "timer_tima_reload",
+        "timer_tima_write_reloading",
+        "timer_tma_write_reloading",
+        // // MBC1
         "mbc1_bits_bank1",
         "mbc1_bits_bank2",
         "mbc1_bits_mode",
