@@ -251,7 +251,7 @@ class GPU implements Readable {
             const posX = i % 32; // 32 tiles on width
             const posY = Math.floor(i / 32); // 32 tiles on height
             // Get the tile address
-            const tileId = this.read(tileMapLoc + i);
+            const tileId = this.readVram(tileMapLoc + i);
             const tileAddress = toAddress(tileId);
             // Get tile data
             const tileData = this.getTile(tileAddress);
@@ -335,7 +335,7 @@ class GPU implements Readable {
             // Index of the tile in the current tile data
             const tileIndex = tileMapLoc + tileX + tileY * 32;
             // The ID (pointer) of the tile
-            const tileAddress = this.read(tileIndex);
+            const tileAddress = this.readVram(tileIndex);
             // Convert the ID to the actual address
             const tileDataAddress = toAddress(tileAddress);
             // Get the tile data
