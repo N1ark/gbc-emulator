@@ -112,6 +112,7 @@ class CPU {
                 if (verbose) console.log("[CPU] halted");
                 return;
             }
+
             // Execute next instruction
             const opcode = this.nextByteInstant(system);
             ++this.stepCounter;

@@ -2,7 +2,7 @@ import Addressable from "./Addressable";
 import { IFLAG_TIMER } from "./constants";
 import { Register, SubRegister } from "./Register";
 import System from "./System";
-import { wrap16 } from "./util";
+import { Int2, wrap16 } from "./util";
 
 /**
  * Represents the division applied to the clock speed depending on the value of the
@@ -15,8 +15,6 @@ const TIMER_CONTROLS = {
     0b10: 5,
     0b11: 7,
 };
-
-type Int2 = 0 | 1 | 2 | 3;
 
 /**
  * The TIMA counter only runs if this flag is true in the TAC.

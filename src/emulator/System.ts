@@ -18,6 +18,7 @@ import { SubRegister } from "./Register";
 import ROM from "./ROM";
 import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
+import { Int4 } from "./util";
 
 type AddressData = [Addressable, number];
 
@@ -68,6 +69,31 @@ class System implements Addressable {
         if (pos < 0x0000 || pos > 0xffff)
             throw new Error(`Invalid address to read from ${pos.toString(16)}`);
 
+        switch ((pos >> 12) as Int4) {
+            case 0x0:
+            case 0x1:
+            case 0x2:
+            case 0x3:
+            case 0x4:
+            case 0x5:
+            case 0x6:
+            case 0x7:
+                return [this.rom, pos]; // ROM
+            case 0x8:
+            case 0x9:
+                return [this.gpu, pos]; // VRAM
+            case 0xa:
+            case 0xb:
+                return [this.rom, pos]; // ERAM
+            case 0xc:
+            case 0xd:
+                return [this.wram, pos & (WRAM_SIZE - 1)]; // WRAM
+            case 0xe:
+                return [this.wram, pos & (WRAM_SIZE - 1)]; // ECHO RAM
+            case 0xf:
+                break; // fall through - ECHO RAM + registers
+        }
+
         // Registers
         const register = {
             0xff00: this.joypad,
@@ -102,14 +128,6 @@ class System implements Addressable {
         // Audio wave
         if (0xff30 <= pos && pos <= 0xff3f) return [this.audio, pos];
 
-        // ROM Bank
-        if (0x0000 <= pos && pos <= 0x7fff) return [this.rom, pos];
-        // Video RAM (VRAM)
-        if (0x8000 <= pos && pos <= 0x9fff) return [this.gpu, pos];
-        // External RAM (ERAM)
-        if (0xa000 <= pos && pos <= 0xbfff) return [this.rom, pos];
-        // Work RAM (WRAM)
-        if (0xc000 <= pos && pos <= 0xdfff) return [this.wram, pos & (WRAM_SIZE - 1)];
         // Echo RAM
         if (0xe000 <= pos && pos <= 0xfdff) return [this.wram, pos & (WRAM_SIZE - 1)];
         // OAM

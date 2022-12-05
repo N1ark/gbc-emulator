@@ -4,10 +4,8 @@ import { IFLAG_LCDC, IFLAG_VBLANK, SCREEN_HEIGHT, SCREEN_WIDTH } from "./constan
 import { RAM } from "./Memory";
 import { SubRegister } from "./Register";
 import System from "./System";
-import { asSignedInt8, wrap8 } from "./util";
+import { asSignedInt8, Int2, wrap8 } from "./util";
 import GameBoyOutput from "./GameBoyOutput";
-
-type Int2 = 0 | 1 | 2 | 3;
 
 /*
  * All modes, with:
