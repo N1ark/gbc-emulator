@@ -164,7 +164,7 @@ class System implements Addressable {
                     .toString(format)
                     .padStart((255).toString(format).length, "0")
             )
-            .join("");
+            .join(" ");
     }
 
     /** Reads user input */

@@ -1,8 +1,8 @@
 import Addressable from "./Addressable";
-import { CLOCK_SPEED, DIV_INC_RATE, IFLAG_TIMER } from "./constants";
-import { SubRegister } from "./Register";
+import { IFLAG_TIMER } from "./constants";
+import { Register, SubRegister } from "./Register";
 import System from "./System";
-import { wrap16, wrap8 } from "./util";
+import { wrap16 } from "./util";
 
 /**
  * Represents the division applied to the clock speed depending on the value of the
@@ -25,16 +25,16 @@ const TIMER_ENABLE_FLAG = 1 << 2;
 
 class Timer implements Addressable {
     // DIV - divider register
-    protected divider = new SubRegister(0xab);
-    protected dividerSub = 0; // a helper counter
+    protected divider = new Register(0xab00);
     // TIMA - timer counter
     protected timerCounter = new SubRegister(0x00);
-    protected timerCounterSub = 0; // a helper counter
     // TMA - timer modulo
     protected timerModulo = new SubRegister(0x00);
     // TAC - timer control
     protected timerControl = new SubRegister(0xf8);
 
+    protected previousDivider = this.divider.get();
+    protected previousTimerControl = this.timerControl.get();
     protected timerOverflowed: boolean = false;
 
     /**
@@ -42,12 +42,13 @@ class Timer implements Addressable {
      * @link https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
      */
     tick(system: System) {
-        // Increase DIV
-        this.dividerSub += 4;
-        if (this.dividerSub >= CLOCK_SPEED / DIV_INC_RATE) {
-            this.dividerSub %= CLOCK_SPEED / DIV_INC_RATE;
-            this.divider.set(wrap8(this.divider.get() + 1));
-        }
+        // Store bit for TIMA edge-detection
+        const speedMode = (this.timerControl.get() & 0b11) as Int2;
+        const checkedBit = TIMER_CONTROLS[speedMode];
+        const bitStateBefore = (this.previousDivider >> checkedBit) & 1;
+
+        // Increase internal counter, update DIV
+        this.divider.set(wrap16(this.divider.get() + 4));
 
         // Check overflow + interrupt
         if (this.timerOverflowed) {
@@ -58,30 +59,35 @@ class Timer implements Addressable {
         }
 
         // Increase TIMA
-        if (this.timerControl.flag(TIMER_ENABLE_FLAG)) {
-            const speedMode = (this.timerControl.get() & 0b11) as Int2;
-            const checkedBit = TIMER_CONTROLS[speedMode];
+        // Several edge-y cases can toggle a timer increase:
+        const bitStateAfter = (this.divider.get() >> checkedBit) & 1;
+        const timerIsEnabled = this.timerControl.flag(TIMER_ENABLE_FLAG);
+        const timerWasEnabled = (this.previousTimerControl & TIMER_ENABLE_FLAG) !== 0;
+        let timerNeedsIncrease = false;
 
-            const bitStateBefore = (this.timerCounterSub >> checkedBit) & 1;
-            this.timerCounterSub = wrap16(this.timerCounterSub + 4);
-            const bitStateAfter = (this.timerCounterSub >> checkedBit) & 1;
+        // Regular falling edge, while toggled
+        if (timerIsEnabled && bitStateBefore && !bitStateAfter) timerNeedsIncrease = true;
+        // Bit is set, and timer went from enabled to disabled
+        if (!timerIsEnabled && timerWasEnabled && bitStateBefore) timerNeedsIncrease = true;
 
-            if (bitStateBefore === 1 && bitStateAfter === 0) {
-                const result = this.timerCounter.get() + 1;
-                // overflow, need to interrupt + reset
-                if (result > 0xff) {
-                    this.timerCounter.set(0);
-                    this.timerOverflowed = true;
-                } else {
-                    this.timerCounter.set(result);
-                }
+        if (timerNeedsIncrease) {
+            const result = this.timerCounter.get() + 1;
+            // overflow, need to warn for reset + interrupt
+            if (result > 0xff) {
+                this.timerCounter.set(0);
+                this.timerOverflowed = true;
+            } else {
+                this.timerCounter.set(result);
             }
         }
+
+        this.previousTimerControl = this.timerControl.get();
+        this.previousDivider = this.divider.get();
     }
 
     protected address(pos: number): SubRegister {
         const register = {
-            0xff04: this.divider,
+            0xff04: this.divider.h, // we only ever read the upper 8 bits of the divider
             0xff05: this.timerCounter,
             0xff06: this.timerModulo,
             0xff07: this.timerControl,
@@ -99,11 +105,10 @@ class Timer implements Addressable {
     write(pos: number, data: number): void {
         // Trying to write anything to DIV clears it.
         const register = this.address(pos);
-        if (register === this.divider) {
-            register.set(0);
-            this.dividerSub = 0;
-            this.timerCounterSub = 0;
-        } else register.set(data);
+        if (register === this.divider.h) {
+            this.divider.set(0);
+        } else if (register === this.timerControl) register.set(data | ~0b111); // 3 bits only
+        else register.set(data);
     }
 }
 
