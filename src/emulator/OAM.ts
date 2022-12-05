@@ -27,6 +27,7 @@ const ATTRIB_BG_AND_WIN_OVER_OBJ = 1 << 7;
 class OAM implements Addressable {
     /**
      * -1 = not transferring
+     * -2 = transfer starts next cycle
      * 0-159 = next byte to transfer
      */
     protected transferStep: number = -1;
@@ -34,41 +35,43 @@ class OAM implements Addressable {
     protected data = new RAM(160);
 
     /** @link https://gbdev.io/pandocs/OAM_DMA_Transfer.html */
-    tick(cycles: number, system: System) {
+    tick(system: System) {
         // If we're transferring...
-        if (this.transferStep !== -1) {
+        if (this.transferStep === -2) {
+            this.transferStep = 0;
+        } else if (this.transferStep >= 0) {
             const baseAddress = this.transferStart.get() << 8;
-            const transferStart = this.transferStep;
-            const transferEnd = Math.min(transferStart + cycles, 160);
-            // Copy all bytes one by one (one byte per cycle)
-            for (let address = transferStart; address < transferEnd; address++) {
-                const transferredByte = system.read(baseAddress + address);
-                this.data.write(address, transferredByte);
-                this.spriteCache[address >> 2].valid = false;
+
+            // Copy a byte
+            const transferredByte = system.read(baseAddress + this.transferStep);
+            this.data.write(this.transferStep, transferredByte);
+            this.spriteCache[this.transferStep >> 2].valid = false;
+
+            // Transfer ended
+            this.transferStep++;
+            if (this.transferStep === 160) {
+                this.transferStep = -1;
             }
-            // Update status
-            this.transferStep = transferEnd === 160 ? -1 : transferEnd;
         }
     }
 
-    protected toAddress(pos: number): [Addressable, number] {
-        if (pos === 0xff46) return [this.transferStart, 0];
-        if (0xfe00 <= pos && pos <= 0xfe9f) return [this.data, pos - 0xfe00];
+    read(pos: number): number {
+        if (pos === 0xff46) return this.transferStart.get();
+        if (0xfe00 <= pos && pos <= 0xfe9f) {
+            if (this.transferStep >= 0) return 0xff; // read disabled
+            return this.data.read(pos - 0xfe00);
+        }
         throw new Error(`Invalid address for OAM: 0x${pos.toString(16)}`);
     }
 
-    read(pos: number): number {
-        const [device, at] = this.toAddress(pos);
-        return device.read(at);
-    }
-
     write(pos: number, data: number): void {
-        const [device, at] = this.toAddress(pos);
-        device.write(at, data);
         if (pos === 0xff46) {
-            this.transferStep = 0;
-        } else if (device === this.data) {
-            this.spriteCache[at >> 2].valid = false;
+            this.transferStart.set(data);
+            this.transferStep = -2;
+        } else if (0xfe00 <= pos && pos <= 0xfe9f) {
+            const address = pos - 0xfe00;
+            this.data.write(address, data);
+            this.spriteCache[address >> 2].valid = false;
         }
     }
 

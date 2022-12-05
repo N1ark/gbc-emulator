@@ -52,10 +52,10 @@ class System implements Addressable {
     }
 
     /** Ticks the whole system for the given number of cycles. */
-    tick(cycles: number) {
-        this.gpu.tick(cycles, this);
-        this.timer.tick(cycles, this);
-        this.oam.tick(cycles, this);
+    tick() {
+        this.gpu.tick(this);
+        this.timer.tick(this);
+        this.oam.tick(this);
     }
 
     /**

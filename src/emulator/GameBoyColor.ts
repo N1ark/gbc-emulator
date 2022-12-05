@@ -50,9 +50,9 @@ class GameBoyColor {
 
         while (this.cycles < CYCLES_PER_FRAME) {
             // one CPU step, convert M-cycles to CPU cycles
-            const cycles = this.cpu.step(this.system, debugging) * 4;
-            this.system.tick(cycles);
-            this.cycles += cycles;
+            this.cpu.step(this.system, debugging);
+            for (let i = 0; i < 4; i++) this.system.tick();
+            this.cycles += 4;
 
             const breakpoint = this.breakpoints?.find(
                 (br) =>

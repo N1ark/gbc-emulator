@@ -108,8 +108,8 @@ class GPU implements Readable {
      * This the GPU, effectively updating the screen-buffer and rendering it if it's done.
      * @link https://gbdev.io/pandocs/pixel_fifo.html
      */
-    tick(cycles: number, system: System) {
-        this.cycleCounter += cycles;
+    tick(system: System) {
+        this.cycleCounter++;
 
         const currentMode = this.lcdStatus.get() & STAT_MODE;
 

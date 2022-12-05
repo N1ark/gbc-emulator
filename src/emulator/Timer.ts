@@ -36,9 +36,9 @@ class Timer implements Addressable {
      * Ticks the timer system
      * @link https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
      */
-    tick(cycles: number, system: System) {
+    tick(system: System) {
         // Increase DIV
-        this.dividerSub += cycles;
+        this.dividerSub++;
         if (this.dividerSub >= CLOCK_SPEED / DIV_INC_RATE) {
             this.dividerSub %= CLOCK_SPEED / DIV_INC_RATE;
             this.divider.set(wrap8(this.divider.get() + 1));
@@ -48,7 +48,7 @@ class Timer implements Addressable {
         if (this.timerControl.flag(TIMER_ENABLE_FLAG)) {
             const speedMode = (this.timerControl.get() & 0b11) as keyof typeof TIMER_CONTROLS;
             const clockDivider = TIMER_CONTROLS[speedMode];
-            this.timerCounterSub += cycles;
+            this.timerCounterSub++;
             while (this.timerCounterSub >= clockDivider) {
                 this.timerCounterSub -= clockDivider;
                 const result = this.timerCounter.get() + 1;
@@ -83,8 +83,11 @@ class Timer implements Addressable {
     write(pos: number, data: number): void {
         // Trying to write anything to DIV clears it.
         const register = this.address(pos);
-        if (register === this.divider) register.set(0);
-        else register.set(data);
+        if (register === this.divider) {
+            register.set(0);
+            this.dividerSub = 0;
+            this.timerCounterSub = 0;
+        } else register.set(data);
     }
 }
 

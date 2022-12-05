@@ -37,7 +37,7 @@ class ROM implements Addressable {
                 this.mbc = new MBC1(data, { hasRam: true });
                 break;
             default:
-                throw new Error(`[ROM] Invalid cartridge type: ${mbcType.toString(16)}`);
+                throw new Error(`[ROM] Invalid cartridge type: ${mbcType?.toString(16)}`);
         }
         console.debug(`(ROM) Saved data for game "${this.title}": `, data);
     }

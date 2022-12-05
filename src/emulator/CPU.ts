@@ -8,7 +8,7 @@ const FLAG_HALFCARRY = 1 << 5;
 const FLAG_CARRY = 1 << 4;
 
 type InstructionMethod = (system: System) => InstructionReturn;
-type InstructionReturn = InstructionMethod | number | null;
+type InstructionReturn = InstructionMethod | null;
 
 /**
  * The CPU of the GBC, responsible for reading the code and executing instructions.
@@ -90,12 +90,13 @@ class CPU {
     }
 
     protected nextStep: InstructionMethod | null = null;
+    protected pcHistory: number[] = [];
 
     /**
      * Steps through one line of the code, and returns the M-cycles required for the
      * operation
      */
-    step(system: System, verbose?: boolean): number {
+    step(system: System, verbose?: boolean) {
         if (this.nextStep === null) {
             // Check if any interrupt is requested. This also stops HALTing.
             const execNext = system.executeNext();
@@ -109,9 +110,8 @@ class CPU {
             // Do nothing if halted
             if (this.halted) {
                 if (verbose) console.log("[CPU] halted");
-                return 1;
+                return;
             }
-
             // Execute next instruction
             const opcode = this.nextByteInstant(system);
             ++this.stepCounter;
@@ -136,12 +136,7 @@ class CPU {
         }
 
         const stepResult = this.nextStep(system);
-        if (typeof stepResult === "number") {
-            this.nextStep = null;
-            return stepResult;
-        }
         this.nextStep = stepResult;
-        return 1;
     }
 
     /**
@@ -374,8 +369,10 @@ class CPU {
         // LD (a16), SP
         0x08: this.nextWord((value) => (s) => {
             s.write(value, this.regSP.l.get());
-            s.write(value + 1, this.regSP.h.get());
-            return 3;
+            return () => {
+                s.write(value + 1, this.regSP.h.get());
+                return () => null;
+            };
         }),
         // LD B/C/D/E/H/L/A, B/C/D/E/H/L/A
         ...this.generateOperation<number, [SubRegister, SubRegister]>(
@@ -783,10 +780,7 @@ class CPU {
                 )
         ),
         // JR s8
-        0x18: this.nextByte((value) => (s) => {
-            this.jumpr(asSignedInt8(value));
-            return 2;
-        }),
+        0x18: this.nextByte((value) => this.jumpr(asSignedInt8(value), () => () => null)),
         // JR NZ/Z/NC/C, s8
         ...this.generateOperation(
             {
@@ -796,14 +790,10 @@ class CPU {
                 0x38: () => this.flag(FLAG_CARRY),
             },
             (condition) =>
-                this.nextByte((value) => () => {
-                    const a = asSignedInt8(value);
-                    if (condition()) {
-                        this.jumpr(a);
-                        return 2;
-                    }
-                    return null;
-                })
+                this.nextByte(
+                    (value) => () =>
+                        condition() ? this.jumpr(asSignedInt8(value), () => null) : null
+                )
         ),
         // POP BC/DE/HL/AF
         ...this.generateOperation(
@@ -859,19 +849,19 @@ class CPU {
             const s8 = asSignedInt8(value);
             const sp = this.regSP.get();
             this.regSP.set(this.perfAdd(s8, sp));
-            return 3;
+            return () => () => null; // 3 cycles (idk the timing yet)
         }),
         // LD HL, SP+s8
         0xf8: this.nextByte((value) => () => {
             const s8 = asSignedInt8(value);
             const sp = this.regSP.get();
             this.regHL.set(this.perfAdd(s8, sp));
-            return 2;
+            return () => null;
         }),
         // LD SP, HL
         0xf9: () => {
             this.regSP.set(this.regHL.get());
-            return 2;
+            return () => null;
         },
         // DI / EI
         0xf3: (s) => {
@@ -1207,9 +1197,19 @@ class CPU {
             return receiver();
         };
     }
-    /** Relative-jumps by the given 8-bit value */
-    protected jumpr(n: number) {
-        this.regPC.set(wrap16(this.regPC.get() + n));
+    /**
+     * Relative-jumps by the given 8-bit value
+     * Takes one cycle
+     */
+    protected jumpr(
+        n: number | (() => number),
+        receiver: () => InstructionReturn
+    ): InstructionMethod {
+        return () => {
+            const address = typeof n === "number" ? n : n();
+            this.regPC.set(wrap16(this.regPC.get() + address));
+            return receiver();
+        };
     }
     /** Rotates the given number left. Sets flags Z|0/0/0/N7 */
     protected rotateL(n: number, useCarry: boolean, setZero: boolean) {
