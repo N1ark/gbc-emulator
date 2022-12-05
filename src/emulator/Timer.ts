@@ -2,7 +2,7 @@ import Addressable from "./Addressable";
 import { CLOCK_SPEED, DIV_INC_RATE, IFLAG_TIMER } from "./constants";
 import { SubRegister } from "./Register";
 import System from "./System";
-import { wrap8 } from "./util";
+import { wrap16, wrap8 } from "./util";
 
 /**
  * Represents the division applied to the clock speed depending on the value of the
@@ -10,11 +10,14 @@ import { wrap8 } from "./util";
  * @link https://gbdev.io/pandocs/Timer_and_Divider_Registers.html#ff07--tac-timer-control
  */
 const TIMER_CONTROLS = {
-    0b00: 1024,
-    0b01: 16,
-    0b10: 64,
-    0b11: 256,
+    0b00: 9,
+    0b01: 3,
+    0b10: 5,
+    0b11: 7,
 };
+
+type Int2 = 0 | 1 | 2 | 3;
+
 /**
  * The TIMA counter only runs if this flag is true in the TAC.
  */
@@ -32,30 +35,43 @@ class Timer implements Addressable {
     // TAC - timer control
     protected timerControl = new SubRegister(0xf8);
 
+    protected timerOverflowed: boolean = false;
+
     /**
-     * Ticks the timer system
+     * Ticks the timer system in M-cycles
      * @link https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
      */
     tick(system: System) {
         // Increase DIV
-        this.dividerSub++;
+        this.dividerSub += 4;
         if (this.dividerSub >= CLOCK_SPEED / DIV_INC_RATE) {
             this.dividerSub %= CLOCK_SPEED / DIV_INC_RATE;
             this.divider.set(wrap8(this.divider.get() + 1));
         }
 
+        // Check overflow + interrupt
+        if (this.timerOverflowed) {
+            const modulo = this.timerModulo.get();
+            this.timerCounter.set(modulo);
+            system.requestInterrupt(IFLAG_TIMER);
+            this.timerOverflowed = false;
+        }
+
         // Increase TIMA
         if (this.timerControl.flag(TIMER_ENABLE_FLAG)) {
-            const speedMode = (this.timerControl.get() & 0b11) as keyof typeof TIMER_CONTROLS;
-            const clockDivider = TIMER_CONTROLS[speedMode];
-            this.timerCounterSub++;
-            while (this.timerCounterSub >= clockDivider) {
-                this.timerCounterSub -= clockDivider;
+            const speedMode = (this.timerControl.get() & 0b11) as Int2;
+            const checkedBit = TIMER_CONTROLS[speedMode];
+
+            const bitStateBefore = (this.timerCounterSub >> checkedBit) & 1;
+            this.timerCounterSub = wrap16(this.timerCounterSub + 4);
+            const bitStateAfter = (this.timerCounterSub >> checkedBit) & 1;
+
+            if (bitStateBefore === 1 && bitStateAfter === 0) {
                 const result = this.timerCounter.get() + 1;
                 // overflow, need to interrupt + reset
                 if (result > 0xff) {
-                    this.timerCounter.set(this.timerModulo.get());
-                    system.requestInterrupt(IFLAG_TIMER);
+                    this.timerCounter.set(0);
+                    this.timerOverflowed = true;
                 } else {
                     this.timerCounter.set(result);
                 }

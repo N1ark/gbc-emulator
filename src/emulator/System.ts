@@ -53,9 +53,11 @@ class System implements Addressable {
 
     /** Ticks the whole system for the given number of cycles. */
     tick() {
-        this.gpu.tick(this);
+        for (let i = 0; i < 4; i++) {
+            this.gpu.tick(this);
+            this.oam.tick(this);
+        }
         this.timer.tick(this);
-        this.oam.tick(this);
     }
 
     /**
