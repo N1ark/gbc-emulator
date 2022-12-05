@@ -7,6 +7,7 @@ import GameBoyOutput from "./GameBoyOutput";
 type DebugData = {
     canStep: boolean;
     skipDebug: boolean;
+    tripleSpeed: boolean;
 };
 
 function sleep(ms: number) {
@@ -46,10 +47,12 @@ class GameBoyColor {
 
     /** Draws a full frame and returns if a breakpoint was reached */
     drawFrame(): boolean {
-        const debugging = this.debug && !this.debug().skipDebug;
-        const frameDrawStart = window.performance.now();
+        const debugResult = this.debug && this.debug();
+        const debugging = !debugResult?.skipDebug;
+        const cycleTarget = CYCLES_PER_FRAME * (debugResult?.tripleSpeed ? 3 : 1);
 
-        while (this.cycles < CYCLES_PER_FRAME) {
+        const frameDrawStart = window.performance.now();
+        while (this.cycles < cycleTarget) {
             // one CPU step, convert M-cycles to CPU cycles
             this.cpu.step(this.system, debugging);
             this.system.tick();
@@ -96,8 +99,8 @@ class GameBoyColor {
                 // force a "button up, button down, button up" cycle (ie full button press)
                 (async () => {
                     if (!this.debug) return;
-                    while (this.debug().canStep) await sleep(10);
-                    while (!this.debug().canStep) await sleep(10);
+                    while (this.debug().canStep) await sleep(5);
+                    while (!this.debug().canStep) await sleep(5);
                     this.run();
                 })();
                 return;

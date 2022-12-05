@@ -3,7 +3,15 @@ import GameboyJS from "./emulator2";
 
 import { FunctionalComponent } from "preact";
 import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
-import { Play, Pause, Redo, Bug, FlipHorizontal, FileQuestion } from "lucide-preact";
+import {
+    Play,
+    Pause,
+    Redo,
+    Bug,
+    FlipHorizontal,
+    FileQuestion,
+    FastForward,
+} from "lucide-preact";
 
 import "./app.css";
 import GameInput from "./emulator/GameInput";
@@ -53,6 +61,8 @@ const App: FunctionalComponent = () => {
     // Interaction
     const [emulator2Enabled, setEmulator2Enabled] = useState<boolean>(false);
     const [debugEnabled, setDebugEnabled] = useState<boolean>(false);
+    const tripleSpeed = useRef<boolean>(false);
+    const [tripleSpeedState, setTripleSpeedState] = useState<boolean>(false);
     const emulatorRunning = useRef<boolean>(true);
     const [emulatorRunningState, setEmulatorRunningState] = useState<boolean>(true);
     const [isTesting, setIsTesting] = useState<boolean>(false);
@@ -114,6 +124,7 @@ const App: FunctionalComponent = () => {
                 return {
                     canStep: step,
                     skipDebug: emulatorRunning.current,
+                    tripleSpeed: tripleSpeed.current,
                 };
             };
 
@@ -366,6 +377,14 @@ const App: FunctionalComponent = () => {
                     onClick={() => setIsTesting(!isTesting)}
                 >
                     <FileQuestion />
+                </button>
+
+                <button
+                    title="Double Speed"
+                    className={`icon-button ${tripleSpeedState ? "toggled" : ""}`}
+                    onClick={() => setTripleSpeedState((s) => (tripleSpeed.current = !s))}
+                >
+                    <FastForward />
                 </button>
             </div>
 
