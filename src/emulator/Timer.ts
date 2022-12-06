@@ -1,6 +1,6 @@
 import Addressable from "./Addressable";
 import { IFLAG_TIMER } from "./constants";
-import { Register, SubRegister } from "./Register";
+import { PaddedSubRegister, Register, SubRegister } from "./Register";
 import System from "./System";
 import { Int2, wrap16 } from "./util";
 
@@ -29,7 +29,7 @@ class Timer implements Addressable {
     // TMA - timer modulo
     protected timerModulo = new SubRegister(0x00);
     // TAC - timer control
-    protected timerControl = new SubRegister(0xf8);
+    protected timerControl = new PaddedSubRegister(3);
 
     protected previousDivider = this.divider.get();
     protected previousTimerControl = this.timerControl.get();
@@ -108,8 +108,7 @@ class Timer implements Addressable {
         const register = this.address(pos);
         if (register === this.divider.h) {
             this.divider.set(0);
-        } else if (register === this.timerControl) register.set(data | 0xf8); // 3 bits only
-        else if (register === this.timerCounter) {
+        } else if (register === this.timerCounter) {
             // If overflow (reload) occurred, writes are ignored
             if (this.previousTimerOverflowed) return;
             this.timerOverflowed = false;

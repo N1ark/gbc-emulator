@@ -14,7 +14,7 @@ import GPU from "./GPU";
 import JoypadInput from "./JoypadInput";
 import { RAM } from "./Memory";
 import OAM from "./OAM";
-import { SubRegister } from "./Register";
+import { PaddedSubRegister, SubRegister } from "./Register";
 import ROM from "./ROM";
 import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
@@ -46,7 +46,7 @@ class System implements Addressable {
     // Interrupts
     protected intMasterEnable: IntMasterEnableStateType = "DISABLED"; // IME - master enable flag
     protected intEnable = new SubRegister(0x00); // IE - interrupt enable (handler)
-    protected intFlag = new SubRegister(0xe1); // IF - interrupt flag (requests)
+    protected intFlag = new PaddedSubRegister(5, 0xe1); // IF - interrupt flag (requests)
 
     // Devices
     protected timer = new Timer();

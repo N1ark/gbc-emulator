@@ -27,11 +27,11 @@ class SubRegister implements Addressable {
     }
     /** Sets the given flag to 0/1 according to the boolean */
     sflag(flag: number, state: boolean) {
-        this.value = state ? this.value | flag : this.value & ~flag;
+        this.set(state ? this.value | flag : this.value & ~flag);
     }
     /** Returns if the given flag is set */
     flag(flag: number) {
-        return (this.value & flag) !== 0;
+        return (this.get() & flag) === flag;
     }
 
     /** Read this subregister. */
@@ -41,6 +41,36 @@ class SubRegister implements Addressable {
     /** Write to this subregister. Position's ignored. */
     write(_: number, data: number): void {
         this.set(data);
+    }
+}
+
+/**
+ * A PaddedSubRegister is similar to a SubRegister but it only uses a set given of bits
+ * (starting from the least significant bits). All other bits are hard-wired to 1, and can't be
+ * changed.
+ * e.g. writing 0x02 to a PaddedSubRegister that uses 4 bits will actually write 0xf2
+ */
+class PaddedSubRegister extends SubRegister {
+    protected mask: number;
+
+    /**
+     * Constructs a PaddedSubRegister, using only the given number of bits
+     * @param usedBits
+     * @param value
+     */
+    constructor(usedBits: number, value?: number) {
+        const mask = 0xff ^ ((1 << usedBits) - 1);
+        super((value ?? 0) | mask);
+        if (usedBits <= 0 || 8 <= usedBits) {
+            throw new Error(
+                `The used bits of a PaddedSubRegister must be more than 0 and less than 8 (got ${usedBits})`
+            );
+        }
+        this.mask = mask;
+    }
+
+    set(value: number): void {
+        super.set(value | this.mask);
     }
 }
 
@@ -89,4 +119,4 @@ class Register {
     }
 }
 
-export { Register, SubRegister };
+export { Register, SubRegister, PaddedSubRegister };
