@@ -19,6 +19,10 @@ const ATTRIB_X_FLIP = 1 << 5;
 const ATTRIB_Y_FLIP = 1 << 6;
 const ATTRIB_BG_AND_WIN_OVER_OBJ = 1 << 7;
 
+const NOT_TRANSFERRING = -3;
+const SHOULD_TRANSFER = -2;
+const TRANSFER_END = 160;
+
 /**
  * The OAM (Object Attribute Memory) used to store sprite data. It is the same as RAM, but has
  * an extra method to more easily retrieve sprite data, and to do OAM DMA transfers.
@@ -26,31 +30,34 @@ const ATTRIB_BG_AND_WIN_OVER_OBJ = 1 << 7;
  */
 class OAM implements Addressable {
     /**
-     * -1 = not transferring
-     * -2 = transfer starts next cycle
+     * There is a 2-cycle delay before any transfer.
+     * -3 = not transferring
+     * -2 = transfer starts in 2 cycles
+     * -1 = transfer starts in 1 cycle
      * 0-159 = next byte to transfer
      */
-    protected transferStep: number = -1;
+    protected transferStep: number = NOT_TRANSFERRING;
     protected transferStart = new SubRegister(0xff);
     protected data = new RAM(160);
 
     /** @link https://gbdev.io/pandocs/OAM_DMA_Transfer.html */
     tick(system: System) {
         // If we're transferring...
-        if (this.transferStep === -2) {
-            this.transferStep = 0;
-        } else if (this.transferStep >= 0) {
+        if (this.transferStep >= 0) {
             const baseAddress = this.transferStart.get() << 8;
 
             // Copy a byte
             const transferredByte = system.read(baseAddress + this.transferStep);
             this.data.write(this.transferStep, transferredByte);
             this.spriteCache[this.transferStep >> 2].valid = false;
+        }
 
-            // Transfer ended
+        // Tick the transfer and the start delay
+        if (this.transferStep !== NOT_TRANSFERRING) {
             this.transferStep++;
-            if (this.transferStep === 160) {
-                this.transferStep = -1;
+            // Transfer ended
+            if (this.transferStep === TRANSFER_END) {
+                this.transferStep = NOT_TRANSFERRING;
             }
         }
     }
@@ -67,7 +74,7 @@ class OAM implements Addressable {
     write(pos: number, data: number): void {
         if (pos === 0xff46) {
             this.transferStart.set(data);
-            this.transferStep = -2;
+            this.transferStep = SHOULD_TRANSFER;
         } else if (0xfe00 <= pos && pos <= 0xfe9f) {
             const address = pos - 0xfe00;
             this.data.write(address, data);
@@ -88,8 +95,8 @@ class OAM implements Addressable {
 
     getSprites(): Sprite[] {
         this.spriteCache.forEach((sprite, index) => {
-            const address = index << 2;
             if (!sprite.valid) {
+                const address = index << 2;
                 const attribs = this.data.read(address + 3);
                 sprite.y = this.data.read(address + 0) - 16;
                 sprite.x = this.data.read(address + 1) - 8;
