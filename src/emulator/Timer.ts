@@ -115,6 +115,12 @@ class Timer implements Addressable {
             this.timerOverflowed = false;
             register.set(data);
         } else register.set(data);
+
+        // If an overflow (reload) just happened, we update the value to the new modulo
+        if (register === this.timerModulo && this.previousTimerOverflowed) {
+            const newModulo = this.timerModulo.get();
+            this.timerCounter.set(newModulo);
+        }
     }
 }
 
