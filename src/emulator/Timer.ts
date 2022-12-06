@@ -34,6 +34,7 @@ class Timer implements Addressable {
     protected previousDivider = this.divider.get();
     protected previousTimerControl = this.timerControl.get();
     protected timerOverflowed: boolean = false;
+    protected previousTimerOverflowed: boolean = false;
 
     /**
      * Ticks the timer system in M-cycles
@@ -49,11 +50,13 @@ class Timer implements Addressable {
         this.divider.set(wrap16(this.divider.get() + 4));
 
         // Check overflow + interrupt
+        this.previousTimerOverflowed = false;
         if (this.timerOverflowed) {
             const modulo = this.timerModulo.get();
             this.timerCounter.set(modulo);
             system.requestInterrupt(IFLAG_TIMER);
             this.timerOverflowed = false;
+            this.previousTimerOverflowed = true;
         }
 
         // Increase TIMA
@@ -105,8 +108,13 @@ class Timer implements Addressable {
         const register = this.address(pos);
         if (register === this.divider.h) {
             this.divider.set(0);
-        } else if (register === this.timerControl) register.set(data | ~0b111); // 3 bits only
-        else register.set(data);
+        } else if (register === this.timerControl) register.set(data | 0xf8); // 3 bits only
+        else if (register === this.timerCounter) {
+            // If overflow (reload) occurred, writes are ignored
+            if (this.previousTimerOverflowed) return;
+            this.timerOverflowed = false;
+            register.set(data);
+        } else register.set(data);
     }
 }
 
