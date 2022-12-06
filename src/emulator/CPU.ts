@@ -102,38 +102,41 @@ class CPU {
             const execNext = system.executeNext();
             if (execNext !== null) {
                 this.halted = false;
-                this.callInstant(system, execNext);
+                // Interrupt handling takes 5 cycles
+                this.nextStep = () => () => this.call(execNext, () => null);
                 if (verbose)
                     console.log("[CPU] interrupt execute, goto", execNext.toString(16));
             }
 
             // Do nothing if halted
-            if (this.halted) {
+            else if (this.halted) {
                 if (verbose) console.log("[CPU] halted");
                 return;
             }
 
             // Execute next instruction
-            const opcode = this.nextByteInstant(system);
-            ++this.stepCounter;
-            if (verbose)
-                console.log(
-                    `[CPU] ${this.stepCounter} - (0x${(this.regPC.get() - 1).toString(
-                        16
-                    )}) executing op 0x${opcode.toString(16)}`
-                );
+            else {
+                const opcode = this.nextByteInstant(system);
+                ++this.stepCounter;
+                if (verbose)
+                    console.log(
+                        `[CPU] ${this.stepCounter} - (0x${(this.regPC.get() - 1).toString(
+                            16
+                        )}) executing op 0x${opcode.toString(16)}`
+                    );
 
-            const instruction = this.instructionSet[opcode];
-            if (instruction === undefined) {
-                throw Error(
-                    `Unrecognized opcode ${opcode?.toString(16)} at address ${(
-                        this.regPC.get() - 1
-                    ).toString(16)}`
-                );
+                const instruction = this.instructionSet[opcode];
+                if (instruction === undefined) {
+                    throw Error(
+                        `Unrecognized opcode ${opcode?.toString(16)} at address ${(
+                            this.regPC.get() - 1
+                        ).toString(16)}`
+                    );
+                }
+
+                this.nextStep = instruction;
+                this.logDebug(system, opcode);
             }
-
-            this.nextStep = instruction;
-            this.logDebug(system, opcode);
         }
 
         const stepResult = this.nextStep(system);
