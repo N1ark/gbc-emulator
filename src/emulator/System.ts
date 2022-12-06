@@ -20,6 +20,20 @@ import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
 import { Int4 } from "./util";
 
+type IntMasterEnableStateType = "DISABLED" | "WILL_ENABLE" | "WILL_ENABLE2" | "ENABLED";
+
+/**
+ * The state of the IME.
+ * We need two transition states, because the system ticks right after the CPU, so if we go
+ * straight from WILL_ENABLE to ENABLED the CPU will never tick during a non-enabled state.
+ */
+const IntMasterEnableState: Record<IntMasterEnableStateType, IntMasterEnableStateType> = {
+    DISABLED: "DISABLED",
+    WILL_ENABLE: "WILL_ENABLE2",
+    WILL_ENABLE2: "ENABLED",
+    ENABLED: "ENABLED",
+};
+
 type AddressData = [Addressable, number];
 
 class System implements Addressable {
@@ -30,7 +44,7 @@ class System implements Addressable {
     protected hram: RAM = new RAM(HRAM_SIZE);
 
     // Interrupts
-    protected intMasterEnable: boolean = false; // IME - master enable flag
+    protected intMasterEnable: IntMasterEnableStateType = "DISABLED"; // IME - master enable flag
     protected intEnable = new SubRegister(0x00); // IE - interrupt enable (handler)
     protected intFlag = new SubRegister(0xe1); // IF - interrupt flag (requests)
 
@@ -59,6 +73,9 @@ class System implements Addressable {
         }
         this.oam.tick(this);
         this.timer.tick(this);
+
+        // Tick IME
+        this.intMasterEnable = IntMasterEnableState[this.intMasterEnable];
     }
 
     /**
@@ -192,11 +209,11 @@ class System implements Addressable {
 
     /** Enables the master interrupt toggle. */
     enableInterrupts() {
-        this.intMasterEnable = true;
+        if (this.intMasterEnable === "DISABLED") this.intMasterEnable = "WILL_ENABLE";
     }
     /** Disables the master interrupt toggle. */
     disableInterrupts() {
-        this.intMasterEnable = false;
+        this.intMasterEnable = "DISABLED";
     }
 
     /** Requests an interrupt for the given flag type. */
@@ -209,7 +226,7 @@ class System implements Addressable {
      * where (if no call must be made, returns `null`).
      */
     executeNext(): number | null {
-        if (!this.intMasterEnable) return null;
+        if (this.intMasterEnable !== "ENABLED") return null;
         /* List of flags for the interrupts, and where they make a call. */
         const interruptCalls: [number, number][] = [
             [IFLAG_VBLANK, 0x0040],
