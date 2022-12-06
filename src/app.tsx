@@ -269,46 +269,53 @@ const App: FunctionalComponent = () => {
         if (!isTesting.value) return;
 
         (async () => {
-            let testResults: Record<string, { type: string; state: string }> = {};
+            let testResults: Record<string, { type: string; group: string; state: string }> =
+                {};
             for (let testType in testFiles) {
+                const groups = testFiles[testType as keyof typeof testFiles];
                 console.log(`---- Starting tests "${testType}" ----`);
-                for (let testFile of testFiles[testType as keyof typeof testFiles]) {
-                    console.log(`Running test ${testType} -> ${testFile}`);
-                    const getTestState = testConfig[testType as keyof typeof testFiles];
-                    const romResponse = await fetch(`/tests/${testType}/${testFile}.gb`);
-                    const romBlob = await romResponse.blob();
-                    const romArrayBuffer = await romBlob.arrayBuffer();
-                    try {
-                        const gbc = loadGame(new Uint8Array(romArrayBuffer));
-                        while (isTesting) {
-                            const state =
-                                gbc["cpu"]["stepCounter"] > 10_000_000
-                                    ? "timeout"
-                                    : getTestState(gbc, serialOut.value);
-                            if (state !== null) {
-                                testResults[testFile] = {
-                                    type: testType,
-                                    state:
-                                        state === "failure"
-                                            ? "❌"
-                                            : state === "timeout"
-                                            ? "⌛"
-                                            : "✅",
-                                };
-                                break;
+                for (let group in groups) {
+                    const groupFiles = groups[group as keyof typeof groups] as string[];
+                    for (let testFile of groupFiles) {
+                        console.log(`Running test ${testType}/${group} -> ${testFile}`);
+                        const getTestState = testConfig[testType as keyof typeof testFiles];
+                        const romResponse = await fetch(`/tests/${testType}/${testFile}.gb`);
+                        const romBlob = await romResponse.blob();
+                        const romArrayBuffer = await romBlob.arrayBuffer();
+                        try {
+                            const gbc = loadGame(new Uint8Array(romArrayBuffer));
+                            while (isTesting) {
+                                const state =
+                                    gbc["cpu"]["stepCounter"] > 10_000_000
+                                        ? "timeout"
+                                        : getTestState(gbc, serialOut.value);
+                                if (state !== null) {
+                                    testResults[testFile] = {
+                                        type: testType,
+                                        group,
+                                        state:
+                                            state === "failure"
+                                                ? "❌"
+                                                : state === "timeout"
+                                                ? "⌛"
+                                                : "✅",
+                                    };
+                                    break;
+                                }
+                                await new Promise((resolve) => setTimeout(resolve, 100));
                             }
-                            await new Promise((resolve) => setTimeout(resolve, 100));
+                            gbc.stop();
+                        } catch (e) {
+                            console.error("Caught error, skipping test", e);
+                            testResults[testFile] = {
+                                type: testType,
+                                group,
+                                state: "🪦",
+                            };
                         }
-                        gbc.stop();
-                    } catch (e) {
-                        console.error("Caught error, skipping test", e);
-                        testResults[testFile] = {
-                            type: testType,
-                            state: "🪦",
-                        };
+                        if (!isTesting) return;
+                        console.table(testResults);
                     }
-                    if (!isTesting) return;
-                    console.table(testResults);
                 }
             }
             emulatorRunning.value = false;
