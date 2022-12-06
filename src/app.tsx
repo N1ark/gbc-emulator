@@ -2,6 +2,7 @@
 import GameboyJS from "./emulator2";
 
 import { FunctionalComponent } from "preact";
+import { signal, useSignal } from "@preact/signals";
 import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
 import {
     Play,
@@ -59,14 +60,12 @@ const App: FunctionalComponent = () => {
     ]);
 
     // Interaction
-    const [emulator2Enabled, setEmulator2Enabled] = useState<boolean>(false);
-    const [debugEnabled, setDebugEnabled] = useState<boolean>(false);
-    const tripleSpeed = useRef<boolean>(false);
-    const [tripleSpeedState, setTripleSpeedState] = useState<boolean>(false);
-    const emulatorRunning = useRef<boolean>(true);
-    const [emulatorRunningState, setEmulatorRunningState] = useState<boolean>(true);
-    const [isTesting, setIsTesting] = useState<boolean>(false);
-    const canStep = useRef<boolean>(true);
+    const emulator2Enabled = useSignal(false);
+    const debugEnabled = useSignal(false);
+    const tripleSpeed = useSignal(false);
+    const emulatorRunning = useSignal(true);
+    const isTesting = useSignal(false);
+    const canStep = useSignal(true);
 
     // DOM Refs
     const emulator1Ref = useRef<HTMLCanvasElement>(null);
@@ -78,21 +77,21 @@ const App: FunctionalComponent = () => {
     const [loadedGame, setLoadedGame] = useState<Uint8Array>();
     const [gameboy, setGameboy] = useState<GameBoyColor>();
     const [emulator2, setEmulator2] = useState<any>();
-    const [serialOut, setSerialOut] = useState<string>("");
+    const serialOut = useSignal("");
 
     // Debug state
-    const [cyclesPerSec, setCyclesPerSec] = useState<number>(0);
-    const [stepCount, setStepCount] = useState<number>(0);
-    const [millisPerFrame, setMillisPerFrame] = useState<number>(0);
+    const cyclesPerSec = useSignal(0);
+    const stepCount = useSignal(0);
+    const millisPerFrame = useSignal(0);
 
     /**
      * Stop em2 if needed
      */
     useEffect(() => {
-        if (emulator2 && !emulator2Enabled) {
+        if (emulator2 && !emulator2Enabled.value) {
             emulator2.error("stop");
         }
-    }, [emulator2Enabled, emulator2]);
+    }, [emulator2Enabled.value, emulator2]);
 
     /**
      * Loads a ROM into the gameboy, instantiating it. Also creates the 2nd emulator if needed
@@ -101,7 +100,7 @@ const App: FunctionalComponent = () => {
         (rom: Uint8Array) => {
             if (gameboy) {
                 gameboy.stop();
-                setSerialOut("");
+                serialOut.value = "";
             }
             const gameIn: GameInput = {
                 read: () => ({
@@ -117,36 +116,36 @@ const App: FunctionalComponent = () => {
             };
 
             const debug = () => {
-                const step = canStep.current;
+                const step = canStep.value;
                 if (step) {
-                    canStep.current = false;
+                    canStep.value = false;
                 }
                 return {
                     canStep: step,
-                    skipDebug: emulatorRunning.current,
-                    tripleSpeed: tripleSpeed.current,
+                    skipDebug: emulatorRunning.value,
+                    tripleSpeed: tripleSpeed.value,
                 };
             };
 
             const gbOut: GameBoyOutput = {
                 receive: (d) => displayData(d, emulator1Ref),
-                serialOut: (d) => setSerialOut((prev) => prev + String.fromCharCode(d)),
+                serialOut: (d) => (serialOut.value += String.fromCharCode(d)),
                 errorOut: (e) => {
-                    setSerialOut(`${e}`);
+                    serialOut.value = `${e}`;
                     console.error(e);
                 },
                 debugBackground: (d) => displayData(d, bgDebugger, 256, 256),
                 debugTileset: (d) => displayData(d, tilesetDebugger, 128, 192),
-                stepCount: setStepCount,
-                cyclesPerSec: setCyclesPerSec,
-                frameDrawDuration: setMillisPerFrame,
+                stepCount: (x) => (stepCount.value = x),
+                cyclesPerSec: (x) => (cyclesPerSec.value = x),
+                frameDrawDuration: (x) => (millisPerFrame.value = x),
             };
 
             const gbc = new GameBoyColor(rom, gameIn, gbOut, debug);
             setGameboy(gbc);
             requestAnimationFrame(() => gbc.start());
 
-            if (emulator2Enabled) {
+            if (emulator2Enabled.value) {
                 setTimeout(() => {
                     if (emulator2) {
                         emulator2.error("stop");
@@ -264,17 +263,10 @@ const App: FunctionalComponent = () => {
     }, []);
 
     /**
-     * Sync state with ref
-     */
-    useEffect(() => {
-        emulatorRunning.current = canStep.current = emulatorRunningState;
-    }, [emulatorRunningState]);
-
-    /**
      * Handles the testing system
      */
     useEffect(() => {
-        if (!isTesting) return;
+        if (!isTesting.value) return;
 
         (async () => {
             let testResults: Record<string, { type: string; state: string }> = {};
@@ -289,12 +281,10 @@ const App: FunctionalComponent = () => {
                     try {
                         const gbc = loadGame(new Uint8Array(romArrayBuffer));
                         while (isTesting) {
-                            let serialOut = "";
-                            setSerialOut((s) => (serialOut = s)); // retrieve the value
                             const state =
                                 gbc["cpu"]["stepCounter"] > 10_000_000
                                     ? "timeout"
-                                    : getTestState(gbc, serialOut);
+                                    : getTestState(gbc, serialOut.value);
                             if (state !== null) {
                                 testResults[testFile] = {
                                     type: testType,
@@ -321,14 +311,14 @@ const App: FunctionalComponent = () => {
                     console.table(testResults);
                 }
             }
-            setEmulatorRunningState(false);
+            emulatorRunning.value = false;
             console.log(
                 `Finished running tests! Passed ${
                     Object.values(testResults).filter((x) => x.state === "✅").length
                 }/${Object.keys(testResults).length}`
             );
         })();
-    }, [isTesting]);
+    }, [isTesting.value]);
 
     return (
         <>
@@ -341,48 +331,50 @@ const App: FunctionalComponent = () => {
                 <button
                     title="Play/Pause"
                     className="icon-button"
-                    onClick={(e) => setEmulatorRunningState((s) => !s)}
+                    onClick={() =>
+                        (emulatorRunning.value = canStep.value = !emulatorRunning.value)
+                    }
                 >
-                    {emulatorRunningState ? <Pause /> : <Play />}
+                    {emulatorRunning.value ? <Pause /> : <Play />}
                 </button>
 
                 <button
                     title="Step"
                     className="icon-button"
-                    onClick={(e) => (canStep.current = true)}
-                    disabled={emulatorRunningState}
+                    onClick={() => (canStep.value = true)}
+                    disabled={emulatorRunning.value}
                 >
                     <Redo />
                 </button>
 
                 <button
                     title="Debug"
-                    className={`icon-button ${debugEnabled ? "toggled" : ""}`}
-                    onClick={() => setDebugEnabled(!debugEnabled)}
+                    className={`icon-button ${debugEnabled.value ? "toggled" : ""}`}
+                    onClick={() => (debugEnabled.value = !debugEnabled.value)}
                 >
                     <Bug />
                 </button>
 
                 <button
                     title="Emulator 2 Enabled"
-                    className={`icon-button ${emulator2Enabled ? "toggled" : ""}`}
-                    onClick={() => setEmulator2Enabled(!emulator2Enabled)}
+                    className={`icon-button ${emulator2Enabled.value ? "toggled" : ""}`}
+                    onClick={() => (emulator2Enabled.value = !emulator2Enabled.value)}
                 >
                     <FlipHorizontal />
                 </button>
 
                 <button
                     title="Testing"
-                    className={`icon-button ${isTesting ? "toggled" : ""}`}
-                    onClick={() => setIsTesting(!isTesting)}
+                    className={`icon-button ${isTesting.value ? "toggled" : ""}`}
+                    onClick={() => (isTesting.value = !isTesting.value)}
                 >
                     <FileQuestion />
                 </button>
 
                 <button
                     title="Double Speed"
-                    className={`icon-button ${tripleSpeedState ? "toggled" : ""}`}
-                    onClick={() => setTripleSpeedState((s) => (tripleSpeed.current = !s))}
+                    className={`icon-button ${tripleSpeed.value ? "toggled" : ""}`}
+                    onClick={() => (tripleSpeed.value = !tripleSpeed.value)}
                 >
                     <FastForward />
                 </button>
@@ -391,28 +383,28 @@ const App: FunctionalComponent = () => {
             {gameboy && (
                 <div id="emu-stack">
                     <div id="emu-stats">
-                        <div>{stepCount.toLocaleString()} steps</div>
-                        <div>{cyclesPerSec.toLocaleString()} C/s</div>
-                        <div>{millisPerFrame.toLocaleString()} ms/f</div>
+                        <div>{stepCount.value.toLocaleString()} steps</div>
+                        <div>{cyclesPerSec.value.toLocaleString()} C/s</div>
+                        <div>{millisPerFrame.value.toLocaleString()} ms/f</div>
                     </div>
                     <div id="emu-screens">
                         <Screen canvasRef={emulator1Ref} />
-                        {emulator2Enabled && <Screen canvasRef={emulator2Ref} />}
-                        {debugEnabled && (
+                        {emulator2Enabled.value && <Screen canvasRef={emulator2Ref} />}
+                        {debugEnabled.value && (
                             <>
                                 <Screen width={256} height={256} canvasRef={bgDebugger} />
                                 <Screen width={128} height={192} canvasRef={tilesetDebugger} />
                             </>
                         )}
                     </div>
-                    {serialOut.length > 0 && (
+                    {serialOut.value.length > 0 && (
                         <code
                             className={
-                                serialOut.toLowerCase().includes("passed")
+                                serialOut.value.toLowerCase().includes("passed")
                                     ? "passed"
-                                    : serialOut.toLowerCase().includes("failed")
+                                    : serialOut.value.toLowerCase().includes("failed")
                                     ? "failed"
-                                    : serialOut.toLowerCase().includes("error")
+                                    : serialOut.value.toLowerCase().includes("error")
                                     ? "error"
                                     : undefined
                             }
