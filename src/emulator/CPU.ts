@@ -139,8 +139,7 @@ class CPU {
             }
         }
 
-        const stepResult = this.nextStep(system);
-        this.nextStep = stepResult;
+        this.nextStep = this.nextStep(system);
     }
 
     /**

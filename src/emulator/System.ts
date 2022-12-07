@@ -34,6 +34,14 @@ const IntMasterEnableState: Record<IntMasterEnableStateType, IntMasterEnableStat
     ENABLED: "ENABLED",
 };
 
+const INTERRUPT_CALLS: [number, number][] = [
+    [IFLAG_VBLANK, 0x0040],
+    [IFLAG_LCDC, 0x0048],
+    [IFLAG_TIMER, 0x0050],
+    [IFLAG_SERIAL, 0x0058],
+    [IFLAG_JOYPAD, 0x0060],
+];
+
 type AddressData = [Addressable, number];
 
 class System implements Addressable {
@@ -55,6 +63,14 @@ class System implements Addressable {
     protected joypad: JoypadInput;
     protected unhalt: () => void;
 
+    // Registers + Utility Registers
+    protected register00: Addressable = { read: () => 0x00, write: () => {} };
+    protected registerFF: Addressable = { read: () => 0xff, write: () => {} };
+    protected registerSerial: Addressable = {
+        read: () => 0xff,
+        write: (pos, value) => this.serialOut && this.serialOut(value),
+    };
+
     // Debug
     protected serialOut: undefined | ((data: number) => void);
 
@@ -68,9 +84,7 @@ class System implements Addressable {
 
     /** Ticks the whole system for the given number of cycles. */
     tick() {
-        for (let i = 0; i < 4; i++) {
-            this.gpu.tick(this);
-        }
+        this.gpu.tick(this);
         this.oam.tick(this);
         this.timer.tick(this);
 
@@ -86,7 +100,8 @@ class System implements Addressable {
         if (pos < 0x0000 || pos > 0xffff)
             throw new Error(`Invalid address to read from ${pos.toString(16)}`);
 
-        switch ((pos >> 12) as Int4) {
+        // Checking leftmost symbol of address (X000)
+        switch ((pos >> 12) & (0xf as Int4)) {
             case 0x0:
             case 0x1:
             case 0x2:
@@ -111,53 +126,58 @@ class System implements Addressable {
                 break; // fall through - ECHO RAM + registers
         }
 
+        // Echo RAM
+        if (pos <= 0xfdff) return [this.wram, pos & (WRAM_SIZE - 1)];
+
+        // OAM
+        if (pos <= 0xfe9f) return [this.oam, pos];
+
+        // Illegal Area
+        if (pos <= 0xfeff) {
+            console.debug(
+                `Accessed illegal area ${pos.toString(16)}, returned a fake 0x00 register`
+            );
+            return [this.register00, 0];
+        }
+
         // Registers
-        const register = {
-            0xff00: this.joypad,
-
-            0xff04: this.timer,
-            0xff05: this.timer,
-            0xff06: this.timer,
-            0xff07: this.timer,
-
-            0xff0f: this.intFlag,
-            0xff46: this.oam,
-            0xffff: this.intEnable,
-        }[pos];
-        if (register !== undefined) return [register, pos];
-
-        // Serial in/out
-        if (pos === 0xff02) {
-            return [new SubRegister(), 0];
+        switch (pos) {
+            case 0xff00:
+                return [this.joypad, pos];
+            case 0xff01:
+                return [this.registerSerial, pos];
+            case 0xff02:
+                return [this.register00, pos];
+            case 0xff04:
+            case 0xff05:
+            case 0xff06:
+            case 0xff07:
+                return [this.timer, pos];
+            case 0xff40:
+            case 0xff41:
+            case 0xff42:
+            case 0xff43:
+            case 0xff44:
+            case 0xff45:
+            case 0xff47:
+            case 0xff48:
+            case 0xff49:
+            case 0xff4a:
+            case 0xff4b:
+                return [this.gpu, pos];
+            case 0xff46:
+                return [this.oam, pos];
+            case 0xff0f:
+                return [this.intFlag, pos];
+            case 0xffff:
+                return [this.intEnable, pos];
         }
-        if (pos === 0xff01) {
-            const spy = new SubRegister();
-            spy.read = () => 0;
-            spy.write = (pos, data) => this.serialOut && this.serialOut(data);
-            return [spy, 0];
-        }
-
-        // GPU Registers
-        if (0xff40 <= pos && pos <= 0xff4b) return [this.gpu, pos];
 
         // Audio registers
         if (0xff10 <= pos && pos <= 0xff26) return [this.audio, pos];
         // Audio wave
         if (0xff30 <= pos && pos <= 0xff3f) return [this.audio, pos];
 
-        // Echo RAM
-        if (0xe000 <= pos && pos <= 0xfdff) return [this.wram, pos & (WRAM_SIZE - 1)];
-        // OAM
-        if (0xfe00 <= pos && pos <= 0xfe9f) return [this.oam, pos];
-        // Illegal Area
-        if (0xfea0 <= pos && pos <= 0xfeff) {
-            console.debug(
-                `Accessed illegal area ${pos
-                    .toString(16)
-                    .padStart(4, "0")}, return a fake 0x00 register`
-            );
-            return [{ read: () => 0x00, write: () => {} }, 0];
-        }
         // High RAM (HRAM)
         if (0xff80 <= pos && pos <= 0xfffe) return [this.hram, pos - 0xff80];
 
@@ -166,7 +186,7 @@ class System implements Addressable {
                 .toString(16)
                 .padStart(4, "0")}, return a fake 0xff register`
         );
-        return [{ read: () => 0xff, write: () => {} }, 0];
+        return [this.registerFF, 0];
     }
 
     /**
@@ -228,14 +248,7 @@ class System implements Addressable {
     executeNext(): number | null {
         if (this.intMasterEnable !== "ENABLED") return null;
         /* List of flags for the interrupts, and where they make a call. */
-        const interruptCalls: [number, number][] = [
-            [IFLAG_VBLANK, 0x0040],
-            [IFLAG_LCDC, 0x0048],
-            [IFLAG_TIMER, 0x0050],
-            [IFLAG_SERIAL, 0x0058],
-            [IFLAG_JOYPAD, 0x0060],
-        ];
-        for (const [flag, address] of interruptCalls) {
+        for (const [flag, address] of INTERRUPT_CALLS) {
             if (this.intEnable.flag(flag) && this.intFlag.flag(flag)) {
                 this.intFlag.sflag(flag, false);
                 return address;

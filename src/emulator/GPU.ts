@@ -107,7 +107,7 @@ class GPU implements Readable {
      * @link https://gbdev.io/pandocs/pixel_fifo.html
      */
     tick(system: System) {
-        this.cycleCounter++;
+        this.cycleCounter += 4;
 
         const currentMode = this.lcdStatus.get() & STAT_MODE;
 

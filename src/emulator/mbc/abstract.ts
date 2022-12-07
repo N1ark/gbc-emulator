@@ -6,11 +6,11 @@ abstract class MBC extends AbstractMemory {
     }
 
     read(pos: number): number {
-        if (0xa000 <= pos && pos <= 0xbfff) throw Error(pos.toString(16)); // eram
+        if (0xa000 <= pos && pos <= 0xbfff) return 0xff; // eram
         return this.data[pos];
     }
     write(pos: number, data: number): void {
-        if (0xa000 <= pos && pos <= 0xbfff) throw Error(pos.toString(16)); // eram
+        if (0xa000 <= pos && pos <= 0xbfff) return; // eram
         this.data[pos] = data;
     }
 }

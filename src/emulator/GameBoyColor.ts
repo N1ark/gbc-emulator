@@ -49,7 +49,7 @@ class GameBoyColor {
     drawFrame(): boolean {
         const debugResult = this.debug && this.debug();
         const debugging = !debugResult?.skipDebug;
-        const cycleTarget = CYCLES_PER_FRAME * (debugResult?.tripleSpeed ? 3 : 1);
+        const cycleTarget = debugResult?.tripleSpeed ? CYCLES_PER_FRAME * 3 : CYCLES_PER_FRAME;
 
         const frameDrawStart = window.performance.now();
         while (this.cycles < cycleTarget) {
@@ -67,7 +67,7 @@ class GameBoyColor {
                 return true;
             }
         }
-        this.cycles %= CYCLES_PER_FRAME; // keep leftover cycles
+        this.cycles %= cycleTarget; // keep leftover cycles
 
         // Read input
         this.system.readInput();
