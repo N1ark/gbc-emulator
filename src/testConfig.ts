@@ -97,7 +97,6 @@ const testFiles = {
             "mbc1_rom_8Mb",
         ],
         oam: [
-            // OAM DMA
             "mem_oam",
             "oam_dma_restart",
             "oam_dma_start",

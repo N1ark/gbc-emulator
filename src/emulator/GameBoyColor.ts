@@ -1,6 +1,6 @@
 import { CYCLES_PER_FRAME } from "./constants";
 import CPU from "./CPU";
-import GameInput from "./GameInput";
+import GameBoyInput from "./GameBoyInput";
 import System from "./System";
 import GameBoyOutput from "./GameBoyOutput";
 
@@ -28,7 +28,7 @@ class GameBoyColor {
 
     constructor(
         rom: Uint8Array,
-        input: GameInput,
+        input: GameBoyInput,
         output: GameBoyOutput,
         debug?: () => DebugData
     ) {
@@ -57,6 +57,7 @@ class GameBoyColor {
             this.cpu.step(this.system, debugging);
             this.system.tick();
             this.cycles += 4;
+            this.cycleChrono.count += 4;
 
             const breakpoint = this.breakpoints?.find(
                 (br) =>
@@ -76,11 +77,9 @@ class GameBoyColor {
         this.output.frameDrawDuration &&
             this.output.frameDrawDuration(window.performance.now() - frameDrawStart);
         if (this.output.cyclesPerSec && Date.now() - this.cycleChrono.time >= 1000) {
-            const count = (this.cpu.getStepCounts() - this.cycleChrono.count) * 4;
-            this.cycleChrono = {
-                time: Date.now(),
-                count: this.cpu.getStepCounts(),
-            };
+            const count = this.cycleChrono.count;
+            this.cycleChrono.time = Date.now();
+            this.cycleChrono.count = 0;
             this.output.cyclesPerSec(count);
         }
 

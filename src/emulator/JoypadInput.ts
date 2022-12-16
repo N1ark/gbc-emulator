@@ -9,7 +9,7 @@ import {
     BUTTON_SELECT,
     BUTTON_START,
 } from "./constants";
-import GameInput from "./GameInput";
+import GameBoyInput from "./GameBoyInput";
 
 const READ_ARROWS_BIT = 1 << 4;
 const READ_BUTTON_BIT = 1 << 5;
@@ -20,7 +20,7 @@ const CONTROL_BITS = READ_ARROWS_BIT & READ_BUTTON_BIT;
  * @see https://gbdev.io/pandocs/Joypad_Input.html
  */
 class JoypadInput implements Addressable {
-    protected input: GameInput;
+    protected input: GameBoyInput;
 
     // bits 0-3 are state (button or arrow)
     // bit 4 is to read arrow data
@@ -32,7 +32,7 @@ class JoypadInput implements Addressable {
 
     protected currentlyReading: "buttons" | "arrows" = "buttons";
 
-    constructor(input: GameInput) {
+    constructor(input: GameBoyInput) {
         this.input = input;
     }
 

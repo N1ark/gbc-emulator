@@ -9,7 +9,7 @@ import {
     IFLAG_VBLANK,
     WRAM_SIZE,
 } from "./constants";
-import GameInput from "./GameInput";
+import GameBoyInput from "./GameBoyInput";
 import GPU from "./GPU";
 import JoypadInput from "./JoypadInput";
 import { RAM } from "./Memory";
@@ -74,7 +74,12 @@ class System implements Addressable {
     // Debug
     protected serialOut: undefined | ((data: number) => void);
 
-    constructor(rom: Uint8Array, input: GameInput, output: GameBoyOutput, unhalt: () => void) {
+    constructor(
+        rom: Uint8Array,
+        input: GameBoyInput,
+        output: GameBoyOutput,
+        unhalt: () => void
+    ) {
         this.rom = new ROM(rom);
         this.joypad = new JoypadInput(input);
         this.gpu = new GPU(output);

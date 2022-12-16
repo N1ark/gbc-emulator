@@ -1,4 +1,4 @@
-export type GameInputRead = {
+export type GameBoyInputRead = {
     up: boolean;
     down: boolean;
     left: boolean;
@@ -10,8 +10,8 @@ export type GameInputRead = {
     select: boolean;
 };
 
-interface GameInput {
-    read(): GameInputRead;
+interface GameBoyInput {
+    read(): GameBoyInputRead;
 }
 
-export default GameInput;
+export default GameBoyInput;

@@ -2,6 +2,7 @@ import Addressable from "./Addressable";
 import { RAM } from "./Memory";
 import { SubRegister } from "./Register";
 import System from "./System";
+import { wrap8 } from "./util";
 
 export type Sprite = {
     x: number;
@@ -98,8 +99,8 @@ class OAM implements Addressable {
             if (!sprite.valid) {
                 const address = index << 2;
                 const attribs = this.data.read(address + 3);
-                sprite.y = this.data.read(address + 0) - 16;
-                sprite.x = this.data.read(address + 1) - 8;
+                sprite.y = wrap8(this.data.read(address + 0) - 16);
+                sprite.x = wrap8(this.data.read(address + 1) - 8);
                 sprite.tileIndex = this.data.read(address + 2);
                 sprite.xFlip = (attribs & ATTRIB_X_FLIP) !== 0;
                 sprite.yFlip = (attribs & ATTRIB_Y_FLIP) !== 0;

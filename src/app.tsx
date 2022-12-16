@@ -2,7 +2,7 @@
 import GameboyJS from "./emulator2";
 
 import { FunctionalComponent } from "preact";
-import { signal, useSignal } from "@preact/signals";
+import { useSignal } from "@preact/signals";
 import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
 import {
     Play,
@@ -15,7 +15,7 @@ import {
 } from "lucide-preact";
 
 import "./app.css";
-import GameInput from "./emulator/GameInput";
+import GameBoyInput from "./emulator/GameBoyInput";
 import RomInput from "./RomInput";
 import Screen from "./Screen";
 import useKeys from "./useKeys";
@@ -102,7 +102,7 @@ const App: FunctionalComponent = () => {
                 gameboy.stop();
                 serialOut.value = "";
             }
-            const gameIn: GameInput = {
+            const gameIn: GameBoyInput = {
                 read: () => ({
                     up: pressedKeys.includes("arrowup"),
                     down: pressedKeys.includes("arrowdown"),

@@ -1167,15 +1167,6 @@ class CPU {
         );
     }
 
-    protected callInstant(system: System, address: number) {
-        const data = this.regPC.get();
-        this.regSP.dec();
-        system.write(this.regSP.get(), high(data));
-        this.regSP.dec();
-        system.write(this.regSP.get(), low(data));
-        this.regPC.set(address);
-    }
-
     /**
      * Returns the current call (ie. consumes a pointer at SP and sets it to PC).
      * Takes 3 cycles.
