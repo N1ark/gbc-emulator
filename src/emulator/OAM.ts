@@ -75,7 +75,8 @@ class OAM implements Addressable {
     write(pos: number, data: number): void {
         if (pos === 0xff46) {
             this.transferStart.set(data);
-            this.transferStep = SHOULD_TRANSFER;
+            if (this.transferStep === NOT_TRANSFERRING || this.transferStep > 0)
+                this.transferStep = SHOULD_TRANSFER;
         } else if (0xfe00 <= pos && pos <= 0xfe9f) {
             const address = pos - 0xfe00;
             this.data.write(address, data);

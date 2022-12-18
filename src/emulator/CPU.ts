@@ -24,6 +24,7 @@ class CPU {
     protected regSP = new Register(0xfffe); // stack pointer
     protected halted: boolean = false;
 
+    // Subregisters, for convenience sake
     protected srA = this.regAF.h;
     protected srB = this.regBC.h;
     protected srC = this.regBC.l;
@@ -32,6 +33,16 @@ class CPU {
     protected srH = this.regHL.h;
     protected srL = this.regHL.l;
 
+    // Next instruction callable
+    protected nextStep: InstructionMethod | null = null;
+
+    // The opcode for the next instruction
+    // This is needed because the CPU actually fetches the opcode on the last M-cycle of the
+    // previous instruction. This emulator stores the value at the PC at the end of each
+    // instruction to use for the next instruction (this opcode is invalidated if an interrupt
+    // happens)
+    protected currentOpcode: number | null = null;
+
     // for debug purposes
     protected stepCounter: number = 0;
     protected logOffset: number = 0;
@@ -39,8 +50,13 @@ class CPU {
     protected logOutput: string[] | undefined = [];
 
     /** @deprecated pls don't */
-    protected nextByteInstant(system: System) {
-        return system.read(this.regPC.inc());
+    protected nextOpCode(system: System) {
+        if (this.currentOpcode === null) {
+            return system.read(this.regPC.inc());
+        }
+        const op = this.currentOpcode;
+        this.currentOpcode = null;
+        return op;
     }
 
     /**
@@ -89,9 +105,6 @@ class CPU {
         this.halted = false;
     }
 
-    protected nextStep: InstructionMethod | null = null;
-    protected pcHistory: number[] = [];
-
     /**
      * Steps through one line of the code, and returns the M-cycles required for the
      * operation
@@ -104,6 +117,8 @@ class CPU {
                 this.halted = false;
                 // Interrupt handling takes 5 cycles
                 this.nextStep = () => () => this.call(execNext, () => null);
+                this.currentOpcode = null;
+                this.regPC.dec(); // undo the read done at the end of the previous instruction
                 if (verbose)
                     console.log("[CPU] interrupt execute, goto", execNext.toString(16));
             }
@@ -116,7 +131,7 @@ class CPU {
 
             // Execute next instruction
             else {
-                const opcode = this.nextByteInstant(system);
+                const opcode = this.nextOpCode(system);
                 ++this.stepCounter;
                 if (verbose)
                     console.log(
@@ -140,6 +155,9 @@ class CPU {
         }
 
         this.nextStep = this.nextStep(system);
+        if (this.nextStep === null) {
+            this.currentOpcode = system.read(this.regPC.inc());
+        }
     }
 
     /**
