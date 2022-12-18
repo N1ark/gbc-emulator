@@ -49,8 +49,8 @@ class CPU {
     protected logLimit: number = 0;
     protected logOutput: string[] | undefined = [];
 
-    /** @deprecated pls don't */
-    protected nextOpCode(system: System) {
+    // Returns the next opcode
+    protected nextOpCode(system: System): number {
         if (this.currentOpcode === null) {
             return system.read(this.regPC.inc());
         }
