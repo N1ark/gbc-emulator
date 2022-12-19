@@ -187,10 +187,12 @@ class GPU implements Readable {
         const bgPriorities = [...new Array(SCREEN_WIDTH)].fill(false);
         if (this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
             this.drawBackground(bgPriorities);
+
+            if (this.lcdControl.flag(LCDC_WIN_ENABLE)) {
+                this.drawWindow(bgPriorities);
+            }
         }
-        // if (this.lcdControl.flag(LCDC_WIN_ENABLE)) {
-        //     this.drawBackgroundOrWindow("win", bgPriorities);
-        // }
+
         if (this.lcdControl.flag(LCDC_OBJ_ENABLE)) {
             this.drawObjects(system, bgPriorities);
         }
@@ -328,6 +330,66 @@ class GPU implements Readable {
         for (let i = 0; i < SCREEN_WIDTH + scrollOffsetX; i += 8) {
             // The currently read X pixel of the bg map
             const x = wrap8(viewX + i);
+            // The currently read X position of the corresponding tile
+            // this determines the tile of the next 8 pixels
+            const tileX = Math.floor(x / 8);
+
+            // Index of the tile in the current tile data
+            const tileIndex = tileMapLoc + tileX + tileY * 32;
+            // The ID (pointer) of the tile
+            const tileAddress = this.readVram(tileIndex);
+            // Convert the ID to the actual address
+            const tileDataAddress = toAddress(tileAddress);
+            // Get the tile data
+            const tileData = this.getTile(tileDataAddress);
+
+            for (let innerX = 0; innerX < 8; innerX++) {
+                const posX = i + innerX - scrollOffsetX;
+                if (posX < 0) continue;
+                // Get the RGBA color, and draw it!
+                const colorId = tileData[innerX][tileInnerY];
+                this.videoBuffer[bufferStart + posX] = palette[colorId];
+                if (colorId > 0) {
+                    priorities[posX] = true;
+                }
+            }
+        }
+    }
+
+    protected drawWindow(priorities: boolean[]) {
+        // Function to get access to the tile data, ie. the shades of a tile
+        const toAddress = this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
+            ? // Unsigned regular, 0x8000-0x8fff
+              (n: number) => 0x8000 + n * 16
+            : // Signed offset, 0x9000-0x97ff for 0-127 and 0x8800-0x8fff for 128-255
+              (n: number) => 0x9000 + asSignedInt8(n) * 16;
+
+        // The tilemap used (a map of tile *pointers*)
+        const tileMapLoc = this.lcdControl.flag(LCDC_WIN_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
+        // Map of colors for each shade
+        const palette = this.bgAndWinPaletteColor();
+
+        // The top-left corner of the 160x144 view area
+        const windowX = this.windowX.get() - 7;
+        const windowY = this.windowY.get();
+
+        if (this.lcdY.get() < windowY) return;
+
+        // The currently read Y pixel of the bg map
+        const y = windowY + this.lcdY.get();
+        // The currently read Y position of the corresponding tile (one tile is 8 pixels long)
+        const tileY = Math.floor(y / 8);
+        // The currently read Y position *inside* the tile
+        const tileInnerY = y % 8;
+
+        // Start of video buffer for this line
+        const bufferStart = this.lcdY.get() * SCREEN_WIDTH;
+
+        const scrollOffsetX = windowX % 8;
+
+        for (let i = 0; i < SCREEN_WIDTH + scrollOffsetX; i += 8) {
+            // The currently read X pixel of the bg map
+            const x = windowX + i;
             // The currently read X position of the corresponding tile
             // this determines the tile of the next 8 pixels
             const tileX = Math.floor(x / 8);
