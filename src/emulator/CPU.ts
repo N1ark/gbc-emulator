@@ -111,54 +111,58 @@ class CPU {
      */
     step(system: System, verbose?: boolean) {
         if (this.nextStep === null) {
-            // Check if any interrupt is requested. This also stops HALTing.
-            const execNext = system.executeNext();
-            if (execNext !== null) {
-                this.halted = false;
-                // Interrupt handling takes 5 cycles
-                this.nextStep = () => () => this.call(execNext, () => null);
-                system.disableInterrupts();
-                this.currentOpcode = null;
-                this.regPC.dec(); // undo the read done at the end of the previous instruction
-                if (verbose)
-                    console.log("[CPU] interrupt execute, goto", execNext.toString(16));
-            }
-
-            // Do nothing if halted
-            else if (this.halted) {
-                if (verbose) console.log("[CPU] halted");
-                return;
-            }
-
-            // Execute next instruction
-            else {
-                const opcode = this.nextOpCode(system);
-                ++this.stepCounter;
-                if (verbose)
-                    console.log(
-                        `[CPU] ${this.stepCounter} - (0x${(this.regPC.get() - 1).toString(
-                            16
-                        )}) executing op 0x${opcode.toString(16)}`
-                    );
-
-                const instruction = this.instructionSet[opcode];
-                if (instruction === undefined) {
-                    throw Error(
-                        `Unrecognized opcode ${opcode?.toString(16)} at address ${(
-                            this.regPC.get() - 1
-                        ).toString(16)}`
-                    );
-                }
-
-                this.nextStep = instruction;
-                this.logDebug(system, opcode);
-            }
+            const nextStep = this.loadNextOp(system, verbose);
+            if (nextStep === "halted") return;
+            this.nextStep = nextStep;
         }
 
         this.nextStep = this.nextStep(system);
         if (this.nextStep === null) {
             this.currentOpcode = system.read(this.regPC.inc());
         }
+    }
+
+    protected loadNextOp(system: System, verbose?: boolean): InstructionMethod | "halted" {
+        // Check if any interrupt is requested. This also stops HALTing.
+        const execNext = system.executeNext();
+        if (execNext !== null) {
+            this.halted = false;
+            // Interrupt handling takes 5 cycles
+            const nextStep = () => () => this.call(execNext, () => null);
+            system.disableInterrupts();
+            this.currentOpcode = null;
+            this.regPC.dec(); // undo the read done at the end of the previous instruction
+            if (verbose) console.log("[CPU] interrupt execute, goto", execNext.toString(16));
+            return nextStep;
+        }
+
+        // Do nothing if halted
+        if (this.halted) {
+            if (verbose) console.log("[CPU] halted");
+            return "halted";
+        }
+
+        // Execute next instruction
+        const opcode = this.nextOpCode(system);
+        ++this.stepCounter;
+        if (verbose)
+            console.log(
+                `[CPU] ${this.stepCounter} - (0x${(this.regPC.get() - 1).toString(
+                    16
+                )}) executing op 0x${opcode.toString(16)}`
+            );
+
+        const instruction = this.instructionSet[opcode];
+        if (instruction === undefined) {
+            throw Error(
+                `Unrecognized opcode ${opcode?.toString(16)} at address ${(
+                    this.regPC.get() - 1
+                ).toString(16)}`
+            );
+        }
+
+        this.logDebug(system, opcode);
+        return instruction;
     }
 
     /**
