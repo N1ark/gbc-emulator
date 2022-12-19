@@ -117,6 +117,7 @@ class CPU {
                 this.halted = false;
                 // Interrupt handling takes 5 cycles
                 this.nextStep = () => () => this.call(execNext, () => null);
+                system.disableInterrupts();
                 this.currentOpcode = null;
                 this.regPC.dec(); // undo the read done at the end of the previous instruction
                 if (verbose)
@@ -766,9 +767,9 @@ class CPU {
         // RET
         0xc9: this.return(() => () => null),
         // RETI
-        0xd9: this.return(() => (s) => {
+        0xd9: this.return((s) => {
             s.enableInterrupts();
-            return null;
+            return () => null;
         }),
         // RET Z/C/NZ/NC
         ...this.generateOperation(
@@ -1189,10 +1190,10 @@ class CPU {
      * Returns the current call (ie. consumes a pointer at SP and sets it to PC).
      * Takes 3 cycles.
      */
-    protected return(receiver: () => InstructionMethod): InstructionMethod {
-        return this.pop((value) => () => {
+    protected return(receiver: InstructionMethod): InstructionMethod {
+        return this.pop((value) => (s) => {
             this.regPC.set(value);
-            return receiver();
+            return receiver(s);
         });
     }
     /**
