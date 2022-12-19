@@ -119,4 +119,7 @@ class Register {
     }
 }
 
-export { Register, SubRegister, PaddedSubRegister };
+const Register00: Addressable = { read: () => 0x00, write: () => {} };
+const RegisterFF: Addressable = { read: () => 0xff, write: () => {} };
+
+export { Register, SubRegister, PaddedSubRegister, Register00, RegisterFF };

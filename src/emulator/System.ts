@@ -14,7 +14,7 @@ import GPU from "./GPU";
 import JoypadInput from "./JoypadInput";
 import { RAM } from "./Memory";
 import OAM from "./OAM";
-import { PaddedSubRegister, SubRegister } from "./Register";
+import { PaddedSubRegister, Register00, RegisterFF, SubRegister } from "./Register";
 import ROM from "./ROM";
 import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
@@ -64,8 +64,6 @@ class System implements Addressable {
     protected unhalt: () => void;
 
     // Registers + Utility Registers
-    protected register00: Addressable = { read: () => 0x00, write: () => {} };
-    protected registerFF: Addressable = { read: () => 0xff, write: () => {} };
     protected registerSerial: Addressable = {
         read: () => 0xff,
         write: (pos, value) => this.serialOut && this.serialOut(value),
@@ -142,7 +140,7 @@ class System implements Addressable {
             console.debug(
                 `Accessed illegal area ${pos.toString(16)}, returned a fake 0x00 register`
             );
-            return [this.register00, 0];
+            return [Register00, 0];
         }
 
         // Registers
@@ -152,7 +150,7 @@ class System implements Addressable {
             case 0xff01:
                 return [this.registerSerial, pos];
             case 0xff02:
-                return [this.register00, pos];
+                return [Register00, pos];
             case 0xff04:
             case 0xff05:
             case 0xff06:
@@ -191,7 +189,7 @@ class System implements Addressable {
                 .toString(16)
                 .padStart(4, "0")}, return a fake 0xff register`
         );
-        return [this.registerFF, 0];
+        return [RegisterFF, 0];
     }
 
     /**
