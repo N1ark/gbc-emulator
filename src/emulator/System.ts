@@ -241,8 +241,21 @@ class System implements Addressable {
         this.intMasterEnable = "DISABLED";
     }
 
+    /**
+     * Forces the transition to IME = enabled (needed when halting).
+     * Returns the state of the IME: enabled (true) or disabled (false)
+     */
+    fastEnableInterrupts(): boolean {
+        // forces transition
+        if (this.intMasterEnable !== "DISABLED") {
+            this.intMasterEnable = "ENABLED";
+        }
+        return this.intMasterEnable === "ENABLED";
+    }
+
     /** Requests an interrupt for the given flag type. */
     requestInterrupt(flag: number) {
+        if (!this.intEnable.flag(flag)) return;
         this.intFlag.sflag(flag, true);
         this.unhalt();
     }

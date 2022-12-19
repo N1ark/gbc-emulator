@@ -899,8 +899,9 @@ class CPU {
             return null;
         },
         // HALT
-        0x76: () => {
+        0x76: (system) => {
             this.halted = true;
+            if (system.fastEnableInterrupts()) this.regPC.dec();
             return null;
         },
         // SCF / CCF
