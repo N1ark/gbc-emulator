@@ -430,25 +430,38 @@ class GPU implements Readable {
     }
 
     protected address(pos: number): [Addressable, number] {
-        const adresses: Partial<Record<number, SubRegister>> = {
-            0xff40: this.lcdControl,
-            0xff41: this.lcdStatus,
-            0xff42: this.screenY,
-            0xff43: this.screenX,
-            0xff44: this.lcdY,
-            0xff45: this.lcdYCompare,
-            0xff47: this.bgPalette,
-            0xff48: this.objPalette0,
-            0xff49: this.objPalette1,
-            0xff4a: this.windowY,
-            0xff4b: this.windowX,
-        };
-        const register = adresses[pos];
-        if (register) {
-            return [register, 0];
+        switch (pos) {
+            case 0xff40:
+                return [this.lcdControl, 0];
+            case 0xff41:
+                return [this.lcdStatus, 0];
+            case 0xff42:
+                return [this.screenY, 0];
+            case 0xff43:
+                return [this.screenX, 0];
+            case 0xff44:
+                return [this.lcdY, 0];
+            case 0xff45:
+                return [this.lcdYCompare, 0];
+            case 0xff47:
+                return [this.bgPalette, 0];
+            case 0xff48:
+                return [this.objPalette0, 0];
+            case 0xff49:
+                return [this.objPalette1, 0];
+            case 0xff4a:
+                return [this.windowY, 0];
+            case 0xff4b:
+                return [this.windowX, 0];
+            default:
+                break;
         }
 
-        if (0x8000 <= pos && pos <= 0x9fff) return [this.vram, pos - 0x8000];
+        if (0x8000 <= pos && pos <= 0x9fff)
+            // vram disabled during mode 3
+            return this.mode === MODE_TRANSFERRING
+                ? [RegisterFF, 0]
+                : [this.vram, pos - 0x8000];
 
         throw new Error(`Invalid address given to GPU: ${pos.toString(16)}`);
     }
