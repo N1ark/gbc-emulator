@@ -746,7 +746,7 @@ class CPU {
                 0xf7: 0x30,
                 0xff: 0x38,
             },
-            (jumpAdr) => () => this.call(jumpAdr, () => null)
+            (jumpAdr) => this.call(jumpAdr, () => () => null)
         ),
         // CALL a16
         0xcd: this.nextWord((value) => this.call(value, () => () => null)),
