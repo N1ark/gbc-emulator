@@ -78,6 +78,7 @@ class OAM implements Addressable {
             if (this.transferStep === NOT_TRANSFERRING || this.transferStep > 0)
                 this.transferStep = SHOULD_TRANSFER;
         } else if (0xfe00 <= pos && pos <= 0xfe9f) {
+            if (this.transferStep !== NOT_TRANSFERRING) return;
             const address = pos - 0xfe00;
             this.data.write(address, data);
             this.spriteCache[address >> 2].valid = false;
@@ -95,7 +96,7 @@ class OAM implements Addressable {
         valid: false,
     }));
 
-    getSprites(): Sprite[] {
+    getSprites(): Readonly<Sprite>[] {
         this.spriteCache.forEach((sprite, index) => {
             if (!sprite.valid) {
                 const address = index << 2;
