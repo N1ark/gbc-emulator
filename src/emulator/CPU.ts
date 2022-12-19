@@ -759,8 +759,8 @@ class CPU {
                 0xdc: () => this.flag(FLAG_CARRY),
             },
             (condition) =>
-                this.nextWord(
-                    (value) => () => condition() ? this.call(value, () => null) : null
+                this.nextWord((value) =>
+                    condition() ? this.call(value, () => () => null) : () => null
                 )
         ),
         // RET
