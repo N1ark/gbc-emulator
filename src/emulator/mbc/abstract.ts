@@ -9,9 +9,9 @@ abstract class MBC extends AbstractMemory {
         if (0xa000 <= pos && pos <= 0xbfff) return 0xff; // eram
         return this.data[pos];
     }
+
     write(pos: number, data: number): void {
-        if (0xa000 <= pos && pos <= 0xbfff) return; // eram
-        this.data[pos] = data;
+        // nothing is writable by default
     }
 }
 
