@@ -6,6 +6,13 @@ import { PaddedSubRegister, RegisterFF, SubRegister } from "./Register";
 import System from "./System";
 import { asSignedInt8, Int2, wrap8 } from "./util";
 import GameBoyOutput from "./GameBoyOutput";
+import { Sprite } from "./OAM";
+
+type PPUMode = {
+    flag: number;
+    cycles: number;
+    interrupt?: number;
+};
 
 /*
  * All modes, with:
@@ -13,24 +20,29 @@ import GameBoyOutput from "./GameBoyOutput";
  * - cycles: cycles until completion (including previous steps)
  * - interrupt?: optional corresponding STAT interrupt flag
  */
-const MODE_SEARCHING_OAM = {
-    FLAG: 0b10,
-    CYCLES: 80,
-    INTERRUPT: 1 << 5,
-};
-const MODE_TRANSFERRING = {
-    FLAG: 0b11,
-    CYCLES: 172,
+const MODE_HBLANK_FIRST = {
+    flag: 0b00,
+    cycles: 18,
+    interrupt: 1 << 3,
 };
 const MODE_HBLANK = {
-    FLAG: 0b00,
-    CYCLES: 204,
-    INTERRUPT: 1 << 3,
+    flag: 0b00,
+    cycles: 51,
+    interrupt: 1 << 3,
 };
 const MODE_VBLANK = {
-    FLAG: 0b01,
-    CYCLES: 456,
-    INTERRUPT: 1 << 4,
+    flag: 0b01,
+    cycles: 114,
+    interrupt: 1 << 4,
+};
+const MODE_SEARCHING_OAM = {
+    flag: 0b10,
+    cycles: 20,
+    interrupt: 1 << 5,
+};
+const MODE_TRANSFERRING = {
+    flag: 0b11,
+    cycles: 43,
 };
 
 // Helpful constants
@@ -59,6 +71,21 @@ const STAT_LYC_LY_EQ_INT = 1 << 6;
 class GPU implements Readable {
     // Internal counter for cycles
     protected cycleCounter: number = 0;
+    protected mode: PPUMode = MODE_VBLANK;
+
+    protected interruptStateBefore: boolean = false;
+    protected interruptLineState = {
+        lycLyMatch: false,
+        oamActive: false,
+        vblankActive: false,
+        hblankActive: false,
+    };
+
+    // Variable extra cycles during pixel transfer
+    protected transferExtraCycles: number = 0;
+
+    // Read sprites
+    protected readSprites: Sprite[] = [];
 
     // Data Store
     protected vram = new RAM(8192); // 8Kb memory
@@ -107,79 +134,168 @@ class GPU implements Readable {
      * @link https://gbdev.io/pandocs/pixel_fifo.html
      */
     tick(system: System) {
-        this.cycleCounter += 4;
+        if (!this.lcdControl.flag(LCDC_LCD_ENABLE)) return;
 
-        const currentMode = this.lcdStatus.get() & STAT_MODE;
+        this.cycleCounter++;
 
-        let needLcdcInterrupt = false;
-
-        switch (currentMode as Int2) {
-            case MODE_VBLANK.FLAG:
-                if (this.cycleCounter >= MODE_VBLANK.CYCLES) {
-                    this.cycleCounter -= MODE_VBLANK.CYCLES;
-                    this.lcdY.set(wrap8(this.lcdY.get() + 1));
-                    if (this.lcdY.get() >= 0x9a) {
-                        this.lcdY.set(0);
-                        this.setMode(MODE_SEARCHING_OAM.FLAG);
-                        needLcdcInterrupt = this.lcdStatus.flag(MODE_SEARCHING_OAM.INTERRUPT);
-                    }
-                }
+        switch (this.mode) {
+            case MODE_HBLANK_FIRST:
+                this.tickHBlankFirst(system);
                 break;
-            case MODE_HBLANK.FLAG:
-                if (this.cycleCounter >= MODE_HBLANK.CYCLES) {
-                    this.cycleCounter -= MODE_HBLANK.CYCLES;
-                    this.lcdY.set(wrap8(this.lcdY.get() + 1));
-                    if (this.lcdY.get() === SCREEN_HEIGHT) {
-                        this.setMode(MODE_VBLANK.FLAG);
-                        needLcdcInterrupt = this.lcdStatus.flag(MODE_VBLANK.INTERRUPT);
-                        system.requestInterrupt(IFLAG_VBLANK);
-                        if (this.output.receive) {
-                            this.output.receive(this.videoBuffer);
-                        }
-                        if (this.output.debugBackground) {
-                            const backgroundImg = this.debugBackground();
-                            this.output.debugBackground(backgroundImg);
-                        }
-                        if (this.output.debugTileset) {
-                            const tilesetImg = this.debugTileset();
-                            this.output.debugTileset(tilesetImg);
-                        }
-                    } else {
-                        this.setMode(MODE_SEARCHING_OAM.FLAG);
-                        needLcdcInterrupt = this.lcdStatus.flag(MODE_SEARCHING_OAM.INTERRUPT);
-                    }
-                }
+            case MODE_HBLANK:
+                this.tickHBlank(system);
                 break;
-            case MODE_SEARCHING_OAM.FLAG:
-                if (this.cycleCounter >= MODE_SEARCHING_OAM.CYCLES) {
-                    this.cycleCounter -= MODE_SEARCHING_OAM.CYCLES;
-                    this.setMode(MODE_TRANSFERRING.FLAG);
-                    this.updateScanline(system);
-                }
+            case MODE_VBLANK:
+                this.tickVBlank(system);
                 break;
-            case MODE_TRANSFERRING.FLAG:
-                if (this.cycleCounter >= MODE_TRANSFERRING.CYCLES) {
-                    this.cycleCounter -= MODE_TRANSFERRING.CYCLES;
-                    this.setMode(MODE_HBLANK.FLAG);
-                    needLcdcInterrupt = this.lcdStatus.flag(MODE_HBLANK.INTERRUPT);
-                }
+            case MODE_SEARCHING_OAM:
+                this.tickSearchingOam(system);
+                break;
+            case MODE_TRANSFERRING:
+                this.tickTransferring(system);
                 break;
         }
 
-        // The GPU constantly compares the LY and LCY, and needs interrupts when they match
-        const doLycLyMatch = this.lcdY.get() == this.lcdYCompare.get();
-        this.lcdStatus.sflag(STAT_LYC_LY_EQ_FLAG, doLycLyMatch);
-        needLcdcInterrupt ||= doLycLyMatch && this.lcdStatus.flag(STAT_LYC_LY_EQ_INT);
+        const interruptState =
+            (this.lcdStatus.flag(STAT_LYC_LY_EQ_FLAG) && this.interruptLineState.lycLyMatch) ||
+            (this.lcdStatus.flag(MODE_HBLANK.interrupt) &&
+                this.interruptLineState.hblankActive) ||
+            (this.lcdStatus.flag(MODE_VBLANK.interrupt) &&
+                this.interruptLineState.vblankActive) ||
+            (this.lcdStatus.flag(MODE_SEARCHING_OAM.interrupt) &&
+                this.interruptLineState.oamActive);
 
-        // Request interrupt if anything relevant happened
-        if (needLcdcInterrupt) {
+        // LCDC Interrupt only happens on rising edges
+        if (interruptState && !this.interruptStateBefore) {
             system.requestInterrupt(IFLAG_LCDC);
+        }
+        this.interruptStateBefore = interruptState;
+    }
+
+    protected tickHBlankFirst(system: System) {
+        if (this.cycleCounter === 1) {
+            this.setMode(MODE_HBLANK_FIRST);
+        }
+        if (this.cycleCounter === MODE_HBLANK_FIRST.cycles) {
+            this.cycleCounter = 0;
+            this.mode = MODE_TRANSFERRING;
+        }
+    }
+
+    protected tickHBlank(system: System) {
+        if (this.cycleCounter === 1) {
+            this.setMode(MODE_HBLANK);
+            this.interruptLineState.hblankActive = true;
+        } else if (this.cycleCounter === MODE_HBLANK.cycles) {
+            this.cycleCounter = 0;
+            this.lcdY.set(wrap8(this.lcdY.get() + 1));
+
+            if (this.lcdY.get() !== this.lcdYCompare.get()) {
+                this.interruptLineState.lycLyMatch = false;
+            }
+
+            if (this.lcdY.get() === SCREEN_HEIGHT) {
+                this.mode = MODE_VBLANK;
+                system.requestInterrupt(IFLAG_VBLANK);
+                if (this.output.receive) {
+                    this.output.receive(this.videoBuffer);
+                }
+                if (this.output.debugBackground) {
+                    const backgroundImg = this.debugBackground();
+                    this.output.debugBackground(backgroundImg);
+                }
+                if (this.output.debugTileset) {
+                    const tilesetImg = this.debugTileset();
+                    this.output.debugTileset(tilesetImg);
+                }
+            } else {
+                this.mode = MODE_SEARCHING_OAM;
+            }
+        }
+    }
+
+    protected tickVBlank(system: System) {
+        if (this.cycleCounter === 1) {
+            this.setMode(MODE_VBLANK);
+            this.interruptLineState.lycLyMatch = this.lcdY.get() === this.lcdYCompare.get();
+            if (this.lcdY.get() === 144) {
+                this.interruptLineState.vblankActive = true;
+                this.interruptLineState.oamActive = true;
+            }
+        } else if (this.cycleCounter === 20) {
+            this.interruptLineState.oamActive = false;
+        } else if (this.cycleCounter === MODE_VBLANK.cycles) {
+            this.cycleCounter = 0;
+            this.lcdY.set(wrap8(this.lcdY.get() + 1));
+            if (this.lcdY.get() >= 0x9a) {
+                this.lcdY.set(0);
+                this.mode = MODE_SEARCHING_OAM;
+            }
+        }
+    }
+
+    protected tickSearchingOam(system: System) {
+        if (this.cycleCounter === 1) {
+            this.setMode(MODE_SEARCHING_OAM);
+            this.interruptLineState.oamActive = true;
+            this.interruptLineState.hblankActive = false;
+            this.interruptLineState.vblankActive = false;
+            this.interruptLineState.lycLyMatch = this.lcdY.get() === this.lcdYCompare.get();
+        } else if (this.cycleCounter === MODE_SEARCHING_OAM.cycles) {
+            this.cycleCounter = 0;
+            this.mode = MODE_TRANSFERRING;
+
+            // Read the sprite data here ! this should create a copy !!
+            const y = this.lcdY.get();
+            // Height of objects in pixels
+            const objHeight = this.lcdControl.flag(LCDC_OBJ_SIZE) ? 16 : 8;
+            // We select the sprites the following way:
+            // - must be visible
+            // - max 10 per line
+            // - sorted, first by X position then by index
+            this.readSprites = system
+                .getSprites()
+                .filter(
+                    // only get selected sprites
+                    (sprite) => sprite.y <= y && y < sprite.y + objHeight
+                )
+                .slice(0, 10) // only 10 sprites per scanline;
+                .map((sprite, index) => [sprite, index] as [Sprite, number])
+                // sort by x then index
+                .sort(([spriteA, indexA], [spriteB, indexB]) =>
+                    spriteA.x === spriteB.x ? indexA - indexB : spriteA.x - spriteB.x
+                )
+                .map(([sprite]) => sprite);
+        }
+    }
+
+    protected tickTransferring(system: System) {
+        if (this.cycleCounter === 1) {
+            this.setMode(MODE_TRANSFERRING);
+            this.interruptLineState.oamActive = false;
+            this.transferExtraCycles = 0;
+
+            // Extra cycles are spent during transfer depending on scroll, because the tile is
+            // still loaded (the pixels are simply thrown away)
+            const offsetX = this.screenX.get() % 8;
+            this.transferExtraCycles += Math.ceil(offsetX / 4);
+
+            // When drawing sprites we delay extra 6 cycles per sprite.
+            // We may also delay longer
+            if (this.lcdControl.flag(LCDC_OBJ_ENABLE)) {
+                let extraSpriteCycles;
+            }
+
+            this.updateScanline(system);
+        } else if (this.cycleCounter === MODE_TRANSFERRING.cycles) {
+            this.cycleCounter = 0;
+            this.mode = MODE_HBLANK;
         }
     }
 
     /** Sets the current mode of the GPU, updating the STAT register. */
-    protected setMode(mode: number) {
-        this.lcdStatus.set((this.lcdStatus.get() & ~STAT_MODE) | mode);
+    protected setMode(mode: PPUMode) {
+        this.lcdStatus.set((this.lcdStatus.get() & ~STAT_MODE) | mode.flag);
     }
 
     /** Updates the current scanline, by rendering the background, window and then objects. */
@@ -419,17 +535,9 @@ class GPU implements Readable {
     protected drawObjects(system: System, priorities: boolean[]) {
         const y = this.lcdY.get();
         const doubleObjects = this.lcdControl.flag(LCDC_OBJ_SIZE);
-        // Height of objects in pixels
-        const objHeight = doubleObjects ? 16 : 8;
-        const sprites = system.getSprites();
-        const drawnSprites = sprites
-            .filter(
-                // only get selected sprites
-                (sprite) => sprite.y <= y && y < sprite.y + objHeight
-            )
-            .slice(0, 10); // only 10 sprites per scanline
+        const sprites = this.readSprites;
 
-        for (const sprite of drawnSprites) {
+        for (const sprite of sprites) {
             // Get tile id (to get the actual data pointer)
             let tileId = sprite.tileIndex;
             if (doubleObjects) {
@@ -546,6 +654,10 @@ class GPU implements Readable {
         }
 
         component.write(address, data);
+
+        if (component === this.lcdYCompare && this.lcdControl.flag(LCDC_LCD_ENABLE)) {
+            this.interruptLineState.lycLyMatch = this.lcdYCompare.get() === this.lcdY.get();
+        }
     }
 }
 
