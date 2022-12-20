@@ -186,7 +186,7 @@ class GPU implements Readable {
         if (this.cycleCounter === 1) {
             this.setMode(MODE_HBLANK);
             this.interruptLineState.hblankActive = true;
-        } else if (this.cycleCounter === MODE_HBLANK.cycles) {
+        } else if (this.cycleCounter === MODE_HBLANK.cycles - this.transferExtraCycles) {
             this.cycleCounter = 0;
             this.lcdY.set(wrap8(this.lcdY.get() + 1));
 
@@ -283,13 +283,31 @@ class GPU implements Readable {
             this.transferExtraCycles += Math.ceil(offsetX / 4);
 
             // When drawing sprites we delay extra 6 cycles per sprite.
-            // We may also delay longer
+            // We may also delay longer if the sprite if towards the left of the screen, because
+            // the PPU must wait for those pixels to be drawn from the background before
+            // taking care of the sprites. This delay can thus add up to 5 cycles per
+            // X-position.
+            // https://gbdev.io/pandocs/pixel_fifo.html#sprites says this isn't confirmed
+            // https://github.com/samcday/oxideboy/blob/master/oxideboy/src/ppu.rs for implementation
             if (this.lcdControl.flag(LCDC_OBJ_ENABLE)) {
-                let extraSpriteCycles;
+                let extraSpriteTCycles = 0;
+                let lastPenaltyX = NaN;
+                let lastPenaltyPaid = false;
+                for (let sprite of this.readSprites) {
+                    if (lastPenaltyX !== sprite.x || !lastPenaltyPaid) {
+                        lastPenaltyX = sprite.x;
+                        lastPenaltyPaid = true;
+                        extraSpriteTCycles +=
+                            5 - Math.min(5, (sprite.x + this.screenX.get()) % 8);
+                    }
+                    extraSpriteTCycles += 6;
+                }
+                // Re-convert to M-cycles
+                this.transferExtraCycles += Math.floor(extraSpriteTCycles / 4);
             }
 
             this.updateScanline(system);
-        } else if (this.cycleCounter === MODE_TRANSFERRING.cycles) {
+        } else if (this.cycleCounter === MODE_TRANSFERRING.cycles + this.transferExtraCycles) {
             this.cycleCounter = 0;
             this.mode = MODE_HBLANK;
         }
