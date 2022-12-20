@@ -157,13 +157,15 @@ class GPU implements Readable {
         }
 
         const interruptState =
-            (this.lcdStatus.flag(STAT_LYC_LY_EQ_FLAG) && this.interruptLineState.lycLyMatch) ||
+            (this.lcdStatus.flag(STAT_LYC_LY_EQ_INT) && this.interruptLineState.lycLyMatch) ||
             (this.lcdStatus.flag(MODE_HBLANK.interrupt) &&
                 this.interruptLineState.hblankActive) ||
             (this.lcdStatus.flag(MODE_VBLANK.interrupt) &&
                 this.interruptLineState.vblankActive) ||
             (this.lcdStatus.flag(MODE_SEARCHING_OAM.interrupt) &&
                 this.interruptLineState.oamActive);
+
+        this.lcdStatus.sflag(STAT_LYC_LY_EQ_FLAG, this.interruptLineState.lycLyMatch);
 
         // LCDC Interrupt only happens on rising edges
         if (interruptState && !this.interruptStateBefore) {
@@ -671,6 +673,30 @@ class GPU implements Readable {
         ) {
             const cachedTile = this.tileCache[pos >> 4];
             if (cachedTile) cachedTile.valid = false;
+        }
+        if (component === this.lcdControl) {
+            const isEnabled = this.lcdControl.flag(LCDC_LCD_ENABLE);
+            const willEnable = (data & LCDC_LCD_ENABLE) === LCDC_LCD_ENABLE;
+
+            // Will disable LCD
+            if (isEnabled && !willEnable) {
+                // console.warn("disabled LCD");
+                this.lcdY.set(0);
+                this.setMode(MODE_HBLANK_FIRST);
+            }
+            // Will enable LCD
+            else if (!isEnabled && willEnable) {
+                // console.warn("enabled LCD");
+                this.lcdY.set(0);
+                this.mode = MODE_HBLANK_FIRST;
+                this.setMode(MODE_HBLANK_FIRST);
+                this.cycleCounter = 0;
+
+                this.interruptLineState.lycLyMatch = this.lcdY.get() === this.lcdYCompare.get();
+                this.interruptLineState.vblankActive = false;
+                this.interruptLineState.hblankActive = false;
+                this.interruptLineState.oamActive = false;
+            }
         }
 
         component.write(address, data);
