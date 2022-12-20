@@ -196,18 +196,6 @@ class GPU implements Readable {
 
             if (this.lcdY.get() === SCREEN_HEIGHT) {
                 this.mode = MODE_VBLANK;
-                system.requestInterrupt(IFLAG_VBLANK);
-                if (this.output.receive) {
-                    this.output.receive(this.videoBuffer);
-                }
-                if (this.output.debugBackground) {
-                    const backgroundImg = this.debugBackground();
-                    this.output.debugBackground(backgroundImg);
-                }
-                if (this.output.debugTileset) {
-                    const tilesetImg = this.debugTileset();
-                    this.output.debugTileset(tilesetImg);
-                }
             } else {
                 this.mode = MODE_SEARCHING_OAM;
             }
@@ -221,13 +209,27 @@ class GPU implements Readable {
             if (this.lcdY.get() === 144) {
                 this.interruptLineState.vblankActive = true;
                 this.interruptLineState.oamActive = true;
+
+                system.requestInterrupt(IFLAG_VBLANK);
+
+                if (this.output.receive) {
+                    this.output.receive(this.videoBuffer);
+                }
+                if (this.output.debugBackground) {
+                    const backgroundImg = this.debugBackground();
+                    this.output.debugBackground(backgroundImg);
+                }
+                if (this.output.debugTileset) {
+                    const tilesetImg = this.debugTileset();
+                    this.output.debugTileset(tilesetImg);
+                }
             }
         } else if (this.cycleCounter === 20) {
             this.interruptLineState.oamActive = false;
         } else if (this.cycleCounter === MODE_VBLANK.cycles) {
             this.cycleCounter = 0;
             this.lcdY.set(wrap8(this.lcdY.get() + 1));
-            if (this.lcdY.get() >= 0x9a) {
+            if (this.lcdY.get() === SCREEN_HEIGHT_WOFFSCREEN) {
                 this.lcdY.set(0);
                 this.mode = MODE_SEARCHING_OAM;
             }
