@@ -1,29 +1,30 @@
 // @ts-ignore
 import GameboyJS from "./emulator2";
 
-import { FunctionalComponent } from "preact";
 import { useSignal } from "@preact/signals";
-import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
 import {
-    Play,
-    Pause,
-    Redo,
     Bug,
-    FlipHorizontal,
-    FileQuestion,
     FastForward,
+    FileQuestion,
+    FlipHorizontal,
+    Pause,
+    Play,
+    Redo,
 } from "lucide-preact";
+import { FunctionalComponent } from "preact";
+import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import "./app.css";
 import RomInput from "./RomInput";
 import Screen from "./Screen";
 import useKeys from "./useKeys";
 
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
-import GameBoyInput from "./emulator/GameBoyInput";
-import GameBoyColor from "./emulator/GameBoyColor";
-import GameBoyOutput from "./emulator/GameBoyOutput";
 import localforage from "localforage";
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
+import GameBoyColor from "./emulator/GameBoyColor";
+import GameBoyInput from "./emulator/GameBoyInput";
+import GameBoyOutput from "./emulator/GameBoyOutput";
+import ExpressionDrawer from "./ExpressionDrawer";
 import { testConfig, testFiles } from "./testConfig";
 import setupTests from "./tests";
 
@@ -176,6 +177,13 @@ const App: FunctionalComponent = () => {
     useEffect(() => {
         const listener = (e: KeyboardEvent) =>
             e.key === "r" && loadedGame && loadGame(loadedGame);
+                var target = (e.target || e.srcElement) as HTMLElement;
+                var targetTagName = target === null ? "null" : target.nodeName.toUpperCase();
+                if (/INPUT|SELECT|TEXTAREA/.test(targetTagName)) {
+                    return;
+                }
+                loadGame(loadedGame);
+            }
         document.addEventListener("keydown", listener);
         return () => document.removeEventListener("keydown", listener);
     }, [loadGame, setLoadedGame]);
@@ -278,6 +286,8 @@ const App: FunctionalComponent = () => {
 
     return (
         <>
+            <ExpressionDrawer updater={stepCount.value} />
+
             <h1>Emmy</h1>
             <h2>The GBC Browser Emulator</h2>
 

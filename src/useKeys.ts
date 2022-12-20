@@ -8,6 +8,12 @@ const useKeys = (codes: string[] = []) => {
         const keyDownListener = (e: KeyboardEvent) => {
             if (!codes.includes(e.key.toLowerCase())) return;
 
+            var target = (e.target || e.srcElement) as HTMLElement;
+            var targetTagName = target === null ? "null" : target.nodeName.toUpperCase();
+            if (/INPUT|SELECT|TEXTAREA/.test(targetTagName)) {
+                return;
+            }
+
             e.preventDefault();
             const key = e.key.toLowerCase();
             const index = pressedKeys.current.indexOf(key);

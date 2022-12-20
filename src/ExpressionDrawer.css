@@ -1,0 +1,47 @@
+.exp-drawer {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 240px;
+    background-color: #303030;
+    padding: 1em;
+    overflow-y: auto;
+}
+
+.exp-drawer > button {
+    margin: 0 1em;
+}
+
+.exp-watch {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+.exp-watch > * {
+    font-family: "Fira Code", monospace;
+}
+
+.exp-watch > textarea {
+    resize: vertical;
+}
+
+.exp-watch > div {
+    transition: color 0.5s ease;
+    margin-bottom: 12px;
+}
+
+.exp-watch > div > .label {
+    width: 30%;
+    color: white;
+    margin-right: 8px;
+    background: none;
+    border: none;
+    font-size: inherit;
+    font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+}
+
+.exp-watch > div.error {
+    color: orangered;
+}
