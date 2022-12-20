@@ -61,7 +61,6 @@ class System implements Addressable {
     protected audio = new Audio();
     protected oam = new OAM();
     protected joypad: JoypadInput;
-    protected unhalt: () => void;
 
     // Registers + Utility Registers
     protected registerSerial: Addressable = {
@@ -72,16 +71,10 @@ class System implements Addressable {
     // Debug
     protected serialOut: undefined | ((data: number) => void);
 
-    constructor(
-        rom: Uint8Array,
-        input: GameBoyInput,
-        output: GameBoyOutput,
-        unhalt: () => void
-    ) {
+    constructor(rom: Uint8Array, input: GameBoyInput, output: GameBoyOutput) {
         this.rom = new ROM(rom);
         this.joypad = new JoypadInput(input);
         this.gpu = new GPU(output);
-        this.unhalt = unhalt;
         this.serialOut = output.serialOut;
     }
 
@@ -230,6 +223,10 @@ class System implements Addressable {
         this.joypad.readInput();
     }
 
+    get interruptsEnabled(): boolean {
+        return this.intMasterEnable === "ENABLED";
+    }
+
     /** Enables the master interrupt toggle. */
     enableInterrupts() {
         if (this.intMasterEnable === "DISABLED") this.intMasterEnable = "WILL_ENABLE";
@@ -253,24 +250,27 @@ class System implements Addressable {
 
     /** Requests an interrupt for the given flag type. */
     requestInterrupt(flag: number) {
-        if (!this.intEnable.flag(flag)) return;
         this.intFlag.sflag(flag, true);
-        this.unhalt();
     }
+
+    /** Returns whether there are any interrupts to handle. (IE & IF) */
+    get hasPendingInterrupt(): boolean {
+        return !!(this.intEnable.get() & this.intFlag.get() & 0b11111);
+    }
+
     /**
-     * Looks at the interrupts to and decides if an exceptional call must be made, and if so,
-     * where (if no call must be made, returns `null`).
+     * Returns the address for the current interrupt handler. This also disables interrupts, and
+     * clears the interrupt flag.
      */
-    executeNext(): number | null {
-        if (this.intMasterEnable !== "ENABLED") return null;
-        /* List of flags for the interrupts, and where they make a call. */
+    handleNextInterrupt(): number {
         for (const [flag, address] of INTERRUPT_CALLS) {
             if (this.intEnable.flag(flag) && this.intFlag.flag(flag)) {
                 this.intFlag.sflag(flag, false);
+                this.disableInterrupts();
                 return address;
             }
         }
-        return null;
+        throw new Error("Cleared interrupt but nothing was called");
     }
 
     /**

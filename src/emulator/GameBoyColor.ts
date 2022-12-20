@@ -33,7 +33,7 @@ class GameBoyColor {
         debug?: () => DebugData
     ) {
         this.cpu = new CPU();
-        this.system = new System(rom, input, output, () => this.cpu.unhalt());
+        this.system = new System(rom, input, output);
         this.cycles = 0;
         this.output = output;
         this.debug = debug;

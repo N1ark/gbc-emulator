@@ -87,16 +87,18 @@ class Timer implements Addressable {
     }
 
     protected address(pos: number): SubRegister {
-        const register = {
-            0xff04: this.divider.h, // we only ever read the upper 8 bits of the divider
-            0xff05: this.timerCounter,
-            0xff06: this.timerModulo,
-            0xff07: this.timerControl,
-        }[pos];
-        if (register) {
-            return register;
+        switch (pos) {
+            case 0xff04:
+                return this.divider.h; // we only ever read the upper 8 bits of the divider
+            case 0xff05:
+                return this.timerCounter;
+            case 0xff06:
+                return this.timerModulo;
+            case 0xff07:
+                return this.timerControl;
+            default:
+                throw new Error(`Invalid address given to timer: ${pos.toString(16)}`);
         }
-        throw new Error(`Invalid address given to timer: ${pos.toString(16)}`);
     }
 
     read(pos: number): number {

@@ -22,7 +22,11 @@ class CPU {
     protected regHL = new Register(0x01, 0x4d);
     protected regPC = new Register(0x0100); // program counter
     protected regSP = new Register(0xfffe); // stack pointer
+
+    // If the CPU is halted
     protected halted: boolean = false;
+    // If the CPU was halted when IME=0
+    protected haltBug: boolean = false;
 
     // Subregisters, for convenience sake
     protected srA = this.regAF.h;
@@ -101,10 +105,6 @@ class CPU {
         return this.regPC.get();
     }
 
-    unhalt() {
-        this.halted = false;
-    }
-
     /**
      * Steps through one line of the code, and returns the M-cycles required for the
      * operation
@@ -124,21 +124,22 @@ class CPU {
 
     protected loadNextOp(system: System, verbose?: boolean): InstructionMethod | "halted" {
         // Check if any interrupt is requested. This also stops HALTing.
-        const execNext = system.executeNext();
-        if (execNext !== null) {
+        if (system.hasPendingInterrupt) {
             this.halted = false;
-            // Interrupt handling takes 5 cycles
-            const nextStep = () => () => this.call(execNext, () => null);
-            system.disableInterrupts();
-            this.currentOpcode = null;
-            this.regPC.dec(); // undo the read done at the end of the previous instruction
-            if (verbose) console.log("[CPU] interrupt execute, goto", execNext.toString(16));
-            return nextStep;
+            if (system.interruptsEnabled) {
+                const execNext = system.handleNextInterrupt();
+                // Interrupt handling takes 5 cycles
+                const nextStep = () => () => this.call(execNext, () => null);
+                this.currentOpcode = null;
+                this.regPC.dec(); // undo the read done at the end of the previous instruction
+                if (verbose)
+                    console.log("[CPU] interrupt execute, goto", execNext.toString(16));
+                return nextStep;
+            }
         }
 
         // Do nothing if halted
         if (this.halted) {
-            if (verbose) console.log("[CPU] halted");
             return "halted";
         }
 
@@ -151,6 +152,11 @@ class CPU {
                     16
                 )}) executing op 0x${opcode.toString(16)}`
             );
+
+        if (this.haltBug) {
+            this.haltBug = false;
+            this.regPC.dec();
+        }
 
         const instruction = this.instructionSet[opcode];
         if (instruction === undefined) {
@@ -901,7 +907,9 @@ class CPU {
         // HALT
         0x76: (system) => {
             this.halted = true;
-            if (system.fastEnableInterrupts()) this.regPC.dec();
+            if (!system.fastEnableInterrupts() && system.hasPendingInterrupt) {
+                this.haltBug = true; // halt bug triggered on HALT when IME == 0 & IE&IF != 0
+            }
             return null;
         },
         // SCF / CCF
