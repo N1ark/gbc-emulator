@@ -175,8 +175,8 @@ const App: FunctionalComponent = () => {
      * Utility refresh: gets the caches ROM and plays it.
      */
     useEffect(() => {
-        const listener = (e: KeyboardEvent) =>
-            e.key === "r" && loadedGame && loadGame(loadedGame);
+        const listener = (e: KeyboardEvent) => {
+            if (e.key === "r" && loadedGame) {
                 var target = (e.target || e.srcElement) as HTMLElement;
                 var targetTagName = target === null ? "null" : target.nodeName.toUpperCase();
                 if (/INPUT|SELECT|TEXTAREA/.test(targetTagName)) {
@@ -184,6 +184,7 @@ const App: FunctionalComponent = () => {
                 }
                 loadGame(loadedGame);
             }
+        };
         document.addEventListener("keydown", listener);
         return () => document.removeEventListener("keydown", listener);
     }, [loadGame, setLoadedGame]);
