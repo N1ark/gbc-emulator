@@ -80,6 +80,7 @@ class GPU implements Readable {
         vblankActive: false,
         hblankActive: false,
     };
+    protected nextInterruptLineUpdate: Partial<typeof this.interruptLineState> | null = null;
 
     // Variable extra cycles during pixel transfer
     protected transferExtraCycles: number = 0;
@@ -136,6 +137,12 @@ class GPU implements Readable {
     tick(system: System) {
         if (!this.lcdControl.flag(LCDC_LCD_ENABLE)) return;
 
+        // Update interrupt line from previous write operations?
+        if (this.nextInterruptLineUpdate !== null) {
+            this.updateInterrupt(system, this.nextInterruptLineUpdate);
+            this.nextInterruptLineUpdate = null;
+        }
+
         this.cycleCounter++;
 
         switch (this.mode) {
@@ -155,23 +162,6 @@ class GPU implements Readable {
                 this.tickTransferring(system);
                 break;
         }
-
-        const interruptState =
-            (this.lcdStatus.flag(STAT_LYC_LY_EQ_INT) && this.interruptLineState.lycLyMatch) ||
-            (this.lcdStatus.flag(MODE_HBLANK.interrupt) &&
-                this.interruptLineState.hblankActive) ||
-            (this.lcdStatus.flag(MODE_VBLANK.interrupt) &&
-                this.interruptLineState.vblankActive) ||
-            (this.lcdStatus.flag(MODE_SEARCHING_OAM.interrupt) &&
-                this.interruptLineState.oamActive);
-
-        this.lcdStatus.sflag(STAT_LYC_LY_EQ_FLAG, this.interruptLineState.lycLyMatch);
-
-        // LCDC Interrupt only happens on rising edges
-        if (interruptState && !this.interruptStateBefore) {
-            system.requestInterrupt(IFLAG_LCDC);
-        }
-        this.interruptStateBefore = interruptState;
     }
 
     protected tickHBlankFirst(system: System) {
@@ -187,13 +177,13 @@ class GPU implements Readable {
     protected tickHBlank(system: System) {
         if (this.cycleCounter === 1) {
             this.setMode(MODE_HBLANK);
-            this.interruptLineState.hblankActive = true;
+            this.updateInterrupt(system, { hblankActive: true });
         } else if (this.cycleCounter === MODE_HBLANK.cycles - this.transferExtraCycles) {
             this.cycleCounter = 0;
             this.lcdY.set(wrap8(this.lcdY.get() + 1));
 
             if (this.lcdY.get() !== this.lcdYCompare.get()) {
-                this.interruptLineState.lycLyMatch = false;
+                this.updateInterrupt(system, { lycLyMatch: false });
             }
 
             if (this.lcdY.get() === SCREEN_HEIGHT) {
@@ -207,11 +197,15 @@ class GPU implements Readable {
     protected tickVBlank(system: System) {
         if (this.cycleCounter === 1) {
             this.setMode(MODE_VBLANK);
-            this.interruptLineState.lycLyMatch = this.lcdY.get() === this.lcdYCompare.get();
-            if (this.lcdY.get() === 144) {
-                this.interruptLineState.vblankActive = true;
-                this.interruptLineState.oamActive = true;
 
+            const isVblankStart = this.lcdY.get() === 144;
+            this.updateInterrupt(system, {
+                lycLyMatch: this.lcdY.get() === this.lcdYCompare.get(),
+                vblankActive: isVblankStart || this.interruptLineState.vblankActive,
+                oamActive: isVblankStart || this.interruptLineState.oamActive,
+            });
+
+            if (this.lcdY.get() === 144) {
                 system.requestInterrupt(IFLAG_VBLANK);
 
                 if (this.output.receive) {
@@ -227,7 +221,7 @@ class GPU implements Readable {
                 }
             }
         } else if (this.cycleCounter === 20) {
-            this.interruptLineState.oamActive = false;
+            this.updateInterrupt(system, { oamActive: false });
         } else if (this.cycleCounter === MODE_VBLANK.cycles) {
             this.cycleCounter = 0;
             this.lcdY.set(wrap8(this.lcdY.get() + 1));
@@ -241,10 +235,12 @@ class GPU implements Readable {
     protected tickSearchingOam(system: System) {
         if (this.cycleCounter === 1) {
             this.setMode(MODE_SEARCHING_OAM);
-            this.interruptLineState.oamActive = true;
-            this.interruptLineState.hblankActive = false;
-            this.interruptLineState.vblankActive = false;
-            this.interruptLineState.lycLyMatch = this.lcdY.get() === this.lcdYCompare.get();
+            this.updateInterrupt(system, {
+                oamActive: true,
+                hblankActive: false,
+                vblankActive: false,
+                lycLyMatch: this.lcdY.get() === this.lcdYCompare.get(),
+            });
         } else if (this.cycleCounter === MODE_SEARCHING_OAM.cycles) {
             this.cycleCounter = 0;
             this.mode = MODE_TRANSFERRING;
@@ -276,7 +272,7 @@ class GPU implements Readable {
     protected tickTransferring(system: System) {
         if (this.cycleCounter === 1) {
             this.setMode(MODE_TRANSFERRING);
-            this.interruptLineState.oamActive = false;
+            this.updateInterrupt(null, { oamActive: false });
             this.transferExtraCycles = 0;
 
             // Extra cycles are spent during transfer depending on scroll, because the tile is
@@ -289,8 +285,7 @@ class GPU implements Readable {
             // the PPU must wait for those pixels to be drawn from the background before
             // taking care of the sprites. This delay can thus add up to 5 cycles per
             // X-position.
-            // https://gbdev.io/pandocs/pixel_fifo.html#sprites says this isn't confirmed
-            // https://github.com/samcday/oxideboy/blob/master/oxideboy/src/ppu.rs for implementation
+            // https://gbdev.io/pandocs/STAT.html#properties-of-stat-modes
             if (this.lcdControl.flag(LCDC_OBJ_ENABLE)) {
                 let extraSpriteTCycles = 0;
                 let lastPenaltyX = NaN;
@@ -318,6 +313,33 @@ class GPU implements Readable {
     /** Sets the current mode of the GPU, updating the STAT register. */
     protected setMode(mode: PPUMode) {
         this.lcdStatus.set((this.lcdStatus.get() & ~STAT_MODE) | mode.flag);
+    }
+
+    /**
+     * Will update the STAT interrupt line, raise an interrupt if there is a high to low
+     * transition and the passed in System isn't null (ie. pass null to disable interrupts).
+     */
+    protected updateInterrupt(
+        system: System | null,
+        data: Partial<typeof this.interruptLineState>
+    ) {
+        Object.assign(this.interruptLineState, data);
+        const interruptState =
+            (this.lcdStatus.flag(STAT_LYC_LY_EQ_INT) && this.interruptLineState.lycLyMatch) ||
+            (this.lcdStatus.flag(MODE_HBLANK.interrupt) &&
+                this.interruptLineState.hblankActive) ||
+            (this.lcdStatus.flag(MODE_VBLANK.interrupt) &&
+                this.interruptLineState.vblankActive) ||
+            (this.lcdStatus.flag(MODE_SEARCHING_OAM.interrupt) &&
+                this.interruptLineState.oamActive);
+
+        this.lcdStatus.sflag(STAT_LYC_LY_EQ_FLAG, this.interruptLineState.lycLyMatch);
+
+        // LCDC Interrupt only happens on rising edges (if allowed)
+        if (system && interruptState && !this.interruptStateBefore) {
+            system.requestInterrupt(IFLAG_LCDC);
+        }
+        this.interruptStateBefore = interruptState;
     }
 
     /** Updates the current scanline, by rendering the background, window and then objects. */
@@ -692,17 +714,27 @@ class GPU implements Readable {
                 this.setMode(MODE_HBLANK_FIRST);
                 this.cycleCounter = 0;
 
-                this.interruptLineState.lycLyMatch = this.lcdY.get() === this.lcdYCompare.get();
-                this.interruptLineState.vblankActive = false;
-                this.interruptLineState.hblankActive = false;
-                this.interruptLineState.oamActive = false;
+                this.nextInterruptLineUpdate = {
+                    lycLyMatch: this.lcdY.get() === this.lcdYCompare.get(),
+                    vblankActive: false,
+                    hblankActive: false,
+                    oamActive: false,
+                };
             }
+        }
+        if (component === this.lcdStatus) {
+            this.nextInterruptLineUpdate = {};
+            // 3 first bits are read-only
+            data = (data & 0b1111_1000) | (this.lcdStatus.get() & 0b0000_0111);
         }
 
         component.write(address, data);
 
+        // Writing to LYC updates interrupt line if screen is on only
         if (component === this.lcdYCompare && this.lcdControl.flag(LCDC_LCD_ENABLE)) {
-            this.interruptLineState.lycLyMatch = this.lcdYCompare.get() === this.lcdY.get();
+            this.nextInterruptLineUpdate = {
+                lycLyMatch: this.lcdYCompare.get() === this.lcdY.get(),
+            };
         }
     }
 }
