@@ -220,6 +220,11 @@ class System implements Addressable {
         this.joypad.readInput();
     }
 
+    /** Pushes update data if needed */
+    pushOutput() {
+        this.gpu.pushOutput();
+    }
+
     get interruptsEnabled(): boolean {
         return this.intMasterEnable === "ENABLED";
     }

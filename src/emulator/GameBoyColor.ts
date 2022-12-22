@@ -74,6 +74,7 @@ class GameBoyColor {
         this.system.readInput();
 
         // Output
+        this.system.pushOutput();
         this.output.frameDrawDuration &&
             this.output.frameDrawDuration(window.performance.now() - frameDrawStart);
         if (this.output.cyclesPerSec && Date.now() - this.cycleChrono.time >= 1000) {

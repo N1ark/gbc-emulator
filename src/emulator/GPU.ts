@@ -113,7 +113,10 @@ class GPU implements Addressable {
 
     // Video output/storage
     output: GameBoyOutput;
-    videoBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH).fill(0xff000000);
+    // Temporary buffer when drawing line by line
+    videoBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH).fill(0xffffffff);
+    // Complete buffer with the last fully drawn frame
+    lastVideoOut = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH);
     // Debug video output/storage
     backgroundVideoBuffer?: Uint32Array;
     tilesetVideoBuffer?: Uint32Array;
@@ -226,18 +229,7 @@ class GPU implements Addressable {
 
             if (this.lcdY.get() === 144) {
                 system.requestInterrupt(IFLAG_VBLANK);
-
-                if (this.output.receive) {
-                    this.output.receive(this.videoBuffer);
-                }
-                if (this.output.debugBackground) {
-                    const backgroundImg = this.debugBackground();
-                    this.output.debugBackground(backgroundImg);
-                }
-                if (this.output.debugTileset) {
-                    const tilesetImg = this.debugTileset();
-                    this.output.debugTileset(tilesetImg);
-                }
+                this.lastVideoOut.set(this.videoBuffer);
             }
         } else if (this.cycleCounter === 20) {
             this.updateInterrupt(system, { oamActive: false });
@@ -343,6 +335,20 @@ class GPU implements Addressable {
         if (this.cycleCounter === MODE_TRANSFERRING.cycles + this.transferExtraCycles) {
             this.cycleCounter = 0;
             this.mode = MODE_HBLANK;
+        }
+    }
+
+    pushOutput() {
+        if (this.output.receive) {
+            this.output.receive(this.lastVideoOut);
+        }
+        if (this.output.debugBackground) {
+            const backgroundImg = this.debugBackground();
+            this.output.debugBackground(backgroundImg);
+        }
+        if (this.output.debugTileset) {
+            const tilesetImg = this.debugTileset();
+            this.output.debugTileset(tilesetImg);
         }
     }
 
@@ -795,6 +801,10 @@ class GPUExported implements Addressable {
 
     tick(system: System): void {
         this.gpu.tick(system);
+    }
+
+    pushOutput(): void {
+        this.gpu.pushOutput();
     }
 
     read(pos: number): number {
