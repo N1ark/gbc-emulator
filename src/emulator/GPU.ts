@@ -1,5 +1,4 @@
 import Addressable from "./Addressable";
-import Readable from "./Addressable";
 import { IFLAG_LCDC, IFLAG_VBLANK, SCREEN_HEIGHT, SCREEN_WIDTH } from "./constants";
 import { RAM } from "./Memory";
 import { PaddedSubRegister, RegisterFF, SubRegister } from "./Register";
@@ -8,11 +7,19 @@ import { asSignedInt8, Int2, wrap8 } from "./util";
 import GameBoyOutput from "./GameBoyOutput";
 import OAM, { Sprite } from "./OAM";
 
+type KeyForType<T, V> = NonNullable<
+    {
+        [k in keyof T]: T[k] extends V ? k : never;
+    }[keyof T]
+>;
+
 type PPUMode = {
+    doTick: KeyForType<GPU, (system: System) => void>;
     flag: number;
     cycles: number;
-    interrupt?: number;
 };
+
+type PPUModeI = PPUMode & { interrupt: number };
 
 /*
  * All modes, with:
@@ -20,27 +27,32 @@ type PPUMode = {
  * - cycles: cycles until completion (including previous steps)
  * - interrupt?: optional corresponding STAT interrupt flag
  */
-const MODE_HBLANK_FIRST = {
+const MODE_HBLANK_FIRST: PPUModeI = {
+    doTick: "tickHBlankFirst",
     flag: 0b00,
     cycles: 18,
     interrupt: 1 << 3,
 };
-const MODE_HBLANK = {
+const MODE_HBLANK: PPUModeI = {
+    doTick: "tickHBlank",
     flag: 0b00,
     cycles: 51,
     interrupt: 1 << 3,
 };
-const MODE_VBLANK = {
+const MODE_VBLANK: PPUModeI = {
+    doTick: "tickVBlank",
     flag: 0b01,
     cycles: 114,
     interrupt: 1 << 4,
 };
-const MODE_SEARCHING_OAM = {
+const MODE_SEARCHING_OAM: PPUModeI = {
+    doTick: "tickSearchingOam",
     flag: 0b10,
     cycles: 20,
     interrupt: 1 << 5,
 };
-const MODE_TRANSFERRING = {
+const MODE_TRANSFERRING: PPUMode = {
+    doTick: "tickTransferring",
     flag: 0b11,
     cycles: 43,
 };
@@ -68,65 +80,65 @@ const STAT_LYC_LY_EQ_INT = 1 << 6;
  * The GPU of the GBC, responsible for rendering the current state of the console.
  * @link https://gbdev.io/pandocs/Rendering.html
  */
-class GPU implements Readable {
+class GPU implements Addressable {
     // Internal counter for cycles
-    protected cycleCounter: number = 0;
-    protected mode: PPUMode = MODE_VBLANK;
+    cycleCounter: number = 0;
+    mode: PPUMode = MODE_VBLANK;
 
-    protected interruptStateBefore: boolean = false;
-    protected interruptLineState = {
+    interruptStateBefore: boolean = false;
+    interruptLineState = {
         lycLyMatch: false,
         oamActive: false,
         vblankActive: false,
         hblankActive: false,
     };
-    protected nextInterruptLineUpdate: Partial<typeof this.interruptLineState> | null = null;
+    nextInterruptLineUpdate: Partial<typeof this.interruptLineState> | null = null;
 
     // OAM
-    protected oam = new OAM();
-    protected canReadOam: boolean = true;
-    protected canWriteOam: boolean = true;
+    oam = new OAM();
+    canReadOam: boolean = true;
+    canWriteOam: boolean = true;
 
     // Variable extra cycles during pixel transfer
-    protected transferExtraCycles: number = 0;
+    transferExtraCycles: number = 0;
 
     // Read sprites
-    protected readSprites: Sprite[] = [];
+    readSprites: Sprite[] = [];
 
     // Data Store
-    protected vram = new RAM(8192); // 8Kb memory
-    protected canReadVram: boolean = true;
-    protected canWriteVram: boolean = true;
+    vram = new RAM(8192); // 8Kb memory
+    canReadVram: boolean = true;
+    canWriteVram: boolean = true;
 
     // Video output/storage
-    protected output: GameBoyOutput;
-    protected videoBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH).fill(0xff000000);
+    output: GameBoyOutput;
+    videoBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH).fill(0xff000000);
     // Debug video output/storage
-    protected backgroundVideoBuffer?: Uint32Array;
-    protected tilesetVideoBuffer?: Uint32Array;
+    backgroundVideoBuffer?: Uint32Array;
+    tilesetVideoBuffer?: Uint32Array;
 
     // General use
     /** @link https://gbdev.io/pandocs/LCDC.html */
-    protected lcdControl = new SubRegister(0x91);
+    lcdControl = new SubRegister(0x91);
     /** @link https://gbdev.io/pandocs/STAT.html */
-    protected lcdStatus = new PaddedSubRegister(7, 0x85);
+    lcdStatus = new PaddedSubRegister(7, 0x85);
 
     // Positioning
-    protected screenY = new SubRegister(0x00); // these two indicate position of the viewport
-    protected screenX = new SubRegister(0x00); // in the background map
+    screenY = new SubRegister(0x00); // these two indicate position of the viewport
+    screenX = new SubRegister(0x00); // in the background map
 
-    protected lcdY = new SubRegister(0x00); // indicates currently drawn horizontal line
-    protected lcdYCompare = new SubRegister(0x00);
+    lcdY = new SubRegister(0x00); // indicates currently drawn horizontal line
+    lcdYCompare = new SubRegister(0x00);
 
-    protected windowY = new SubRegister(0x00); // position of the window
-    protected windowX = new SubRegister(0x00);
+    windowY = new SubRegister(0x00); // position of the window
+    windowX = new SubRegister(0x00);
 
     // Palettes
-    protected bgPalette = new SubRegister(0x00);
-    protected objPalette0 = new SubRegister(0x00);
-    protected objPalette1 = new SubRegister(0x00);
+    bgPalette = new SubRegister(0x00);
+    objPalette0 = new SubRegister(0x00);
+    objPalette1 = new SubRegister(0x00);
 
-    protected colorOptions: Record<Int2, number> = {
+    colorOptions: Record<Int2, number> = {
         0b00: 0xffffffff, // white
         0b01: 0xffaaaaaa, // light gray
         0b10: 0xff555555, // dark gray
@@ -154,38 +166,22 @@ class GPU implements Readable {
 
         this.cycleCounter++;
 
-        switch (this.mode) {
-            case MODE_HBLANK_FIRST:
-                this.tickHBlankFirst(system);
-                break;
-            case MODE_HBLANK:
-                this.tickHBlank(system);
-                break;
-            case MODE_VBLANK:
-                this.tickVBlank(system);
-                break;
-            case MODE_SEARCHING_OAM:
-                this.tickSearchingOam(system);
-                break;
-            case MODE_TRANSFERRING:
-                this.tickTransferring(system);
-                break;
+        if (this.cycleCounter === 1) {
+            this.setMode(this.mode);
         }
+
+        this[this.mode.doTick](system);
     }
 
-    protected tickHBlankFirst(system: System) {
-        if (this.cycleCounter === 1) {
-            this.setMode(MODE_HBLANK_FIRST);
-        }
+    tickHBlankFirst(system: System) {
         if (this.cycleCounter === MODE_HBLANK_FIRST.cycles) {
             this.cycleCounter = 0;
             this.mode = MODE_TRANSFERRING;
         }
     }
 
-    protected tickHBlank(system: System) {
+    tickHBlank(system: System) {
         if (this.cycleCounter === 1) {
-            this.setMode(MODE_HBLANK);
             this.updateInterrupt(system, { hblankActive: true });
 
             this.canReadOam = true;
@@ -218,10 +214,8 @@ class GPU implements Readable {
         }
     }
 
-    protected tickVBlank(system: System) {
+    tickVBlank(system: System) {
         if (this.cycleCounter === 1) {
-            this.setMode(MODE_VBLANK);
-
             const isVblankStart = this.lcdY.get() === 144;
             this.updateInterrupt(system, {
                 lycLyMatch: this.lcdY.get() === this.lcdYCompare.get(),
@@ -256,9 +250,8 @@ class GPU implements Readable {
         }
     }
 
-    protected tickSearchingOam(system: System) {
+    tickSearchingOam(system: System) {
         if (this.cycleCounter === 1) {
-            this.setMode(MODE_SEARCHING_OAM);
             this.updateInterrupt(system, {
                 oamActive: true,
                 hblankActive: false,
@@ -300,9 +293,8 @@ class GPU implements Readable {
         }
     }
 
-    protected tickTransferring(system: System) {
+    tickTransferring(system: System) {
         if (this.cycleCounter === 1) {
-            this.setMode(MODE_TRANSFERRING);
             this.updateInterrupt(null, { oamActive: false });
 
             this.canReadOam = false;
@@ -353,7 +345,7 @@ class GPU implements Readable {
     }
 
     /** Sets the current mode of the GPU, updating the STAT register. */
-    protected setMode(mode: PPUMode) {
+    setMode(mode: PPUMode) {
         this.lcdStatus.set((this.lcdStatus.get() & ~STAT_MODE) | mode.flag);
     }
 
@@ -361,10 +353,7 @@ class GPU implements Readable {
      * Will update the STAT interrupt line, raise an interrupt if there is a high to low
      * transition and the passed in System isn't null (ie. pass null to disable interrupts).
      */
-    protected updateInterrupt(
-        system: System | null,
-        data: Partial<typeof this.interruptLineState>
-    ) {
+    updateInterrupt(system: System | null, data: Partial<typeof this.interruptLineState>) {
         Object.assign(this.interruptLineState, data);
         const interruptState =
             (this.lcdStatus.flag(STAT_LYC_LY_EQ_INT) && this.interruptLineState.lycLyMatch) ||
@@ -385,7 +374,7 @@ class GPU implements Readable {
     }
 
     /** Updates the current scanline, by rendering the background, window and then objects. */
-    protected updateScanline(system: System) {
+    updateScanline(system: System) {
         const bgPriorities = [...new Array(SCREEN_WIDTH)].fill(false);
         if (this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
             this.drawBackground(bgPriorities);
@@ -400,13 +389,12 @@ class GPU implements Readable {
         }
     }
 
-    protected tileCache: { [key in number]: { valid: boolean; data: Int2[][] } | undefined } =
-        {};
+    tileCache: { [key in number]: { valid: boolean; data: Int2[][] } | undefined } = {};
 
     /**
      * Returns the tile data as a 2D 8x8 array of shades (0-3)
      */
-    protected getTile(tileAddress: number): Int2[][] {
+    getTile(tileAddress: number): Int2[][] {
         let cachedTile = this.tileCache[tileAddress >> 4];
 
         // Create cached tile if not done
@@ -433,7 +421,7 @@ class GPU implements Readable {
         return cachedTile.data;
     }
 
-    protected debugBackground() {
+    debugBackground() {
         const width = 256;
         const height = 256;
         if (this.backgroundVideoBuffer === undefined)
@@ -472,7 +460,7 @@ class GPU implements Readable {
         return this.backgroundVideoBuffer;
     }
 
-    protected debugTileset() {
+    debugTileset() {
         const width = 128; // 16 * 8;
         const height = 192; // 24 * 8;
         if (this.tilesetVideoBuffer === undefined)
@@ -500,7 +488,7 @@ class GPU implements Readable {
         return this.tilesetVideoBuffer;
     }
 
-    protected drawBackground(priorities: boolean[]) {
+    drawBackground(priorities: boolean[]) {
         // Function to get access to the tile data, ie. the shades of a tile
         const toAddress = this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
             ? // Unsigned regular, 0x8000-0x8fff
@@ -558,7 +546,7 @@ class GPU implements Readable {
         }
     }
 
-    protected drawWindow(priorities: boolean[]) {
+    drawWindow(priorities: boolean[]) {
         // Function to get access to the tile data, ie. the shades of a tile
         const toAddress = this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
             ? // Unsigned regular, 0x8000-0x8fff
@@ -618,7 +606,7 @@ class GPU implements Readable {
         }
     }
 
-    protected drawObjects(system: System, priorities: boolean[]) {
+    drawObjects(system: System, priorities: boolean[]) {
         const y = this.lcdY.get();
         const doubleObjects = this.lcdControl.flag(LCDC_OBJ_SIZE);
         const sprites = this.readSprites;
@@ -660,7 +648,7 @@ class GPU implements Readable {
     }
 
     /** An object containing the RGBA colors for each color ID in the background and window. */
-    protected bgAndWinPaletteColor(): Record<Int2, number> {
+    bgAndWinPaletteColor(): Record<Int2, number> {
         const palette = this.bgPalette.get();
         return {
             0b00: this.colorOptions[((palette >> 0) & 0b11) as Int2],
@@ -670,7 +658,7 @@ class GPU implements Readable {
         };
     }
     /** An object containing the RGBA colors for each color ID for objects.  */
-    protected objPaletteColors(id: 0 | 1) {
+    objPaletteColors(id: 0 | 1) {
         const palette = (id === 0 ? this.objPalette0 : this.objPalette1).get();
         return {
             0b00: 0x00000000, // unused, color 0b00 is transparent
@@ -681,11 +669,11 @@ class GPU implements Readable {
     }
 
     /** Allows reading the VRAM bypassing restrictions. */
-    protected readVram(pos: number) {
+    readVram(pos: number) {
         return this.vram.read(pos - 0x8000);
     }
 
-    protected address(pos: number): [Addressable, number] {
+    address(pos: number): [Addressable, number] {
         // VRAM
         if (0x8000 <= pos && pos <= 0x9fff) return [this.vram, pos - 0x8000];
         // OAM
@@ -787,4 +775,32 @@ class GPU implements Readable {
     }
 }
 
-export default GPU;
+/**
+ * To have nice TypeScript types we need to be able to refer to the protected attributes of the
+ * GPU class. However this isn't possible. As such we instead create an exported class that
+ * has all the public attributes of GPU, and choose to not export the GPU that has all its
+ * fields as public.
+ * This means other classes can keep using GPU as it was and don't have access to anything else,
+ * but inside of the file everything is public and usable.
+ */
+class GPUExported implements Addressable {
+    protected gpu: GPU;
+
+    constructor(output: GameBoyOutput) {
+        this.gpu = new GPU(output);
+    }
+
+    tick(system: System): void {
+        this.gpu.tick(system);
+    }
+
+    read(pos: number): number {
+        return this.gpu.read(pos);
+    }
+
+    write(pos: number, data: number): void {
+        return this.gpu.write(pos, data);
+    }
+}
+
+export default GPUExported;
