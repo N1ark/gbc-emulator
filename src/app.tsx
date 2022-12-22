@@ -60,7 +60,6 @@ const App: FunctionalComponent = () => {
     ]);
 
     // Interaction
-    const emulator2Enabled = useSignal(false);
     const debugEnabled = useSignal(false);
     const tripleSpeed = useSignal(false);
     const emulatorRunning = useSignal(true);
@@ -69,29 +68,18 @@ const App: FunctionalComponent = () => {
 
     // DOM Refs
     const emulator1Ref = useRef<HTMLCanvasElement>(null);
-    const emulator2Ref = useRef<HTMLCanvasElement>(null);
     const bgDebugger = useRef<HTMLCanvasElement>(null);
     const tilesetDebugger = useRef<HTMLCanvasElement>(null);
 
     // Emulator data
     const [loadedGame, setLoadedGame] = useState<Uint8Array>();
     const [gameboy, setGameboy] = useState<GameBoyColor>();
-    const [emulator2, setEmulator2] = useState<any>();
     const serialOut = useSignal("");
 
     // Debug state
     const cyclesPerSec = useSignal(0);
     const stepCount = useSignal(0);
     const millisPerFrame = useSignal(0);
-
-    /**
-     * Stop em2 if needed
-     */
-    useEffect(() => {
-        if (emulator2 && !emulator2Enabled.value) {
-            emulator2.error("stop");
-        }
-    }, [emulator2Enabled.value, emulator2]);
 
     /**
      * Loads a ROM into the gameboy, instantiating it. Also creates the 2nd emulator if needed
@@ -145,30 +133,9 @@ const App: FunctionalComponent = () => {
             setGameboy(gbc);
             requestAnimationFrame(() => gbc.start());
 
-            if (emulator2Enabled.value) {
-                setTimeout(() => {
-                    if (emulator2) {
-                        emulator2.error("stop");
-                    }
-                    // Create Emulator 2 (working)
-                    let fileCallback = (d: Uint8Array) => {};
-                    const em2 = new GameboyJS.Gameboy(emulator2Ref.current, {
-                        romReaders: [
-                            {
-                                setCallback: (c: (d: Uint8Array) => void) => {
-                                    fileCallback = c;
-                                },
-                            },
-                        ],
-                    });
-                    setEmulator2(em2);
-                    fileCallback(rom);
-                }, 10);
-            }
-
             return gbc;
         },
-        [gameboy, emulator2, emulator2Enabled, debugEnabled]
+        [gameboy, debugEnabled]
     );
 
     /**
@@ -323,14 +290,6 @@ const App: FunctionalComponent = () => {
                 </button>
 
                 <button
-                    title="Emulator 2 Enabled"
-                    className={`icon-button ${emulator2Enabled.value ? "toggled" : ""}`}
-                    onClick={() => (emulator2Enabled.value = !emulator2Enabled.value)}
-                >
-                    <FlipHorizontal />
-                </button>
-
-                <button
                     title="Testing"
                     className={`icon-button ${isTesting.value ? "toggled" : ""}`}
                     onClick={() => (isTesting.value = !isTesting.value)}
@@ -356,7 +315,6 @@ const App: FunctionalComponent = () => {
                     </div>
                     <div id="emu-screens">
                         <Screen canvasRef={emulator1Ref} />
-                        {emulator2Enabled.value && <Screen canvasRef={emulator2Ref} />}
                         {debugEnabled.value && (
                             <>
                                 <Screen width={256} height={256} canvasRef={bgDebugger} />
