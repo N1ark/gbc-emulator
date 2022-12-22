@@ -13,7 +13,7 @@ import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import "./app.css";
 import RomInput from "./RomInput";
-import Screen from "./Screen";
+import Screen, { VideoReceiver } from "./Screen";
 import useKeys from "./useKeys";
 
 import localforage from "localforage";
@@ -24,23 +24,6 @@ import GameBoyOutput from "./emulator/GameBoyOutput";
 import { testConfig, testFiles } from "./testConfig";
 import setupTests from "./tests";
 import Drawer from "./Drawer/Drawer";
-
-const displayData = (
-    data: Uint32Array,
-    ref: Ref<HTMLCanvasElement>,
-    width: number = SCREEN_WIDTH,
-    height: number = SCREEN_HEIGHT
-) => {
-    const canvas = ref.current;
-    if (!canvas) return;
-
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    const dataAsUint8 = new Uint8ClampedArray(data.buffer);
-    const imageData = new ImageData(dataAsUint8, width, height);
-    context.putImageData(imageData, 0, 0);
-};
 
 const CACHE_KEY = "rom";
 
@@ -64,9 +47,9 @@ const App: FunctionalComponent = () => {
     const canStep = useSignal(true);
 
     // DOM Refs
-    const emulator1Ref = useRef<HTMLCanvasElement>(null);
-    const bgDebugger = useRef<HTMLCanvasElement>(null);
-    const tilesetDebugger = useRef<HTMLCanvasElement>(null);
+    const emulatorFrameIn = useRef<VideoReceiver | undefined>(undefined);
+    const bgDebugger = useRef<VideoReceiver | undefined>(undefined);
+    const tilesetDebugger = useRef<VideoReceiver | undefined>(undefined);
 
     // Emulator data
     const [loadedGame, setLoadedGame] = useState<Uint8Array>();
@@ -113,14 +96,20 @@ const App: FunctionalComponent = () => {
             };
 
             const gbOut: GameBoyOutput = {
-                receive: (d) => displayData(d, emulator1Ref),
+                get receive() {
+                    return emulatorFrameIn.current;
+                },
                 serialOut: (d) => (serialOut.value += String.fromCharCode(d)),
                 errorOut: (e) => {
                     serialOut.value = `${e}`;
                     console.error(e);
                 },
-                debugBackground: (d) => displayData(d, bgDebugger, 256, 256),
-                debugTileset: (d) => displayData(d, tilesetDebugger, 128, 192),
+                get debugBackground() {
+                    return bgDebugger.current;
+                },
+                get debugTileset() {
+                    return tilesetDebugger.current;
+                },
                 stepCount: (x) => (stepCount.value = x),
                 cyclesPerSec: (x) => (cyclesPerSec.value = x),
                 frameDrawDuration: (x) => (millisPerFrame.value = x),
@@ -191,10 +180,15 @@ const App: FunctionalComponent = () => {
         (async () => {
             let testResults: Record<string, { type: string; group: string; state: string }> =
                 {};
+            type TestFiles = typeof testFiles;
+            type EntryOf<T> = T[keyof T];
+            type TestKeys = EntryOf<{ [k in keyof TestFiles]: keyof TestFiles[k] }>;
+            const validGroups: TestKeys[] = ["ppu"];
             for (let testType in testFiles) {
                 const groups = testFiles[testType as keyof typeof testFiles];
                 console.log(`---- Starting tests "${testType}" ----`);
                 for (let group in groups) {
+                    if (!validGroups.includes(group as any)) continue;
                     const groupFiles = groups[group as keyof typeof groups] as string[];
                     for (let testFile of groupFiles) {
                         console.log(`Running test ${testType}/${group} -> ${testFile}`);
@@ -311,11 +305,11 @@ const App: FunctionalComponent = () => {
                         <div>{millisPerFrame.value.toLocaleString()} ms/f</div>
                     </div>
                     <div id="emu-screens">
-                        <Screen canvasRef={emulator1Ref} />
+                        <Screen inputRef={emulatorFrameIn} />
                         {debugEnabled.value && (
                             <>
-                                <Screen width={256} height={256} canvasRef={bgDebugger} />
-                                <Screen width={128} height={192} canvasRef={tilesetDebugger} />
+                                <Screen width={256} height={256} inputRef={bgDebugger} />
+                                <Screen width={128} height={192} inputRef={tilesetDebugger} />
                             </>
                         )}
                     </div>
