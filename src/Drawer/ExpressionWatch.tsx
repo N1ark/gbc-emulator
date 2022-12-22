@@ -1,6 +1,5 @@
 import { FunctionalComponent } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { Register, SubRegister } from "./emulator/Register";
 
 type ExpressionWatchProps = {
     updater: number;

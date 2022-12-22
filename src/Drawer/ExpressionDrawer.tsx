@@ -1,7 +1,6 @@
 import { Plus, Trash } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useState } from "preact/hooks";
-import "./ExpressionDrawer.css";
 import ExpressionWatch from "./ExpressionWatch";
 
 type ExpressionDrawerProps = {

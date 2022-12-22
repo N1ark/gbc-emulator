@@ -1,6 +1,3 @@
-// @ts-ignore
-import GameboyJS from "./emulator2";
-
 import { useSignal } from "@preact/signals";
 import {
     Bug,
@@ -24,9 +21,9 @@ import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
 import GameBoyColor from "./emulator/GameBoyColor";
 import GameBoyInput from "./emulator/GameBoyInput";
 import GameBoyOutput from "./emulator/GameBoyOutput";
-import ExpressionDrawer from "./ExpressionDrawer";
 import { testConfig, testFiles } from "./testConfig";
 import setupTests from "./tests";
+import Drawer from "./Drawer/Drawer";
 
 const displayData = (
     data: Uint32Array,
@@ -254,7 +251,7 @@ const App: FunctionalComponent = () => {
 
     return (
         <>
-            <ExpressionDrawer updater={stepCount.value} />
+            <Drawer />
 
             <h1>Emmy</h1>
             <h2>The GBC Browser Emulator</h2>
