@@ -59,7 +59,6 @@ class System implements Addressable {
     // Devices
     protected timer = new Timer();
     protected audio = new Audio();
-    protected oam = new OAM();
     protected joypad: JoypadInput;
 
     // Registers + Utility Registers
@@ -81,7 +80,6 @@ class System implements Addressable {
     /** Ticks the whole system for the given number of cycles. */
     tick() {
         this.gpu.tick(this);
-        this.oam.tick(this);
         this.timer.tick(this);
 
         // Tick IME
@@ -126,7 +124,7 @@ class System implements Addressable {
         if (pos <= 0xfdff) return [this.wram, pos & (WRAM_SIZE - 1)];
 
         // OAM
-        if (pos <= 0xfe9f) return [this.oam, pos];
+        if (pos <= 0xfe9f) return [this.gpu, pos];
 
         // Illegal Area
         if (pos <= 0xfeff) {
@@ -155,14 +153,13 @@ class System implements Addressable {
             case 0xff43:
             case 0xff44:
             case 0xff45:
+            case 0xff46:
             case 0xff47:
             case 0xff48:
             case 0xff49:
             case 0xff4a:
             case 0xff4b:
                 return [this.gpu, pos];
-            case 0xff46:
-                return [this.oam, pos];
             case 0xff0f:
                 return [this.intFlag, pos];
             case 0xffff:
@@ -271,14 +268,6 @@ class System implements Addressable {
             }
         }
         throw new Error("Cleared interrupt but nothing was called");
-    }
-
-    /**
-     * Returns the sprites stored in the OAM.
-     * @link https://gbdev.io/pandocs/OAM.html
-     */
-    getSprites() {
-        return this.oam.getSprites();
     }
 }
 

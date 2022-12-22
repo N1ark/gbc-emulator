@@ -9,7 +9,7 @@ const CARTRIDGE_TYPE = 0x147;
 
 /**
  * The ROM of the game boy, containing the cartridge data. This class is a wrapper around the
- * different Memory Bank Controllers (MBCs), and is responsible for choosing the right MCB and
+ * different Memory Bank Controllers (MBCs), and is responsible for choosing the right MBC and
  * parsing some of the meta data from the cartridge header.
  * @link https://gbdev.io/pandocs/MBCs.html
  * @link https://gbdev.io/pandocs/The_Cartridge_Header.html

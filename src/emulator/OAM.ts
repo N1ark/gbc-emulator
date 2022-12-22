@@ -2,7 +2,6 @@ import Addressable from "./Addressable";
 import { RAM } from "./Memory";
 import { SubRegister } from "./Register";
 import System from "./System";
-import { wrap8 } from "./util";
 
 export type Sprite = {
     x: number;

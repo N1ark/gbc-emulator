@@ -82,7 +82,7 @@ const testFiles = {
             "timer_tima_write_reloading",
             "timer_tma_write_reloading",
         ],
-        mcb1: [
+        mbc1: [
             "mbc1_bits_bank1",
             "mbc1_bits_bank2",
             "mbc1_bits_mode",

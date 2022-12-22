@@ -9,7 +9,7 @@ type MBC1Params = {
 };
 
 /**
- * Implementation of MCB1.
+ * Implementation of MBC1.
  * @link https://gbdev.io/pandocs/MBC1.html
  */
 class MBC1 extends MBC {

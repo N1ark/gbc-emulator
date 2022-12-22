@@ -6,7 +6,7 @@ import { PaddedSubRegister, RegisterFF, SubRegister } from "./Register";
 import System from "./System";
 import { asSignedInt8, Int2, wrap8 } from "./util";
 import GameBoyOutput from "./GameBoyOutput";
-import { Sprite } from "./OAM";
+import OAM, { Sprite } from "./OAM";
 
 type PPUMode = {
     flag: number;
@@ -82,6 +82,9 @@ class GPU implements Readable {
     };
     protected nextInterruptLineUpdate: Partial<typeof this.interruptLineState> | null = null;
 
+    // OAM
+    protected oam = new OAM();
+
     // Variable extra cycles during pixel transfer
     protected transferExtraCycles: number = 0;
 
@@ -135,6 +138,8 @@ class GPU implements Readable {
      * @link https://gbdev.io/pandocs/pixel_fifo.html
      */
     tick(system: System) {
+        this.oam.tick(system);
+
         if (!this.lcdControl.flag(LCDC_LCD_ENABLE)) return;
 
         // Update interrupt line from previous write operations?
@@ -253,7 +258,7 @@ class GPU implements Readable {
             // - must be visible
             // - max 10 per line
             // - sorted, first by X position then by index
-            this.readSprites = system
+            this.readSprites = this.oam
                 .getSprites()
                 .filter(
                     // only get selected sprites
@@ -657,6 +662,8 @@ class GPU implements Readable {
                 return [this.lcdY, 0];
             case 0xff45:
                 return [this.lcdYCompare, 0];
+            case 0xff46:
+                return [this.oam, pos];
             case 0xff47:
                 return [this.bgPalette, 0];
             case 0xff48:
@@ -677,6 +684,11 @@ class GPU implements Readable {
                 ? [RegisterFF, 0]
                 : [this.vram, pos - 0x8000];
 
+        // OAM
+        if (0xfe00 <= pos && pos <= 0xfe9f) {
+            return [this.oam, pos];
+        }
+
         throw new Error(`Invalid address given to GPU: ${pos.toString(16)}`);
     }
 
@@ -686,7 +698,6 @@ class GPU implements Readable {
     }
     write(pos: number, data: number): void {
         const [component, address] = this.address(pos);
-
         if (
             component === this.vram &&
             0x8000 <= pos &&
