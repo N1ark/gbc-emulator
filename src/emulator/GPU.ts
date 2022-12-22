@@ -730,7 +730,7 @@ class GPU implements Addressable {
         const [component, address] = this.address(pos);
 
         if (component === this.oam && !this.canWriteOam) return;
-        if (component === this.vram && !this.canWriteOam) return;
+        if (component === this.vram && !this.canWriteVram) return;
 
         if (
             component === this.vram &&
