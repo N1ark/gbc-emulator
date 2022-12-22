@@ -83,6 +83,7 @@ const STAT_LYC_LY_EQ_INT = 1 << 6;
 class GPU implements Addressable {
     // Internal counter for cycles
     cycleCounter: number = 0;
+    windowLineCounter: number = 0;
     mode: PPUMode = MODE_VBLANK;
 
     interruptStateBefore: boolean = false;
@@ -245,6 +246,7 @@ class GPU implements Addressable {
             this.lcdY.set(wrap8(this.lcdY.get() + 1));
             if (this.lcdY.get() === SCREEN_HEIGHT_WOFFSCREEN) {
                 this.lcdY.set(0);
+                this.windowLineCounter = 0;
                 this.mode = MODE_SEARCHING_OAM;
             }
         }
@@ -283,7 +285,7 @@ class GPU implements Addressable {
                     // only get selected sprites
                     (sprite) => sprite.y <= y && y < sprite.y + objHeight
                 )
-                .slice(0, 10) // only 10 sprites per scanline;
+                .slice(0, 10) // only 10 sprites per scanline, lower index first
                 .map((sprite, index) => [sprite, index] as [Sprite, number])
                 // sort by x then index
                 .sort(([spriteA, indexA], [spriteB, indexB]) =>
@@ -382,11 +384,22 @@ class GPU implements Addressable {
             if (this.lcdControl.flag(LCDC_WIN_ENABLE)) {
                 this.drawWindow(bgPriorities);
             }
+        } else {
+            this.fillWhite();
         }
 
         if (this.lcdControl.flag(LCDC_OBJ_ENABLE)) {
             this.drawObjects(system, bgPriorities);
         }
+    }
+
+    /** Function to get access to the tile data, ie. the shades of a tile */
+    getTileAddress(n: number): number {
+        return this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
+            ? // Unsigned regular, 0x8000-0x8fff
+              0x8000 + n * 16
+            : // Signed offset, 0x9000-0x97ff for 0-127 and 0x8800-0x8fff for 128-255
+              0x9000 + asSignedInt8(n) * 16;
     }
 
     tileCache: { [key in number]: { valid: boolean; data: Int2[][] } | undefined } = {};
@@ -427,12 +440,6 @@ class GPU implements Addressable {
         if (this.backgroundVideoBuffer === undefined)
             this.backgroundVideoBuffer = new Uint32Array(width * height);
 
-        // Function to get access to the tile data, ie. the shades of a tile
-        const toAddress = this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
-            ? // Unsigned regular, 0x8000-0x8fff
-              (n: number) => 0x8000 + n * 16
-            : // Signed offset, 0x9000-0x97ff for 0-127 and 0x8800-0x8fff for 128-255
-              (n: number) => 0x9000 + asSignedInt8(n) * 16;
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
         // The colors used
@@ -444,7 +451,7 @@ class GPU implements Addressable {
             const posY = Math.floor(i / 32); // 32 tiles on height
             // Get the tile address
             const tileId = this.readVram(tileMapLoc + i);
-            const tileAddress = toAddress(tileId);
+            const tileAddress = this.getTileAddress(tileId);
             // Get tile data
             const tileData = this.getTile(tileAddress);
             // Draw the 8 lines of the tile
@@ -488,14 +495,15 @@ class GPU implements Addressable {
         return this.tilesetVideoBuffer;
     }
 
-    drawBackground(priorities: boolean[]) {
-        // Function to get access to the tile data, ie. the shades of a tile
-        const toAddress = this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
-            ? // Unsigned regular, 0x8000-0x8fff
-              (n: number) => 0x8000 + n * 16
-            : // Signed offset, 0x9000-0x97ff for 0-127 and 0x8800-0x8fff for 128-255
-              (n: number) => 0x9000 + asSignedInt8(n) * 16;
+    fillWhite() {
+        const y = this.lcdY.get();
+        const white = 0xffffffff;
+        for (let x = 0; x < SCREEN_WIDTH; x++) {
+            this.videoBuffer[y * SCREEN_WIDTH + x] = white;
+        }
+    }
 
+    drawBackground(priorities: boolean[]) {
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
         // Map of colors for each shade
@@ -529,7 +537,7 @@ class GPU implements Addressable {
             // The ID (pointer) of the tile
             const tileAddress = this.readVram(tileIndex);
             // Convert the ID to the actual address
-            const tileDataAddress = toAddress(tileAddress);
+            const tileDataAddress = this.getTileAddress(tileAddress);
             // Get the tile data
             const tileData = this.getTile(tileDataAddress);
 
@@ -547,26 +555,19 @@ class GPU implements Addressable {
     }
 
     drawWindow(priorities: boolean[]) {
-        // Function to get access to the tile data, ie. the shades of a tile
-        const toAddress = this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
-            ? // Unsigned regular, 0x8000-0x8fff
-              (n: number) => 0x8000 + n * 16
-            : // Signed offset, 0x9000-0x97ff for 0-127 and 0x8800-0x8fff for 128-255
-              (n: number) => 0x9000 + asSignedInt8(n) * 16;
+        // The top-left corner of the 160x144 view area
+        const windowX = this.windowX.get() - 7;
+        const windowY = this.windowY.get();
+
+        if (this.lcdY.get() < windowY || windowX >= SCREEN_WIDTH) return;
 
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_WIN_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
         // Map of colors for each shade
         const palette = this.bgAndWinPaletteColor();
 
-        // The top-left corner of the 160x144 view area
-        const windowX = this.windowX.get() - 7;
-        const windowY = this.windowY.get();
-
-        if (this.lcdY.get() < windowY) return;
-
         // The currently read Y pixel of the bg map
-        const y = windowY + this.lcdY.get();
+        const y = this.windowLineCounter++;
         // The currently read Y position of the corresponding tile (one tile is 8 pixels long)
         const tileY = Math.floor(y / 8);
         // The currently read Y position *inside* the tile
@@ -575,11 +576,9 @@ class GPU implements Addressable {
         // Start of video buffer for this line
         const bufferStart = this.lcdY.get() * SCREEN_WIDTH;
 
-        const scrollOffsetX = windowX % 8;
-
-        for (let i = 0; i < SCREEN_WIDTH + scrollOffsetX; i += 8) {
+        for (let i = windowX; i < SCREEN_WIDTH; i += 8) {
             // The currently read X pixel of the bg map
-            const x = windowX + i;
+            const x = i - windowX;
             // The currently read X position of the corresponding tile
             // this determines the tile of the next 8 pixels
             const tileX = Math.floor(x / 8);
@@ -589,12 +588,12 @@ class GPU implements Addressable {
             // The ID (pointer) of the tile
             const tileAddress = this.readVram(tileIndex);
             // Convert the ID to the actual address
-            const tileDataAddress = toAddress(tileAddress);
+            const tileDataAddress = this.getTileAddress(tileAddress);
             // Get the tile data
             const tileData = this.getTile(tileDataAddress);
 
             for (let innerX = 0; innerX < 8; innerX++) {
-                const posX = i + innerX - scrollOffsetX;
+                const posX = i + innerX;
                 if (posX < 0) continue;
                 // Get the RGBA color, and draw it!
                 const colorId = tileData[innerX][tileInnerY];
@@ -611,10 +610,12 @@ class GPU implements Addressable {
         const doubleObjects = this.lcdControl.flag(LCDC_OBJ_SIZE);
         const sprites = this.readSprites;
 
-        for (const sprite of sprites) {
+        for (const sprite of sprites.reverse()) {
             // Get tile id (to get the actual data pointer)
             let tileId = sprite.tileIndex;
             if (doubleObjects) {
+                // We ignore bit 0 for 8x16 objects
+                tileId &= ~0b1;
                 // if below tile and not flipped, or upper tile but flipped
                 if (y - sprite.y >= 8 !== sprite.yFlip) tileId += 1;
             }
@@ -636,13 +637,15 @@ class GPU implements Addressable {
             for (let innerX = 0; innerX < 8; innerX++) {
                 const x = innerX + sprite.x;
                 // The X value of the sprite is offset by 8 to the left, so we skip off-screen
-                if (x < 0) continue;
+                if (x < 0 || x >= SCREEN_WIDTH) continue;
                 const tileX = sprite.xFlip ? 7 - innerX : innerX;
                 const colorId = tileData[tileX][tileY];
+
                 // if transparent, skip
                 // also skip if bg/win should be above, and priority is set
                 if (colorId === 0 || (sprite.bgAndWinOverObj && priorities[x])) continue;
-                this.videoBuffer[bufferStart + x] = palette[colorId];
+
+                this.videoBuffer[y * SCREEN_WIDTH + x] = palette[colorId];
             }
         }
     }
