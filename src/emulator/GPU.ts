@@ -84,6 +84,8 @@ class GPU implements Readable {
 
     // OAM
     protected oam = new OAM();
+    protected canReadOam: boolean = true;
+    protected canWriteOam: boolean = true;
 
     // Variable extra cycles during pixel transfer
     protected transferExtraCycles: number = 0;
@@ -93,6 +95,8 @@ class GPU implements Readable {
 
     // Data Store
     protected vram = new RAM(8192); // 8Kb memory
+    protected canReadVram: boolean = true;
+    protected canWriteVram: boolean = true;
 
     // Video output/storage
     protected output: GameBoyOutput;
@@ -183,7 +187,22 @@ class GPU implements Readable {
         if (this.cycleCounter === 1) {
             this.setMode(MODE_HBLANK);
             this.updateInterrupt(system, { hblankActive: true });
-        } else if (this.cycleCounter === MODE_HBLANK.cycles - this.transferExtraCycles) {
+
+            this.canReadOam = true;
+
+            // For LY <= 1 there is a delay of one extra cycle
+            if (this.lcdY.get() > 1) {
+                this.canReadVram = true;
+            }
+        }
+
+        if (this.cycleCounter === 2) {
+            this.canReadVram = true;
+            this.canWriteOam = true;
+            this.canWriteVram = true;
+        }
+
+        if (this.cycleCounter === MODE_HBLANK.cycles - this.transferExtraCycles) {
             this.cycleCounter = 0;
             this.lcdY.set(wrap8(this.lcdY.get() + 1));
 
@@ -246,7 +265,14 @@ class GPU implements Readable {
                 vblankActive: false,
                 lycLyMatch: this.lcdY.get() === this.lcdYCompare.get(),
             });
-        } else if (this.cycleCounter === MODE_SEARCHING_OAM.cycles) {
+            this.canReadOam = false;
+        }
+
+        if (this.cycleCounter === 2) {
+            this.canWriteOam = false;
+        }
+
+        if (this.cycleCounter === MODE_SEARCHING_OAM.cycles) {
             this.cycleCounter = 0;
             this.mode = MODE_TRANSFERRING;
 
@@ -278,6 +304,10 @@ class GPU implements Readable {
         if (this.cycleCounter === 1) {
             this.setMode(MODE_TRANSFERRING);
             this.updateInterrupt(null, { oamActive: false });
+
+            this.canReadOam = false;
+            this.canReadVram = false;
+
             this.transferExtraCycles = 0;
 
             // Extra cycles are spent during transfer depending on scroll, because the tile is
@@ -309,7 +339,14 @@ class GPU implements Readable {
             }
 
             this.updateScanline(system);
-        } else if (this.cycleCounter === MODE_TRANSFERRING.cycles + this.transferExtraCycles) {
+        }
+
+        if (this.cycleCounter === 2) {
+            this.canWriteOam = false;
+            this.canWriteVram = false;
+        }
+
+        if (this.cycleCounter === MODE_TRANSFERRING.cycles + this.transferExtraCycles) {
             this.cycleCounter = 0;
             this.mode = MODE_HBLANK;
         }
@@ -649,6 +686,11 @@ class GPU implements Readable {
     }
 
     protected address(pos: number): [Addressable, number] {
+        // VRAM
+        if (0x8000 <= pos && pos <= 0x9fff) return [this.vram, pos - 0x8000];
+        // OAM
+        if (0xfe00 <= pos && pos <= 0xfe9f) return [this.oam, pos];
+        // Registers
         switch (pos) {
             case 0xff40:
                 return [this.lcdControl, 0];
@@ -678,26 +720,21 @@ class GPU implements Readable {
                 break;
         }
 
-        if (0x8000 <= pos && pos <= 0x9fff)
-            // vram disabled during mode 3
-            return this.mode === MODE_TRANSFERRING
-                ? [RegisterFF, 0]
-                : [this.vram, pos - 0x8000];
-
-        // OAM
-        if (0xfe00 <= pos && pos <= 0xfe9f) {
-            return [this.oam, pos];
-        }
-
         throw new Error(`Invalid address given to GPU: ${pos.toString(16)}`);
     }
 
     read(pos: number): number {
         const [component, address] = this.address(pos);
+        if (component === this.oam && !this.canReadOam) return 0xff;
+        if (component === this.vram && !this.canReadVram) return 0xff;
         return component.read(address);
     }
     write(pos: number, data: number): void {
         const [component, address] = this.address(pos);
+
+        if (component === this.oam && !this.canWriteOam) return;
+        if (component === this.vram && !this.canWriteOam) return;
+
         if (
             component === this.vram &&
             0x8000 <= pos &&
