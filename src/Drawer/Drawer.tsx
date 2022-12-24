@@ -15,11 +15,11 @@ const Drawer: FunctionalComponent = () => {
 
     return (
         <div id="drawer">
-            <DrawerSection title="test roms">
-                <TestDrawer />
-            </DrawerSection>
             <DrawerSection title="watch expressions">
                 <ExpressionDrawer updater={ticker} />
+            </DrawerSection>
+            <DrawerSection title="test roms">
+                <TestDrawer />
             </DrawerSection>
         </div>
     );
