@@ -111,14 +111,56 @@ const testFiles = {
     },
 };
 
+const loadImageData = async (fileName: string): Promise<Uint32Array> => {
+    let promiseResolve: (value: Uint32Array) => void;
+    let endPromise = new Promise<Uint32Array>((r) => (promiseResolve = r));
+
+    let img = new Image();
+    img.onload = function () {
+        var canvas = document.createElement("canvas");
+        var ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, 160, 144);
+        const imageDataAsUint32 = new Uint32Array(imageData.data.buffer);
+        promiseResolve(imageDataAsUint32);
+    };
+    img.src = `/tests/${fileName}.png`;
+    return endPromise;
+};
+
+const compareImages = (imgA: Uint32Array, imgB: Uint32Array) => {
+    if (imgA.length !== imgB.length) return "failure";
+    for (let i = 0; i < imgA.length; i++) {
+        if (imgA[i] !== imgB[i]) return "failure";
+    }
+    return "success";
+};
+
 /** The list of test categories, with a runnable that says the status of the test  */
 const testConfig: Record<
     keyof typeof testFiles,
-    (gbc: GameBoyColor, out: string, vid: Uint32Array) => Promise<null | "success" | "failure">
+    (
+        gbc: GameBoyColor,
+        out: string,
+        vid: Uint32Array,
+        testName: string
+    ) => Promise<null | "success" | "failure">
 > = {
-    blaarg: async (gbc, serialOut) => {
+    blaarg: async (gbc, serialOut, vid, testName) => {
         if (serialOut.toLowerCase().includes("pass")) return "success";
         if (serialOut.toLowerCase().includes("fail")) return "failure";
+        if (testName === "halt_bug" && gbc["cpu"].getStepCounts() >= 700_000) {
+            const expected = await loadImageData("blaarg/reference-halt_bug");
+            return compareImages(expected, vid);
+        }
+        if (testName === "oam_bug" && gbc["cpu"].getStepCounts() >= 6_030_000) {
+            const expected = await loadImageData("blaarg/reference-oam_bug");
+            return compareImages(expected, vid);
+        }
+        if (testName === "dmg_sound" && gbc["cpu"].getStepCounts() > 2_900_000) {
+            const expected = await loadImageData("blaarg/reference-dmg_sound");
+            return compareImages(expected, vid);
+        }
         return null;
     },
     mooneye: async (gbc) => {
@@ -143,34 +185,12 @@ const testConfig: Record<
         return null;
     },
     acid: async (gbc, _, vid) => {
-        let imageData: Uint32Array | undefined = acidImageData;
-        if (imageData === undefined) {
-            let promiseResolve: (value: Uint32Array) => void;
-            let endPromise = new Promise<Uint32Array>((r) => (promiseResolve = r));
-
-            let img = new Image();
-            img.onload = function () {
-                var canvas = document.createElement("canvas");
-                var ctx = canvas.getContext("2d")!;
-                ctx.drawImage(img, 0, 0);
-                const imageData = ctx.getImageData(0, 0, 160, 144);
-                const imageDataAsUint32 = new Uint32Array(imageData.data.buffer);
-                promiseResolve(imageDataAsUint32);
-            };
-            img.src = "/tests/acid/reference-dmg.png";
-            imageData = await endPromise;
-            acidImageData = imageData;
-        }
-        if (gbc["cpu"]["regDE"].get() === 0x9380) {
-            for (let i = 0; i < vid.length; i++) {
-                if (vid[i] !== imageData[i]) return "failure";
-            }
-            return "success";
+        if (gbc["cpu"]["stepCounter"] >= 85000) {
+            let imageData = await loadImageData("acid/reference-dmg");
+            return compareImages(imageData, vid);
         }
         return null;
     },
 };
-
-let acidImageData: Uint32Array | undefined;
 
 export { testFiles, testConfig };

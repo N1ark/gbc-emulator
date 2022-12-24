@@ -92,7 +92,7 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
                     break;
                 }
 
-                const newState = await getTestState(gbc, serialOut, videoOut);
+                const newState = await getTestState(gbc, serialOut, videoOut, fileName);
                 if (newState !== null) {
                     state = newState === "failure" ? "❌" : "✅";
                     break;

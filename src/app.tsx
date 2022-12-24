@@ -109,6 +109,9 @@ const App: FunctionalComponent = () => {
             setGameboy(gbc);
             requestAnimationFrame(() => gbc.start());
 
+            // @ts-ignore helpful for debugging :)
+            window.gbc = gbc;
+
             return gbc;
         },
         [gameboy, debugEnabled]

@@ -68,9 +68,7 @@ const ExpressionWatch: FunctionalComponent<ExpressionWatchProps> = ({
                     value={label}
                     onInput={(e) => onLabelChange(e.currentTarget.value)}
                 />
-                <span style={{ display: "inline-block" }}>
-                    {output === null ? "Error" : output}
-                </span>
+                <span className="exp-watch-output">{output === null ? "Error" : output}</span>
             </div>
         </div>
     );
