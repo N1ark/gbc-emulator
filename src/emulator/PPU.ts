@@ -14,7 +14,7 @@ type KeyForType<T, V> = NonNullable<
 >;
 
 type PPUMode = {
-    doTick: KeyForType<GPU, (system: System) => void>;
+    doTick: KeyForType<PPU, (system: System) => void>;
     flag: number;
     cycles: number;
 };
@@ -77,10 +77,10 @@ const STAT_LYC_LY_EQ_FLAG = 1 << 2;
 const STAT_LYC_LY_EQ_INT = 1 << 6;
 
 /**
- * The GPU of the GBC, responsible for rendering the current state of the console.
+ * The PPU of the GBC, responsible for rendering the current state of the console.
  * @link https://gbdev.io/pandocs/Rendering.html
  */
-class GPU implements Addressable {
+class PPU implements Addressable {
     // Internal counter for cycles
     cycleCounter: number = 0;
     windowLineCounter: number = 0;
@@ -154,7 +154,7 @@ class GPU implements Addressable {
     }
 
     /**
-     * This the GPU, effectively updating the screen-buffer and rendering it if it's done.
+     * This the PPU, effectively updating the screen-buffer and rendering it if it's done.
      * @link https://gbdev.io/pandocs/pixel_fifo.html
      */
     tick(system: System) {
@@ -352,7 +352,7 @@ class GPU implements Addressable {
         }
     }
 
-    /** Sets the current mode of the GPU, updating the STAT register. */
+    /** Sets the current mode of the PPU, updating the STAT register. */
     setMode(mode: PPUMode) {
         this.lcdStatus.set((this.lcdStatus.get() & ~STAT_MODE) | mode.flag);
     }
@@ -717,7 +717,7 @@ class GPU implements Addressable {
                 break;
         }
 
-        throw new Error(`Invalid address given to GPU: ${pos.toString(16)}`);
+        throw new Error(`Invalid address given to PPU: ${pos.toString(16)}`);
     }
 
     read(pos: number): number {
@@ -786,34 +786,34 @@ class GPU implements Addressable {
 
 /**
  * To have nice TypeScript types we need to be able to refer to the protected attributes of the
- * GPU class. However this isn't possible. As such we instead create an exported class that
- * has all the public attributes of GPU, and choose to not export the GPU that has all its
+ * PPU class. However this isn't possible. As such we instead create an exported class that
+ * has all the public attributes of PPU, and choose to not export the PPU that has all its
  * fields as public.
- * This means other classes can keep using GPU as it was and don't have access to anything else,
+ * This means other classes can keep using PPU as it was and don't have access to anything else,
  * but inside of the file everything is public and usable.
  */
-class GPUExported implements Addressable {
-    protected gpu: GPU;
+class PPUExported implements Addressable {
+    protected ppu: PPU;
 
     constructor(output: GameBoyOutput) {
-        this.gpu = new GPU(output);
+        this.ppu = new PPU(output);
     }
 
     tick(system: System): void {
-        this.gpu.tick(system);
+        this.ppu.tick(system);
     }
 
     pushOutput(): void {
-        this.gpu.pushOutput();
+        this.ppu.pushOutput();
     }
 
     read(pos: number): number {
-        return this.gpu.read(pos);
+        return this.ppu.read(pos);
     }
 
     write(pos: number, data: number): void {
-        return this.gpu.write(pos, data);
+        return this.ppu.write(pos, data);
     }
 }
 
-export default GPUExported;
+export default PPUExported;

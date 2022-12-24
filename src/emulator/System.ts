@@ -10,10 +10,9 @@ import {
     WRAM_SIZE,
 } from "./constants";
 import GameBoyInput from "./GameBoyInput";
-import GPU from "./GPU";
+import PPU from "./PPU";
 import JoypadInput from "./JoypadInput";
 import { RAM } from "./Memory";
-import OAM from "./OAM";
 import { PaddedSubRegister, Register00, RegisterFF, SubRegister } from "./Register";
 import ROM from "./ROM";
 import Timer from "./Timer";
@@ -47,7 +46,7 @@ type AddressData = [Addressable, number];
 class System implements Addressable {
     // Core components / memory
     protected rom: ROM;
-    protected gpu: GPU;
+    protected ppu: PPU;
     protected wram: RAM = new RAM(WRAM_SIZE);
     protected hram: RAM = new RAM(HRAM_SIZE);
 
@@ -73,13 +72,13 @@ class System implements Addressable {
     constructor(rom: Uint8Array, input: GameBoyInput, output: GameBoyOutput) {
         this.rom = new ROM(rom);
         this.joypad = new JoypadInput(input);
-        this.gpu = new GPU(output);
+        this.ppu = new PPU(output);
         this.serialOut = output.serialOut;
     }
 
     /** Ticks the whole system for the given number of cycles. */
     tick() {
-        this.gpu.tick(this);
+        this.ppu.tick(this);
         this.timer.tick(this);
 
         // Tick IME
@@ -107,7 +106,7 @@ class System implements Addressable {
                 return [this.rom, pos]; // ROM
             case 0x8:
             case 0x9:
-                return [this.gpu, pos]; // VRAM
+                return [this.ppu, pos]; // VRAM
             case 0xa:
             case 0xb:
                 return [this.rom, pos]; // ERAM
@@ -124,7 +123,7 @@ class System implements Addressable {
         if (pos <= 0xfdff) return [this.wram, pos & (WRAM_SIZE - 1)];
 
         // OAM
-        if (pos <= 0xfe9f) return [this.gpu, pos];
+        if (pos <= 0xfe9f) return [this.ppu, pos];
 
         // Illegal Area
         if (pos <= 0xfeff) {
@@ -159,7 +158,7 @@ class System implements Addressable {
             case 0xff49:
             case 0xff4a:
             case 0xff4b:
-                return [this.gpu, pos];
+                return [this.ppu, pos];
             case 0xff0f:
                 return [this.intFlag, pos];
             case 0xffff:
@@ -220,9 +219,9 @@ class System implements Addressable {
         this.joypad.readInput();
     }
 
-    /** Pushes update data if needed */
+    /** Pushes output data if needed */
     pushOutput() {
-        this.gpu.pushOutput();
+        this.ppu.pushOutput();
     }
 
     get interruptsEnabled(): boolean {
