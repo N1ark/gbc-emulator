@@ -16,7 +16,7 @@ const DummyInput = {
 
 class DummySystem extends System {
     constructor(data: number[]) {
-        super(MakeRom(data), DummyInput, {}, () => {});
+        super(MakeRom(data), DummyInput, {});
     }
 }
 

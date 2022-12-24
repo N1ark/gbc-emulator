@@ -49,7 +49,7 @@ class GameBoyColor {
     drawFrame(): boolean {
         const debugResult = this.debug && this.debug();
         const debugging = !debugResult?.skipDebug;
-        const cycleTarget = debugResult?.tripleSpeed ? CYCLES_PER_FRAME * 3 : CYCLES_PER_FRAME;
+        const cycleTarget = debugResult?.tripleSpeed ? CYCLES_PER_FRAME * 6 : CYCLES_PER_FRAME;
 
         const frameDrawStart = window.performance.now();
         while (this.cycles < cycleTarget) {
@@ -64,7 +64,7 @@ class GameBoyColor {
                     (typeof br === "number" && br === this.cpu.getPC()) ||
                     (typeof br === "object" && br[0] === this.cpu.getPC() && br[1](this.cpu))
             );
-            if (debugging || breakpoint) {
+            if (this.cpu["nextStep"] === null && (debugging || breakpoint)) {
                 return true;
             }
         }

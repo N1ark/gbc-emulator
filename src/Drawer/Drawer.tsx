@@ -3,6 +3,7 @@ import "./Drawer.css";
 import DrawerSection from "./DrawerSection";
 import ExpressionDrawer from "./ExpressionDrawer";
 import { useEffect, useState } from "preact/hooks";
+import TestDrawer from "./TestDrawer";
 
 const Drawer: FunctionalComponent = () => {
     const [ticker, setTicker] = useState<number>(0);
@@ -14,6 +15,9 @@ const Drawer: FunctionalComponent = () => {
 
     return (
         <div id="drawer">
+            <DrawerSection title="test roms">
+                <TestDrawer />
+            </DrawerSection>
             <DrawerSection title="watch expressions">
                 <ExpressionDrawer updater={ticker} />
             </DrawerSection>

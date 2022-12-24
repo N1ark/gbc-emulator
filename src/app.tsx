@@ -1,15 +1,7 @@
 import { useSignal } from "@preact/signals";
-import {
-    Bug,
-    FastForward,
-    FileQuestion,
-    FlipHorizontal,
-    Pause,
-    Play,
-    Redo,
-} from "lucide-preact";
+import { Bug, FastForward, FileQuestion, Pause, Play, Redo } from "lucide-preact";
 import { FunctionalComponent } from "preact";
-import { Ref, useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import "./app.css";
 import RomInput from "./RomInput";
@@ -17,11 +9,9 @@ import Screen, { VideoReceiver } from "./Screen";
 import useKeys from "./useKeys";
 
 import localforage from "localforage";
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
 import GameBoyColor from "./emulator/GameBoyColor";
 import GameBoyInput from "./emulator/GameBoyInput";
 import GameBoyOutput from "./emulator/GameBoyOutput";
-import { testConfig, testFiles } from "./testConfig";
 import setupTests from "./tests";
 import Drawer from "./Drawer/Drawer";
 
@@ -170,76 +160,6 @@ const App: FunctionalComponent = () => {
             loadGame(value as Uint8Array);
         });
     }, []);
-
-    /**
-     * Handles the testing system
-     */
-    useEffect(() => {
-        if (!isTesting.value) return;
-
-        (async () => {
-            let testResults: Record<string, { type: string; group: string; state: string }> =
-                {};
-            type TestFiles = typeof testFiles;
-            type EntryOf<T> = T[keyof T];
-            type TestKeys = EntryOf<{ [k in keyof TestFiles]: keyof TestFiles[k] }>;
-            const validGroups: TestKeys[] = ["ppu"];
-            for (let testType in testFiles) {
-                const groups = testFiles[testType as keyof typeof testFiles];
-                console.log(`---- Starting tests "${testType}" ----`);
-                for (let group in groups) {
-                    if (!validGroups.includes(group as any)) continue;
-                    const groupFiles = groups[group as keyof typeof groups] as string[];
-                    for (let testFile of groupFiles) {
-                        console.log(`Running test ${testType}/${group} -> ${testFile}`);
-                        const getTestState = testConfig[testType as keyof typeof testFiles];
-                        const romResponse = await fetch(`/tests/${testType}/${testFile}.gb`);
-                        const romBlob = await romResponse.blob();
-                        const romArrayBuffer = await romBlob.arrayBuffer();
-                        try {
-                            const gbc = loadGame(new Uint8Array(romArrayBuffer));
-                            while (isTesting) {
-                                const state =
-                                    gbc["cpu"]["stepCounter"] > 10_000_000
-                                        ? "timeout"
-                                        : getTestState(gbc, serialOut.value);
-                                if (state !== null) {
-                                    testResults[testFile] = {
-                                        type: testType,
-                                        group,
-                                        state:
-                                            state === "failure"
-                                                ? "❌"
-                                                : state === "timeout"
-                                                ? "⌛"
-                                                : "✅",
-                                    };
-                                    break;
-                                }
-                                await new Promise((resolve) => setTimeout(resolve, 100));
-                            }
-                            gbc.stop();
-                        } catch (e) {
-                            console.error("Caught error, skipping test", e);
-                            testResults[testFile] = {
-                                type: testType,
-                                group,
-                                state: "🪦",
-                            };
-                        }
-                        if (!isTesting) return;
-                        console.table(testResults);
-                    }
-                }
-            }
-            emulatorRunning.value = false;
-            console.log(
-                `Finished running tests! Passed ${
-                    Object.values(testResults).filter((x) => x.state === "✅").length
-                }/${Object.keys(testResults).length}`
-            );
-        })();
-    }, [isTesting.value]);
 
     useEffect(setupTests, []);
 
