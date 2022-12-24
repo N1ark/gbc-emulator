@@ -19,6 +19,8 @@ const ExpressionDrawer: FunctionalComponent<ExpressionDrawerProps> = ({ updater 
     );
     const saveToLocalStorage = () =>
         localStorage.setItem(localStorageKey, JSON.stringify(expressionList.value));
+    useEffect(saveToLocalStorage, [expressionList.value]);
+
     return (
         <div className="exp-drawer">
             {expressionList.value.map(([exp, label], i) => (
@@ -37,22 +39,27 @@ const ExpressionDrawer: FunctionalComponent<ExpressionDrawerProps> = ({ updater 
                     updater={updater}
                 />
             ))}
-            <button
-                title="Add"
-                className="icon-button"
-                onClick={() => (expressionList.value = [...expressionList.value, ["", ""]])}
-            >
-                <Plus />
-            </button>
-            {expressionList.value.length > 0 && (
+            <div className="drawer-section-title">
+                <div>Add/Remove:</div>
                 <button
-                    title="Delete"
+                    title="Add"
                     className="icon-button"
-                    onClick={() => (expressionList.value = expressionList.value.slice(0, -1))}
+                    onClick={() => (expressionList.value = [...expressionList.value, ["", ""]])}
                 >
-                    <Trash />
+                    <Plus />
                 </button>
-            )}
+                {expressionList.value.length > 0 && (
+                    <button
+                        title="Delete"
+                        className="icon-button"
+                        onClick={() =>
+                            (expressionList.value = expressionList.value.slice(0, -1))
+                        }
+                    >
+                        <Trash />
+                    </button>
+                )}
+            </div>
         </div>
     );
 };

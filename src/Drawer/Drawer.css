@@ -42,22 +42,22 @@
     padding: 4px;
 }
 
-/* Test Drawer */
-
-.test-drawer-title {
+.drawer-section-title {
     display: flex;
     align-items: center;
 }
 
-.test-drawer-title > div:first-child {
+.drawer-section-title > div:first-child {
     width: 100%;
     text-align: start;
     font-weight: bold;
 }
 
-.test-drawer-title > button {
+.drawer-section-title > button {
     margin-left: 8px;
 }
+
+/* Test Drawer */
 
 .test-drawer label {
     width: 100%;
@@ -94,6 +94,16 @@
     display: flex;
     flex-direction: column;
     text-align: left;
+}
+
+.exp-drawer-control {
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+}
+
+.exp-drawer-control > button {
+    margin-right: 8px;
 }
 
 .exp-watch > * {

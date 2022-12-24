@@ -20,7 +20,7 @@ const handleValue = (
     if (value === null) return "null";
     if (value === undefined) return "undefined";
     if (typeof value === "number") return `0x${value.toString(16).padStart(4, "0")}`;
-    return `'${value}'`;
+    return value.toString();
 };
 
 const ExpressionWatch: FunctionalComponent<ExpressionWatchProps> = ({
@@ -68,7 +68,9 @@ const ExpressionWatch: FunctionalComponent<ExpressionWatchProps> = ({
                     value={label}
                     onInput={(e) => onLabelChange(e.currentTarget.value)}
                 />
-                {output === null ? "Error" : output}
+                <span style={{ display: "inline-block" }}>
+                    {output === null ? "Error" : output}
+                </span>
             </div>
         </div>
     );

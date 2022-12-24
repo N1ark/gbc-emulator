@@ -144,7 +144,7 @@ const TestDrawer: FunctionalComponent = () => {
 
     return (
         <div className="test-drawer">
-            <div className="test-drawer-title">
+            <div className="drawer-section-title">
                 <div>Settings:</div>
                 <button
                     title="Testing"
