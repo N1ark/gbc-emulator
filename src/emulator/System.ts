@@ -1,5 +1,5 @@
 import Addressable from "./Addressable";
-import Audio from "./Audio";
+import APU from "./APU";
 import {
     HRAM_SIZE,
     IFLAG_JOYPAD,
@@ -57,7 +57,7 @@ class System implements Addressable {
 
     // Devices
     protected timer = new Timer();
-    protected audio = new Audio();
+    protected apu = new APU();
     protected joypad: JoypadInput;
 
     // Registers + Utility Registers
@@ -166,9 +166,9 @@ class System implements Addressable {
         }
 
         // Audio registers
-        if (0xff10 <= pos && pos <= 0xff26) return [this.audio, pos];
+        if (0xff10 <= pos && pos <= 0xff26) return [this.apu, pos];
         // Audio wave
-        if (0xff30 <= pos && pos <= 0xff3f) return [this.audio, pos];
+        if (0xff30 <= pos && pos <= 0xff3f) return [this.apu, pos];
 
         // High RAM (HRAM)
         if (0xff80 <= pos && pos <= 0xfffe) return [this.hram, pos - 0xff80];
