@@ -21,7 +21,7 @@ const testFiles = {
         other: ["dmg_sound", "halt_bug", "oam_bug"],
     },
     mooneye: {
-        interruptsAndCpu: [
+        itrAndCpu: [
             "daa",
             "ei_sequence",
             "halt_ime0_ei",
@@ -106,19 +106,22 @@ const testFiles = {
             "oam_dma_sources-GS",
         ],
     },
+    acid: {
+        acid: ["dmg-acid2"],
+    },
 };
 
 /** The list of test categories, with a runnable that says the status of the test  */
 const testConfig: Record<
     keyof typeof testFiles,
-    (gbc: GameBoyColor, out: string) => null | "success" | "failure"
+    (gbc: GameBoyColor, out: string, vid: Uint32Array) => Promise<null | "success" | "failure">
 > = {
-    blaarg: (gbc, serialOut) => {
+    blaarg: async (gbc, serialOut) => {
         if (serialOut.toLowerCase().includes("pass")) return "success";
         if (serialOut.toLowerCase().includes("fail")) return "failure";
         return null;
     },
-    mooneye: (gbc) => {
+    mooneye: async (gbc) => {
         if (
             gbc["cpu"]["srB"].get() === 3 &&
             gbc["cpu"]["srC"].get() === 5 &&
@@ -139,6 +142,35 @@ const testConfig: Record<
             return "failure";
         return null;
     },
+    acid: async (gbc, _, vid) => {
+        let imageData: Uint32Array | undefined = acidImageData;
+        if (imageData === undefined) {
+            let promiseResolve: (value: Uint32Array) => void;
+            let endPromise = new Promise<Uint32Array>((r) => (promiseResolve = r));
+
+            let img = new Image();
+            img.onload = function () {
+                var canvas = document.createElement("canvas");
+                var ctx = canvas.getContext("2d")!;
+                ctx.drawImage(img, 0, 0);
+                const imageData = ctx.getImageData(0, 0, 160, 144);
+                const imageDataAsUint32 = new Uint32Array(imageData.data.buffer);
+                promiseResolve(imageDataAsUint32);
+            };
+            img.src = "/tests/acid/reference-dmg.png";
+            imageData = await endPromise;
+            acidImageData = imageData;
+        }
+        if (gbc["cpu"]["regDE"].get() === 0x9380) {
+            for (let i = 0; i < vid.length; i++) {
+                if (vid[i] !== imageData[i]) return "failure";
+            }
+            return "success";
+        }
+        return null;
+    },
 };
+
+let acidImageData: Uint32Array | undefined;
 
 export { testFiles, testConfig };
