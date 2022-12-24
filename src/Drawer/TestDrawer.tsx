@@ -11,7 +11,6 @@ type TestOutput = "❌" | "⌛" | "✅" | "🪦";
 
 type TestFiles = typeof testFiles;
 type EntryOf<T> = T[keyof T];
-type TestKeys = EntryOf<{ [k in keyof TestFiles]: keyof TestFiles[k] }>;
 
 const makeGameboy = (
     rom: Uint8Array,

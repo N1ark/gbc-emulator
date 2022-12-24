@@ -2,6 +2,10 @@ import { FunctionalComponent } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
 type ExpressionWatchProps = {
+    expression: string;
+    onChange: (expression: string) => void;
+    label: string;
+    onLabelChange: (label: string) => void;
     updater: number;
 };
 
@@ -19,10 +23,23 @@ const handleValue = (
     return `'${value}'`;
 };
 
-const ExpressionWatch: FunctionalComponent<ExpressionWatchProps> = ({ updater }) => {
-    const [expression, setExpression] = useState<string>("");
+const ExpressionWatch: FunctionalComponent<ExpressionWatchProps> = ({
+    expression,
+    onChange,
+    label,
+    onLabelChange,
+    updater,
+}) => {
     const [func, setFunction] = useState<Function | null>(null);
     const [output, setOutput] = useState<string | null>(null);
+
+    useEffect(() => {
+        try {
+            setFunction(() => new Function(`return ${expression}`));
+        } catch {
+            setFunction(null);
+        }
+    }, [expression]);
 
     useEffect(() => {
         let value: typeof output;
@@ -41,19 +58,16 @@ const ExpressionWatch: FunctionalComponent<ExpressionWatchProps> = ({ updater })
                 placeholder="gbc.cpu.regAF"
                 spellCheck={false}
                 value={expression}
-                onInput={(e) => {
-                    const exp = e.currentTarget.value;
-                    e.stopPropagation();
-                    setExpression(exp);
-                    try {
-                        setFunction(() => new Function(`return ${exp}`));
-                    } catch {
-                        setFunction(null);
-                    }
-                }}
+                onInput={(e) => onChange(e.currentTarget.value)}
             />
             <div className={output === null ? "error" : undefined}>
-                <input type="text" className="label" placeholder="label" />
+                <input
+                    placeholder="label"
+                    type="text"
+                    className="label"
+                    value={label}
+                    onInput={(e) => onLabelChange(e.currentTarget.value)}
+                />
                 {output === null ? "Error" : output}
             </div>
         </div>
