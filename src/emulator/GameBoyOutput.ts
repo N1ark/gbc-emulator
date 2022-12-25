@@ -15,6 +15,11 @@ interface GameBoyOutput {
     debugTileset?(data: Uint32Array): void;
 
     /**
+     * Optional method that returns whether or not sound is enabled (false by default).
+     */
+    hasSoundEnabled?(): boolean;
+
+    /**
      * Optional method that receives the serial output of the gameboy, character by character.
      */
     serialOut?(data: number): void;

@@ -1,5 +1,5 @@
 import Addressable from "./Addressable";
-import APU from "./APU";
+import APU from "./apu/APU";
 import {
     HRAM_SIZE,
     IFLAG_JOYPAD,
@@ -60,6 +60,10 @@ class System implements Addressable {
     protected apu = new APU();
     protected joypad: JoypadInput;
 
+    // Sound Out
+    protected wasSoundOn: boolean = false;
+    protected hasSound: undefined | (() => boolean);
+
     // Registers + Utility Registers
     protected registerSerial: Addressable = {
         read: () => 0xff,
@@ -73,6 +77,7 @@ class System implements Addressable {
         this.rom = new ROM(rom);
         this.joypad = new JoypadInput(input);
         this.ppu = new PPU(output);
+        this.hasSound = output.hasSoundEnabled;
         this.serialOut = output.serialOut;
     }
 
@@ -80,6 +85,13 @@ class System implements Addressable {
     tick() {
         this.ppu.tick(this);
         this.timer.tick(this);
+        this.apu.tick(this);
+
+        if (this.hasSound && this.wasSoundOn !== this.hasSound()) {
+            this.wasSoundOn = this.hasSound();
+            if (this.wasSoundOn) this.apu.addAudioContext();
+            else this.apu.removeAudio();
+        }
 
         // Tick IME
         this.intMasterEnable = IntMasterEnableState[this.intMasterEnable];
@@ -163,6 +175,8 @@ class System implements Addressable {
                 return [this.intFlag, pos];
             case 0xffff:
                 return [this.intEnable, pos];
+            default:
+                break;
         }
 
         // Audio registers
