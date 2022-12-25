@@ -1,5 +1,14 @@
 import { useSignal } from "@preact/signals";
-import { Bug, FastForward, FileQuestion, Pause, Play, Redo } from "lucide-preact";
+import {
+    Bug,
+    FastForward,
+    FileQuestion,
+    Pause,
+    Play,
+    Redo,
+    Volume2,
+    VolumeX,
+} from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
@@ -35,6 +44,7 @@ const App: FunctionalComponent = () => {
     const emulatorRunning = useSignal(true);
     const isTesting = useSignal(false);
     const canStep = useSignal(true);
+    const hasSound = useSignal(false);
 
     // DOM Refs
     const emulatorFrameIn = useRef<VideoReceiver | undefined>(undefined);
@@ -89,6 +99,7 @@ const App: FunctionalComponent = () => {
                 get receive() {
                     return emulatorFrameIn.current;
                 },
+                hasSoundEnabled: () => hasSound.value,
                 serialOut: (d) => (serialOut.value += String.fromCharCode(d)),
                 errorOut: (e) => {
                     serialOut.value = `${e}`;
@@ -196,6 +207,14 @@ const App: FunctionalComponent = () => {
                 </button>
 
                 <button
+                    title="Sound"
+                    className="icon-button"
+                    onClick={() => (hasSound.value = !hasSound.value)}
+                >
+                    {hasSound.value ? <Volume2 /> : <VolumeX />}
+                </button>
+
+                <button
                     title="Debug"
                     className={`icon-button ${debugEnabled.value ? "toggled" : ""}`}
                     onClick={() => (debugEnabled.value = !debugEnabled.value)}
@@ -239,12 +258,12 @@ const App: FunctionalComponent = () => {
                     {serialOut.value.length > 0 && (
                         <code
                             className={
-                                serialOut.value.toLowerCase().includes("passed")
-                                    ? "passed"
+                                serialOut.value.toLowerCase().includes("error")
+                                    ? "error"
                                     : serialOut.value.toLowerCase().includes("failed")
                                     ? "failed"
-                                    : serialOut.value.toLowerCase().includes("error")
-                                    ? "error"
+                                    : serialOut.value.toLowerCase().includes("passed")
+                                    ? "passed"
                                     : undefined
                             }
                         >
