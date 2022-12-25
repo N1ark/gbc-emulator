@@ -5,14 +5,8 @@ abstract class MBC extends AbstractMemory {
         super(data.length, data);
     }
 
-    read(pos: number): number {
-        if (0xa000 <= pos && pos <= 0xbfff) return 0xff; // eram
-        return this.data[pos];
-    }
-
-    write(pos: number, data: number): void {
-        // nothing is writable by default
-    }
+    abstract read(pos: number): number;
+    abstract write(pos: number, data: number): void;
 }
 
 export default MBC;
