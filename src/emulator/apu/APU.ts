@@ -1,10 +1,19 @@
 import Addressable from "../Addressable";
+import { CLOCK_SPEED, FRAME_RATE } from "../constants";
 import { SubRegister } from "../Register";
 import System from "../System";
+import Player from "./Player";
 import SoundChannel1 from "./SoundChannel1";
 import SoundChannel2 from "./SoundChannel2";
 import SoundChannel3 from "./SoundChannel3";
 import SoundChannel4 from "./SoundChannel4";
+
+const SAMPLE_RATE = 44100;
+
+/** Cycles for one full sample at 44.1Hz (for some reason was 4 times too slow?) */
+const CYCLES_PER_SAMPLE = Math.floor(CLOCK_SPEED / 4 / SAMPLE_RATE);
+/** Frequency at which we push new sound samples */
+const SAMPLE_SIZE = Math.floor(SAMPLE_RATE / FRAME_RATE);
 
 const NR52_APU_TOGGLE = 1 << 7;
 const NR52_CHAN1_ON = 1 << 0;
@@ -28,6 +37,17 @@ export class APU implements Addressable {
     /** Status and control register */
     protected nr52 = new SubRegister(0xf1);
 
+    /** Audio output */
+    protected cyclesForSample: number = 0;
+    protected sampleIndex: number = 0;
+    protected player: Player | null = null;
+    protected audioBuffer: Float32Array[] = [
+        new Float32Array(SAMPLE_SIZE),
+        // new Float32Array(SAMPLE_SIZE),
+        // new Float32Array(SAMPLE_SIZE),
+        // new Float32Array(SAMPLE_SIZE),
+    ];
+
     constructor() {
         this.channel1 = new SoundChannel1();
         this.channel2 = new SoundChannel2();
@@ -36,16 +56,11 @@ export class APU implements Addressable {
     }
 
     addAudioContext() {
-        const audioContext = new AudioContext();
-        this.channel1.setAudioContext(audioContext);
-        // this.channel2.setAudioContext(audioContext);
-        // this.channel3.setAudioContext(audioContext);
-        // this.channel4.setAudioContext(audioContext);
+        if (!this.player) this.player = new Player();
     }
 
     removeAudio() {
-        this.channel1.setAudioContext(null);
-        // this.channel2.setAudioContext(null);
+        this.player = null;
     }
 
     /**
@@ -59,6 +74,20 @@ export class APU implements Addressable {
         this.channel2.tick(this);
         this.channel3.tick(this);
         this.channel4.tick(this);
+
+        if (++this.cyclesForSample === CYCLES_PER_SAMPLE) {
+            this.cyclesForSample = 0;
+
+            this.audioBuffer[0][this.sampleIndex] = this.channel1.getSample() * 0.01;
+
+            if (++this.sampleIndex === SAMPLE_SIZE) {
+                this.sampleIndex = 0;
+
+                if (this.player) {
+                    this.player.enqueue(this.audioBuffer);
+                }
+            }
+        }
     }
 
     address(pos: number): Addressable {

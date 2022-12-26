@@ -1,22 +1,23 @@
 import Addressable from "../Addressable";
 import { CLOCK_SPEED } from "../constants";
 import { SubRegister } from "../Register";
+import { Int2 } from "../util";
 import APU from "./APU";
 import SoundChannel from "./SoundChannel";
-import SoundChannel2 from "./SoundChannel2";
 
-const wavePatterns: { [k in 0 | 1 | 2 | 3]: (0 | 1)[] } = {
-    0b00: [1, 1, 1, 1, 1, 1, 1, 0],
-    0b01: [0, 1, 1, 1, 1, 1, 1, 0],
-    0b10: [0, 1, 1, 1, 1, 0, 0, 0],
-    0b11: [1, 0, 0, 0, 0, 0, 0, 1],
+const wavePatterns: Record<Int2, (-1 | 1)[]> = {
+    0b00: [1, 1, 1, 1, 1, 1, 1, 0].map((n) => (n ? 1 : -1)),
+    0b01: [0, 1, 1, 1, 1, 1, 1, 0].map((n) => (n ? 1 : -1)),
+    0b10: [0, 1, 1, 1, 1, 0, 0, 0].map((n) => (n ? 1 : -1)),
+    0b11: [1, 0, 0, 0, 0, 0, 0, 1].map((n) => (n ? 1 : -1)),
 };
 
+const envelopeFrequency = Math.floor(CLOCK_SPEED / 64);
 const sweepPaceFrequency = Math.floor(CLOCK_SPEED / 128);
+const lengthTimerFrequency = Math.floor(CLOCK_SPEED / 256);
 const CHAN1_SWEEP_CHANGE = 1 << 3;
-const lengthTimerFrequence = Math.floor(CLOCK_SPEED / 256);
 
-const NRX1_LENGTH_TIMER_VALUE = 0b111111;
+const NRX1_LENGTH_TIMER_BITS = 0b111111;
 const NRX4_RESTART_CHANNEL = 1 << 7;
 const NRX4_LENGTH_TIMER_FLAG = 1 << 6;
 
@@ -24,7 +25,7 @@ const NRX4_LENGTH_TIMER_FLAG = 1 << 6;
  * Sound channel 1 generates a pulse signal, with a wavelength sweep.
  * @link https://gbdev.io/pandocs/Audio_Registers.html#sound-channel-1--pulse-with-wavelength-sweep
  */
-class SoundChannel1 extends SoundChannel2 {
+class SoundChannel1 extends SoundChannel {
     protected nrX0 = new SubRegister(0x80);
     protected nrX1 = new SubRegister(0xbf);
     protected nrX2 = new SubRegister(0xf3);
@@ -33,20 +34,32 @@ class SoundChannel1 extends SoundChannel2 {
 
     protected enabled: boolean = true;
 
-    // Sweep pace
-    protected sweepPaceCounter = 0;
+    // Wavelength sweep pace
+    protected waveSweepCounter = 0;
     // Length timer
     protected lengthTimer = 0;
+    // Envelope volume sweep pace
+    protected volumeSweepCounter = 0;
 
-    // Audio objects
-    protected audioContext: AudioContext | undefined;
-    protected gainNode: GainNode | undefined;
-    protected oscillatorNode: OscillatorNode | undefined;
+    // For output
+    protected ticksPerWaveStep = 0;
+    protected waveStep = 0;
+    protected timeTicks = 0;
+
+    // NRx2 needs retriggering when changed
+    protected cachedNRX2: number = this.nrX2.get();
+    // Current channel envelope
+    protected envelopeVolume: number = 0;
 
     tick(apu: APU): void {
         if (!this.enabled) return;
 
-        if (this.sweepPaceCounter === -1 && this.sweepPaceCounter-- === 0) {
+        if (this.timeTicks++ >= this.ticksPerWaveStep) {
+            this.timeTicks = 0;
+            this.waveStep = (this.waveStep + 1) % 8;
+        }
+
+        if (this.waveSweepCounter === -1 && this.waveSweepCounter-- === 0) {
             this.resetSweepPaceCounter();
             const addOrSub = this.nrX0.flag(CHAN1_SWEEP_CHANGE) ? -1 : 1;
             const multiplier = this.nrX0.get() & 0b111; // bits 0-2
@@ -56,21 +69,36 @@ class SoundChannel1 extends SoundChannel2 {
 
         if (
             this.nrX4.flag(NRX4_LENGTH_TIMER_FLAG) &&
-            this.lengthTimer++ >= lengthTimerFrequence
+            this.lengthTimer++ >= lengthTimerFrequency
         ) {
             const nrx1 = this.nrX1.get();
-            const lengthTimer = (nrx1 & NRX1_LENGTH_TIMER_VALUE) + 1;
-            this.nrX1.set((nrx1 & ~NRX1_LENGTH_TIMER_VALUE) | lengthTimer);
-            if (lengthTimer === 64) {
+            const lengthTimer = ((nrx1 & NRX1_LENGTH_TIMER_BITS) + 1) & NRX1_LENGTH_TIMER_BITS;
+            this.nrX1.set((nrx1 & ~NRX1_LENGTH_TIMER_BITS) | lengthTimer);
+            // overflowed
+            if (lengthTimer === 0) {
                 this.stop();
             }
         }
+
+        if ((this.cachedNRX2 & 0b11) !== 0 && this.volumeSweepCounter-- === 0) {
+            console.log("changed volume");
+            this.envelopeVolume += this.cachedNRX2 >> 3 === 0 ? -1 : 1;
+            if (this.envelopeVolume === 0x0 || this.envelopeVolume === 15)
+                this.volumeSweepCounter = -1;
+            else this.volumeSweepCounter = envelopeFrequency * (this.cachedNRX2 & 0b11);
+        }
+    }
+
+    getSample() {
+        const dutyCycleType = ((this.nrX1.get() >> 6) & 0b11) as Int2;
+        const wavePattern = wavePatterns[dutyCycleType];
+        return wavePattern[this.waveStep] * this.envelopeVolume;
     }
 
     protected resetSweepPaceCounter() {
         const nextCounter = (this.nrX0.get() >> 4) & 0b111; // bits 4-6
-        if (nextCounter === 0) this.sweepPaceCounter = -1;
-        else this.sweepPaceCounter = sweepPaceFrequency * nextCounter;
+        if (nextCounter === 0) this.waveSweepCounter = -1;
+        else this.waveSweepCounter = sweepPaceFrequency * nextCounter;
     }
 
     protected getWavelength(): number {
@@ -85,21 +113,23 @@ class SoundChannel1 extends SoundChannel2 {
         const higher3 = (waveLength >> 8) & 0b111;
         this.nrX3.set(lower8);
         this.nrX4.set((this.nrX4.get() & ~0b111) | higher3);
+        this.waveLengthUpdate();
+    }
 
-        if (this.oscillatorNode) {
-            if (waveLength > 2000) console.log("wavelength", waveLength);
-            const audioFrequency = 131072 / (2048 - waveLength);
-            this.oscillatorNode.frequency.value = audioFrequency;
-        }
+    /* Audio control */
+    protected waveLengthUpdate() {
+        this.ticksPerWaveStep = 2048 - this.getWavelength();
     }
 
     start(): void {
         if (this.enabled) return;
+
+        this.cachedNRX2 = this.nrX2.get();
+        this.envelopeVolume = this.nrX2.get() >> 4;
         this.enabled = true;
-        if (this.audioContext && this.gainNode && this.oscillatorNode) {
-            this.gainNode.connect(this.audioContext.destination);
-            this.oscillatorNode.connect(this.gainNode);
-        }
+
+        this.waveLengthUpdate();
+
         this.lengthTimer = 0;
         this.resetSweepPaceCounter();
     }
@@ -107,32 +137,6 @@ class SoundChannel1 extends SoundChannel2 {
     stop(): void {
         if (!this.enabled) return;
         this.enabled = false;
-        this.oscillatorNode?.disconnect();
-        this.gainNode?.disconnect();
-    }
-
-    setAudioContext(audioContext: AudioContext | null) {
-        if (audioContext === null) {
-            this.gainNode?.disconnect();
-            this.gainNode = undefined;
-            this.oscillatorNode?.disconnect();
-            this.oscillatorNode = undefined;
-            if (this.audioContext?.state !== "closed") this.audioContext?.close();
-            this.audioContext = undefined;
-        } else {
-            // Clear what was there
-            if (this.audioContext || this.gainNode || this.oscillatorNode)
-                this.setAudioContext(null);
-
-            console.log("Added audio context! ", audioContext);
-            this.audioContext = audioContext;
-            this.gainNode = audioContext.createGain();
-            this.gainNode.gain.value = 0.5;
-            this.oscillatorNode = audioContext.createOscillator();
-            this.oscillatorNode.type = "square";
-            this.oscillatorNode.connect(this.gainNode);
-            this.oscillatorNode.start(0);
-        }
     }
 
     protected address(pos: number): Addressable {
@@ -171,7 +175,16 @@ class SoundChannel1 extends SoundChannel2 {
             this.start();
             data &= ~NRX4_RESTART_CHANNEL; // bit is write-only
         }
+
         component.write(pos, data);
+
+        // Update volume / envelope
+        if (component === this.nrX2) {
+            // Clearing bits 3-7 turns the DAC (and the channel) off
+            if ((data & 0b11111000) === 0) {
+                this.stop();
+            }
+        }
     }
 }
 
