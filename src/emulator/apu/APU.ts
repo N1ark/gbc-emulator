@@ -43,7 +43,7 @@ export class APU implements Addressable {
     protected player: Player | null = null;
     protected audioBuffer: Float32Array[] = [
         new Float32Array(SAMPLE_SIZE),
-        // new Float32Array(SAMPLE_SIZE),
+        new Float32Array(SAMPLE_SIZE),
         // new Float32Array(SAMPLE_SIZE),
         // new Float32Array(SAMPLE_SIZE),
     ];
@@ -79,6 +79,7 @@ export class APU implements Addressable {
             this.cyclesForSample = 0;
 
             this.audioBuffer[0][this.sampleIndex] = this.channel1.getSample() * 0.01;
+            this.audioBuffer[1][this.sampleIndex] = this.channel2.getSample() * 0.01;
 
             if (++this.sampleIndex === SAMPLE_SIZE) {
                 this.sampleIndex = 0;
