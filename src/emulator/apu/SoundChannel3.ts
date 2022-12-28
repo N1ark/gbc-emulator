@@ -9,6 +9,8 @@ import SoundChannel from "./SoundChannel";
  * @link https://gbdev.io/pandocs/Audio_Registers.html#sound-channel-3--wave-output
  */
 class SoundChannel3 extends SoundChannel {
+    protected NRX1_LENGTH_TIMER_BITS: number = 0b1111_1111;
+
     protected nrX0 = new PaddedSubRegister([0b0111_1111]);
     protected nrX1 = new SubRegister(0xbf);
     protected nrX2 = new PaddedSubRegister([0b1001_1111], 0xf3);
@@ -16,10 +18,13 @@ class SoundChannel3 extends SoundChannel {
     protected nrX4 = new PaddedSubRegister([0b0011_1000], 0xbf);
     protected waveData = new RAM(16);
 
-    tick(apu: APU): void {}
+    // Length timer
+    protected lengthTimerCounter = 0;
 
-    start(): void {}
-    stop(): void {}
+    tick(apu: APU): void {
+        if (!this.enabled) return;
+        super.tick(apu);
+    }
 
     protected address(pos: number): Addressable {
         switch (pos) {

@@ -8,15 +8,20 @@ import SoundChannel from "./SoundChannel";
  * @link https://gbdev.io/pandocs/Audio_Registers.html#sound-channel-4--noise
  */
 class SoundChannel4 extends SoundChannel {
+    protected NRX1_LENGTH_TIMER_BITS: number = 0b0011_1111;
+
     protected nrX1 = new SubRegister(0xff);
     protected nrX2 = new SubRegister(0x00);
     protected nrX3 = new SubRegister(0x00);
     protected nrX4 = new PaddedSubRegister([0b0011_1111], 0xbf);
 
-    tick(apu: APU): void {}
+    // Length timer
+    protected lengthTimerCounter = 0;
 
-    start(): void {}
-    stop(): void {}
+    tick(apu: APU): void {
+        if (!this.enabled) return;
+        super.tick(apu);
+    }
 
     protected address(pos: number): Addressable {
         switch (pos) {

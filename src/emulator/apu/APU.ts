@@ -49,10 +49,12 @@ export class APU implements Addressable {
     ];
 
     constructor() {
-        this.channel1 = new SoundChannel1();
-        this.channel2 = new SoundChannel2();
-        this.channel3 = new SoundChannel3();
-        this.channel4 = new SoundChannel4();
+        const makeChangeHandler = (flag: number) => (state: boolean) =>
+            this.nr52.sflag(flag, state);
+        this.channel1 = new SoundChannel1(makeChangeHandler(NR52_CHAN1_ON));
+        this.channel2 = new SoundChannel2(makeChangeHandler(NR52_CHAN2_ON));
+        this.channel3 = new SoundChannel3(makeChangeHandler(NR52_CHAN3_ON));
+        this.channel4 = new SoundChannel4(makeChangeHandler(NR52_CHAN4_ON));
     }
 
     addAudioContext() {

@@ -2,9 +2,9 @@ import Addressable from "../Addressable";
 import { CLOCK_SPEED } from "../constants";
 import { PaddedSubRegister, SubRegister } from "../Register";
 import APU from "./APU";
+import { FREQUENCY_SWEEP_PACE } from "./SoundChannel";
 import SoundChannel2 from "./SoundChannel2";
 
-const sweepPaceFrequency = Math.floor(CLOCK_SPEED / 128);
 const CHAN1_SWEEP_CHANGE = 1 << 3;
 
 /**
@@ -23,10 +23,9 @@ class SoundChannel1 extends SoundChannel2 {
 
     override tick(apu: APU): void {
         if (!this.enabled) return;
-
         super.tick(apu);
 
-        if (this.waveSweepCounter === -1 && this.waveSweepCounter-- === 0) {
+        if (this.waveSweepCounter !== -1 && this.waveSweepCounter-- === 0) {
             this.resetSweepPaceCounter();
             const addOrSub = this.nrX0.flag(CHAN1_SWEEP_CHANGE) ? -1 : 1;
             const multiplier = this.nrX0.get() & 0b111; // bits 0-2
@@ -38,7 +37,7 @@ class SoundChannel1 extends SoundChannel2 {
     protected resetSweepPaceCounter() {
         const nextCounter = (this.nrX0.get() >> 4) & 0b111; // bits 4-6
         if (nextCounter === 0) this.waveSweepCounter = -1;
-        else this.waveSweepCounter = sweepPaceFrequency * nextCounter;
+        else this.waveSweepCounter = FREQUENCY_SWEEP_PACE * nextCounter;
     }
 
     override start(): void {
