@@ -15,12 +15,8 @@ class SoundChannel4 extends SoundChannel {
     protected nrX3 = new SubRegister(0x00);
     protected nrX4 = new PaddedSubRegister([0b0011_1111], 0xbf);
 
-    // Length timer
-    protected lengthTimerCounter = 0;
-
-    tick(apu: APU): void {
-        if (!this.enabled) return;
-        super.tick(apu);
+    override doTick(divChanged: boolean) {
+        super.doTick(divChanged);
     }
 
     protected address(pos: number): Addressable {

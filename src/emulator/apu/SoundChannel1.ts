@@ -1,7 +1,5 @@
 import Addressable from "../Addressable";
-import { CLOCK_SPEED } from "../constants";
 import { PaddedSubRegister, SubRegister } from "../Register";
-import APU from "./APU";
 import { FREQUENCY_SWEEP_PACE } from "./SoundChannel";
 import SoundChannel2 from "./SoundChannel2";
 
@@ -19,25 +17,32 @@ class SoundChannel1 extends SoundChannel2 {
     protected nrX4 = new SubRegister(0xbf);
 
     // Wavelength sweep pace
+    protected waveSweepSubcounter = 0;
     protected waveSweepCounter = 0;
 
-    override tick(apu: APU): void {
-        if (!this.enabled) return;
-        super.tick(apu);
+    override doTick(divChanged: boolean): void {
+        super.doTick(divChanged);
 
-        if (this.waveSweepCounter !== -1 && this.waveSweepCounter-- === 0) {
-            this.resetSweepPaceCounter();
-            const addOrSub = this.nrX0.flag(CHAN1_SWEEP_CHANGE) ? -1 : 1;
-            const multiplier = this.nrX0.get() & 0b111; // bits 0-2
-            const wave = this.getWavelength();
-            this.setWavelength(wave + addOrSub * (wave >> multiplier));
+        if (
+            divChanged &&
+            this.waveSweepSubcounter++ >= FREQUENCY_SWEEP_PACE &&
+            this.waveSweepCounter !== -1
+        ) {
+            this.waveSweepSubcounter = 0;
+            if (this.waveSweepCounter-- === 0) {
+                this.resetSweepPaceCounter();
+                const addOrSub = this.nrX0.flag(CHAN1_SWEEP_CHANGE) ? -1 : 1;
+                const multiplier = this.nrX0.get() & 0b111; // bits 0-2
+                const wave = this.getWavelength();
+                this.setWavelength(wave + addOrSub * (wave >> multiplier));
+            }
         }
     }
 
     protected resetSweepPaceCounter() {
         const nextCounter = (this.nrX0.get() >> 4) & 0b111; // bits 4-6
-        if (nextCounter === 0) this.waveSweepCounter = -1;
-        else this.waveSweepCounter = FREQUENCY_SWEEP_PACE * nextCounter;
+        this.waveSweepCounter = nextCounter === 0 ? -1 : FREQUENCY_SWEEP_PACE * nextCounter;
+        this.waveSweepSubcounter = 0;
     }
 
     override start(): void {

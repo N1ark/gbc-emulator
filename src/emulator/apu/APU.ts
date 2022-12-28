@@ -72,10 +72,10 @@ export class APU implements Addressable {
         // Turned off
         if (!this.nr52.flag(NR52_APU_TOGGLE)) return;
 
-        this.channel1.tick(this);
-        this.channel2.tick(this);
-        this.channel3.tick(this);
-        this.channel4.tick(this);
+        this.channel1.tick(system);
+        this.channel2.tick(system);
+        this.channel3.tick(system);
+        this.channel4.tick(system);
 
         if (++this.cyclesForSample === CYCLES_PER_SAMPLE) {
             this.cyclesForSample = 0;

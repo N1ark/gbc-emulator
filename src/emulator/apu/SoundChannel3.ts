@@ -18,12 +18,8 @@ class SoundChannel3 extends SoundChannel {
     protected nrX4 = new PaddedSubRegister([0b0011_1000], 0xbf);
     protected waveData = new RAM(16);
 
-    // Length timer
-    protected lengthTimerCounter = 0;
-
-    tick(apu: APU): void {
-        if (!this.enabled) return;
-        super.tick(apu);
+    override doTick(divChanged: boolean) {
+        super.doTick(divChanged);
     }
 
     protected address(pos: number): Addressable {

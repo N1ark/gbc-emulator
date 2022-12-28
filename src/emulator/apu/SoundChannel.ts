@@ -1,11 +1,12 @@
 import Addressable from "../Addressable";
-import { CLOCK_SPEED } from "../constants";
 import { SubRegister } from "../Register";
-import { APU } from "./APU";
+import System from "../System";
 
-const FREQUENCY_SWEEP_PACE = Math.floor(CLOCK_SPEED / 128);
-const FREQUENCY_ENVELOPE = Math.floor(CLOCK_SPEED / 64);
-const FREQUENCY_LENGTH_TIMER = Math.floor(CLOCK_SPEED / 256);
+const FREQUENCY_SWEEP_PACE = 4;
+const FREQUENCY_ENVELOPE = 8;
+const FREQUENCY_LENGTH_TIMER = 2;
+
+const DIV_TICK_BIT = 1 << 4;
 
 const NRX4_RESTART_CHANNEL = 1 << 7;
 const NRX4_LENGTH_TIMER_FLAG = 1 << 6;
@@ -23,6 +24,7 @@ abstract class SoundChannel implements Addressable {
     // State
     protected enabled = false;
     protected onStateChange: (state: boolean) => void;
+    protected oldDivBitState = false;
 
     // Counters
     protected lengthTimerCounter: number = 0;
@@ -31,11 +33,18 @@ abstract class SoundChannel implements Addressable {
         this.onStateChange = onStateChange;
     }
 
-    tick(apu: APU): void {
+    tick(system: System): void {
         if (!this.enabled) return;
+        const divBitState = (system.read(0xff04) & DIV_TICK_BIT) === DIV_TICK_BIT;
+        const divChanged = !divBitState && this.oldDivBitState;
+        this.doTick(divChanged);
+        this.oldDivBitState = divBitState;
+    }
 
+    protected doTick(divChanged: boolean): void {
         // Tick length timer
         if (
+            divChanged &&
             this.nrX4.flag(NRX4_LENGTH_TIMER_FLAG) &&
             this.lengthTimerCounter++ >= FREQUENCY_LENGTH_TIMER
         ) {
@@ -60,7 +69,6 @@ abstract class SoundChannel implements Addressable {
         if (!this.enabled) return;
         this.enabled = false;
         this.onStateChange(false);
-        this.lengthTimerCounter = 0;
     }
 
     abstract read(pos: number): number;

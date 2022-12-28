@@ -1,8 +1,6 @@
 import Addressable from "../Addressable";
-import { CLOCK_SPEED } from "../constants";
 import { RegisterFF, SubRegister } from "../Register";
 import { Int2 } from "../util";
-import APU from "./APU";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const wavePatterns: Record<Int2, (-1 | 1)[]> = {
@@ -37,16 +35,15 @@ class SoundChannel2 extends SoundChannel {
     // Current channel envelope
     protected envelopeVolume: number = 0;
 
-    tick(apu: APU): void {
-        if (!this.enabled) return;
-        super.tick(apu);
+    override doTick(divChanged: boolean): void {
+        super.doTick(divChanged);
 
         if (this.waveStepSubsteps++ >= this.ticksPerWaveStep) {
             this.waveStepSubsteps = 0;
             this.waveStep = (this.waveStep + 1) % 8;
         }
 
-        if ((this.cachedNRX2 & 0b11) !== 0 && this.volumeSweepCounter-- === 0) {
+        if (divChanged && this.volumeSweepCounter-- <= 0 && (this.cachedNRX2 & 0b11) !== 0) {
             this.envelopeVolume += this.cachedNRX2 >> 3 === 0 ? -1 : 1;
             if (this.envelopeVolume === 0x0 || this.envelopeVolume === 15)
                 this.volumeSweepCounter = -1;
@@ -87,7 +84,6 @@ class SoundChannel2 extends SoundChannel {
         this.cachedNRX2 = this.nrX2.get();
         this.envelopeVolume = this.nrX2.get() >> 4;
         this.waveLengthUpdate();
-        this.lengthTimerCounter = 0;
     }
 
     protected address(pos: number): Addressable {
