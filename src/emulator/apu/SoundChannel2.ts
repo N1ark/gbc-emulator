@@ -137,18 +137,12 @@ class SoundChannel2 extends SoundChannel {
     read(pos: number): number {
         const component = this.address(pos);
 
-        if (component === this.nrX1) {
-            // bits 0-5 are write only
-            return component.read(pos) | 0b0011_1111;
-        }
-        if (component === this.nrX3) {
-            // register is write only
-            return 0xff;
-        }
-        if (component === this.nrX4) {
-            // only bit 6 is readable
-            return component.read(pos) | 0b1011_1111;
-        }
+        // bits 0-5 are write only
+        if (component === this.nrX1) return component.read(pos) | 0b0011_1111;
+        // register is write only
+        if (component === this.nrX3) return 0xff;
+        // only bit 6 is readable
+        if (component === this.nrX4) return component.read(pos) | 0b1011_1111;
 
         return component.read(pos);
     }

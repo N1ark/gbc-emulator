@@ -1,6 +1,6 @@
 import Addressable from "../Addressable";
 import { CLOCK_SPEED, FRAME_RATE } from "../constants";
-import { SubRegister } from "../Register";
+import { PaddedSubRegister, SubRegister } from "../Register";
 import System from "../System";
 import Player from "./Player";
 import SoundChannel1 from "./SoundChannel1";
@@ -35,7 +35,7 @@ export class APU implements Addressable {
     /** Stereo mix control register */
     protected nr51 = new SubRegister(0xf3);
     /** Status and control register */
-    protected nr52 = new SubRegister(0xf1);
+    protected nr52 = new PaddedSubRegister([0b0111_0000], 0xf1);
 
     /** Audio output */
     protected cyclesForSample: number = 0;
@@ -139,15 +139,7 @@ export class APU implements Addressable {
         const component = this.address(pos);
 
         // ignore writes to channel when turned off (except for NRX1)
-        if (
-            !this.nr52.flag(NR52_APU_TOGGLE) &&
-            (component === this.channel1 ||
-                component === this.channel2 ||
-                component === this.channel3 ||
-                component === this.channel4)
-        ) {
-            return;
-        }
+        if (!this.nr52.flag(NR52_APU_TOGGLE) && component !== this.nr52) return;
 
         if (component === this.nr52) {
             data = data & 0xf0; // lower 4 bits (status of channels) are read-only

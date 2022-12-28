@@ -1,5 +1,5 @@
 import Addressable from "../Addressable";
-import { RegisterFF, SubRegister } from "../Register";
+import { PaddedSubRegister, RegisterFF, SubRegister } from "../Register";
 import APU from "./APU";
 import SoundChannel from "./SoundChannel";
 
@@ -11,7 +11,7 @@ class SoundChannel4 extends SoundChannel {
     protected nrX1 = new SubRegister(0xff);
     protected nrX2 = new SubRegister(0x00);
     protected nrX3 = new SubRegister(0x00);
-    protected nrX4 = new SubRegister(0xbf);
+    protected nrX4 = new PaddedSubRegister([0b0011_1111], 0xbf);
 
     tick(apu: APU): void {}
 
@@ -36,6 +36,10 @@ class SoundChannel4 extends SoundChannel {
 
     read(pos: number): number {
         const component = this.address(pos);
+        // register is write only
+        if (component === this.nrX1) return 0xff;
+        // only bit 6 is readable
+        if (component === this.nrX4) return this.nrX4.get() | 0b1011_1111;
         return component.read(pos);
     }
 

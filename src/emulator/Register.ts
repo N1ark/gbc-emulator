@@ -45,27 +45,34 @@ class SubRegister implements Addressable {
 }
 
 /**
- * A PaddedSubRegister is similar to a SubRegister but it only uses a set given of bits
- * (starting from the least significant bits). All other bits are hard-wired to 1, and can't be
- * changed.
+ * A PaddedSubRegister is similar to a SubRegister but it only uses a set given of bits. All
+ * other bits are hard-wired to 1, and can't be changed.
  * e.g. writing 0x02 to a PaddedSubRegister that uses 4 bits will actually write 0xf2
+ * e.g. writing 0x0A to a PaddedSubRegister with a [4, 1] padding will actually write 0xfb
  */
 class PaddedSubRegister extends SubRegister {
     protected mask: number;
 
     /**
      * Constructs a PaddedSubRegister, using only the given number of bits
-     * @param usedBits
-     * @param value
+     * @param usedBits Either the number of used bits (the end / most significant will be
+     * padded) or an array containing the mask of the subregister.
+     * @param value The initial value of the register
      */
-    constructor(usedBits: number, value?: number) {
-        const mask = 0xff ^ ((1 << usedBits) - 1);
-        super((value ?? 0) | mask);
-        if (usedBits <= 0 || 8 <= usedBits) {
-            throw new Error(
-                `The used bits of a PaddedSubRegister must be more than 0 and less than 8 (got ${usedBits})`
-            );
+    constructor(usedBits: number | [number], value?: number) {
+        let mask: number;
+        if (typeof usedBits === "number") {
+            if (usedBits <= 0 || 8 <= usedBits)
+                throw new Error(
+                    `The used bits of a PaddedSubRegister must be more than 0 and less than 8 (got ${usedBits})`
+                );
+            mask = 0xff ^ ((1 << usedBits) - 1);
+        } else if (typeof usedBits === "object") {
+            mask = usedBits[0] & 0xff;
+        } else {
+            throw new Error(`Invalid object to initialize PaddedSubRegister: ${usedBits}`);
         }
+        super((value ?? 0) | mask);
         this.mask = mask;
     }
 
