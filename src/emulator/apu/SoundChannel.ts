@@ -1,4 +1,5 @@
 import Addressable from "../Addressable";
+import { CLOCK_SPEED } from "../constants";
 import { SubRegister } from "../Register";
 import System from "../System";
 
@@ -34,30 +35,38 @@ abstract class SoundChannel implements Addressable {
     }
 
     tick(system: System): void {
-        if (!this.enabled) return;
         const divBitState = (system.read(0xff04) & DIV_TICK_BIT) === DIV_TICK_BIT;
         const divChanged = !divBitState && this.oldDivBitState;
-        this.doTick(divChanged);
         this.oldDivBitState = divBitState;
+
+        // Ticks even when disabled
+        this.tickLengthTimer(divChanged);
+
+        if (!this.enabled) return;
+        this.doTick(divChanged);
     }
 
-    protected doTick(divChanged: boolean): void {
+    private tickLengthTimer(divChanged: boolean): void {
         // Tick length timer
-        if (
-            divChanged &&
-            this.nrX4.flag(NRX4_LENGTH_TIMER_FLAG) &&
-            this.lengthTimerCounter++ >= FREQUENCY_LENGTH_TIMER
-        ) {
-            const timerBits = this.NRX1_LENGTH_TIMER_BITS;
-            const nrx1 = this.nrX1.get();
-            const lengthTimer = ((nrx1 & timerBits) + 1) & timerBits;
-            this.nrX1.set((nrx1 & ~timerBits) | lengthTimer);
-            // overflowed
-            if (lengthTimer === 0) {
-                this.stop();
+        if (divChanged && ++this.lengthTimerCounter >= FREQUENCY_LENGTH_TIMER) {
+            this.lengthTimerCounter = 0;
+            if (this.nrX4.flag(NRX4_LENGTH_TIMER_FLAG)) {
+                const timerBits = this.NRX1_LENGTH_TIMER_BITS;
+                const nrx1 = this.nrX1.get();
+                console.log(`Length timer: bits ${timerBits} / state ${nrx1 & timerBits}`);
+                const lengthTimer = ((nrx1 & timerBits) + 1) & timerBits;
+                this.nrX1.set((nrx1 & ~timerBits) | lengthTimer);
+                // overflowed
+                if (lengthTimer === 0) {
+                    this.stop();
+                }
             }
         }
     }
+
+    protected doTick(divChanged: boolean): void {}
+
+    abstract getSample(): number;
 
     start(): void {
         if (this.enabled) return;
@@ -69,6 +78,7 @@ abstract class SoundChannel implements Addressable {
         if (!this.enabled) return;
         this.enabled = false;
         this.onStateChange(false);
+        console.warn(`Stopped channel ${this.constructor.name}`);
     }
 
     abstract read(pos: number): number;

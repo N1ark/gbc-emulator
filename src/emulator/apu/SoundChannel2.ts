@@ -51,7 +51,7 @@ class SoundChannel2 extends SoundChannel {
         }
     }
 
-    getSample() {
+    override getSample() {
         const dutyCycleType = ((this.nrX1.get() >> 6) & 0b11) as Int2;
         const wavePattern = wavePatterns[dutyCycleType];
         return wavePattern[this.waveStep] * this.envelopeVolume;

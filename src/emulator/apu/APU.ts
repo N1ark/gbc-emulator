@@ -44,8 +44,8 @@ export class APU implements Addressable {
     protected audioBuffer: Float32Array[] = [
         new Float32Array(SAMPLE_SIZE),
         new Float32Array(SAMPLE_SIZE),
-        // new Float32Array(SAMPLE_SIZE),
-        // new Float32Array(SAMPLE_SIZE),
+        new Float32Array(SAMPLE_SIZE),
+        new Float32Array(SAMPLE_SIZE),
     ];
 
     constructor() {
@@ -82,6 +82,8 @@ export class APU implements Addressable {
 
             this.audioBuffer[0][this.sampleIndex] = this.channel1.getSample() * 0.01;
             this.audioBuffer[1][this.sampleIndex] = this.channel2.getSample() * 0.01;
+            this.audioBuffer[2][this.sampleIndex] = this.channel3.getSample() * 0.01;
+            this.audioBuffer[3][this.sampleIndex] = this.channel4.getSample() * 0.01;
 
             if (++this.sampleIndex === SAMPLE_SIZE) {
                 this.sampleIndex = 0;

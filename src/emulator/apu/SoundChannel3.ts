@@ -22,6 +22,10 @@ class SoundChannel3 extends SoundChannel {
         super.doTick(divChanged);
     }
 
+    override getSample(): number {
+        return 0;
+    }
+
     protected address(pos: number): Addressable {
         switch (pos) {
             case 0xff1a:
