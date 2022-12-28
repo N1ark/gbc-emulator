@@ -143,6 +143,15 @@ export class APU implements Addressable {
 
         if (component === this.nr52) {
             data = data & 0xf0; // lower 4 bits (status of channels) are read-only
+            const wasOn = this.nr52.flag(NR52_APU_TOGGLE);
+            const isOn = data & NR52_APU_TOGGLE;
+
+            if (wasOn && !isOn) {
+                // when turning off, write 0x00 to all registers
+                for (let address = 0xff10; address <= 0xff25; address++) {
+                    this.write(address, 0x00);
+                }
+            }
         }
 
         component.write(pos, data);
