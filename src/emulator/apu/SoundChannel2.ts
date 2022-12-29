@@ -3,6 +3,7 @@ import { RegisterFF, SubRegister } from "../Register";
 import { clamp, Int2 } from "../util";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
+const NRX2_STOP_DAC = 0b1111_1000;
 const wavePatterns: Record<Int2, (-1 | 1)[]> = {
     0b00: [1, 1, 1, 1, 1, 1, 1, 0].map((n) => (n ? 1 : -1)),
     0b01: [0, 1, 1, 1, 1, 1, 1, 0].map((n) => (n ? 1 : -1)),
@@ -115,12 +116,9 @@ class SoundChannel2 extends SoundChannel {
 
         component.write(pos, data);
 
-        // Update volume / envelope
-        if (component === this.nrX2) {
-            // Clearing bits 3-7 turns the DAC (and the channel) off
-            if ((data & 0b11111000) === 0) {
-                this.stop();
-            }
+        // Clearing bits 3-7 of NRX2 turns the DAC (and the channel) off
+        if (component === this.nrX2 && (data & NRX2_STOP_DAC) === 0) {
+            this.stop();
         }
     }
 }
