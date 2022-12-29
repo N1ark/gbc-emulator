@@ -29,10 +29,9 @@ class SoundChannel3 extends SoundChannel {
     protected waveData = new RAM(16);
 
     // For output
-    protected ticksNextSample = 0;
-    protected waveStep = 0;
-
-    protected currentSample = 0;
+    protected ticksNextSample: number = 0;
+    protected waveStep: number = 0;
+    protected currentSample: number = 0;
 
     override doTick(divChanged: boolean) {
         super.doTick(divChanged);

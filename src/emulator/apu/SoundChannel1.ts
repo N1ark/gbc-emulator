@@ -17,8 +17,8 @@ class SoundChannel1 extends SoundChannel2 {
     protected nrX4 = new SubRegister(0xbf);
 
     // Wavelength sweep pace
-    protected waveSweepSubcounter = 0;
-    protected waveSweepCounter = 0;
+    protected waveSweepSubcounter: number = 0;
+    protected waveSweepCounter: number = 0;
 
     override doTick(divChanged: boolean): void {
         super.doTick(divChanged);

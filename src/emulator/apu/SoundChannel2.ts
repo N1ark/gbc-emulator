@@ -22,17 +22,16 @@ class SoundChannel2 extends SoundChannel {
     protected nrX3 = new SubRegister(0xff);
     protected nrX4 = new SubRegister(0xbf);
 
-    // Envelope volume sweep pace
-    protected volumeSweepCounter = 0;
-
     // For output
-    protected ticksPerWaveStep = 0;
-    protected waveStep = 0;
-    protected waveStepSubsteps = 0;
+    protected ticksPerWaveStep: number = 0;
+    protected waveStep: number = 0;
+    protected waveStepSubsteps: number = 0;
 
     // NRx2 needs retriggering when changed
     protected cachedNRX2: number = this.nrX2.get();
-    // Current channel envelope
+
+    // Channel envelope volume
+    protected envelopeVolumeSteps: number = 0;
     protected envelopeVolume: number = 0;
 
     override doTick(divChanged: boolean): void {
@@ -43,10 +42,10 @@ class SoundChannel2 extends SoundChannel {
             this.waveStep = (this.waveStep + 1) % 8;
         }
 
-        if (divChanged && this.volumeSweepCounter-- <= 0 && (this.cachedNRX2 & 0b11) !== 0) {
-            const direction = this.cachedNRX2 >> 3 === 0 ? -1 : 1;
+        if (divChanged && this.envelopeVolumeSteps-- <= 0 && (this.cachedNRX2 & 0b111) !== 0) {
+            const direction = (this.cachedNRX2 & 0b0000_1000) === 0 ? -1 : 1;
             this.envelopeVolume = clamp(this.envelopeVolume + direction, 0x0, 0xf);
-            this.volumeSweepCounter = FREQUENCY_ENVELOPE * (this.cachedNRX2 & 0b11);
+            this.envelopeVolumeSteps = FREQUENCY_ENVELOPE * (this.cachedNRX2 & 0b111);
         }
     }
 
