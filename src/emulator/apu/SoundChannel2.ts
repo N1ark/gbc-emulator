@@ -1,6 +1,6 @@
 import Addressable from "../Addressable";
 import { RegisterFF, SubRegister } from "../Register";
-import { Int2 } from "../util";
+import { clamp, Int2 } from "../util";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const wavePatterns: Record<Int2, (-1 | 1)[]> = {
@@ -44,31 +44,20 @@ class SoundChannel2 extends SoundChannel {
         }
 
         if (divChanged && this.volumeSweepCounter-- <= 0 && (this.cachedNRX2 & 0b11) !== 0) {
-            this.envelopeVolume += this.cachedNRX2 >> 3 === 0 ? -1 : 1;
-            if (this.envelopeVolume === 0x0 || this.envelopeVolume === 15)
-                this.volumeSweepCounter = -1;
-            else this.volumeSweepCounter = FREQUENCY_ENVELOPE * (this.cachedNRX2 & 0b11);
+            const direction = this.cachedNRX2 >> 3 === 0 ? -1 : 1;
+            this.envelopeVolume = clamp(this.envelopeVolume + direction, 0x0, 0xf);
+            this.volumeSweepCounter = FREQUENCY_ENVELOPE * (this.cachedNRX2 & 0b11);
         }
     }
 
     override getSample() {
         const dutyCycleType = ((this.nrX1.get() >> 6) & 0b11) as Int2;
         const wavePattern = wavePatterns[dutyCycleType];
-        return wavePattern[this.waveStep] * this.envelopeVolume;
+        return wavePattern[this.waveStep] * (this.envelopeVolume / 0xf);
     }
 
-    protected getWavelength(): number {
-        const lower8 = this.nrX3.get();
-        const higher3 = this.nrX4.get() & 0b111;
-        return (higher3 << 8) | lower8;
-    }
-
-    protected setWavelength(waveLength: number): void {
-        waveLength &= (1 << 11) - 1; // ensure it fits in 11bits
-        const lower8 = waveLength & 0xff;
-        const higher3 = (waveLength >> 8) & 0b111;
-        this.nrX3.set(lower8);
-        this.nrX4.set((this.nrX4.get() & ~0b111) | higher3);
+    protected override setWavelength(waveLength: number): void {
+        super.setWavelength(waveLength);
         this.waveLengthUpdate();
     }
 

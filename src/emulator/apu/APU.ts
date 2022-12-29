@@ -80,10 +80,10 @@ export class APU implements Addressable {
         if (++this.cyclesForSample === CYCLES_PER_SAMPLE) {
             this.cyclesForSample = 0;
 
-            this.audioBuffer[0][this.sampleIndex] = this.channel1.getSample() * 0.01;
-            this.audioBuffer[1][this.sampleIndex] = this.channel2.getSample() * 0.01;
-            this.audioBuffer[2][this.sampleIndex] = this.channel3.getSample() * 0.01;
-            this.audioBuffer[3][this.sampleIndex] = this.channel4.getSample() * 0.01;
+            this.audioBuffer[0][this.sampleIndex] = this.channel1.getSample() * 0.05;
+            this.audioBuffer[1][this.sampleIndex] = this.channel2.getSample() * 0.05;
+            this.audioBuffer[2][this.sampleIndex] = this.channel3.getSample() * 0.05;
+            this.audioBuffer[3][this.sampleIndex] = this.channel4.getSample() * 0.05;
 
             if (++this.sampleIndex === SAMPLE_SIZE) {
                 this.sampleIndex = 0;

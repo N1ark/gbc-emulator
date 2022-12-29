@@ -1,8 +1,18 @@
 import Addressable from "../Addressable";
 import { RAM } from "../Memory";
 import { PaddedSubRegister, SubRegister } from "../Register";
-import APU from "./APU";
-import SoundChannel from "./SoundChannel";
+import { Int2 } from "../util";
+import SoundChannel, { NRX4_RESTART_CHANNEL } from "./SoundChannel";
+
+const NRX0_DAC_FLAG = 0b1000_0000;
+const NRX2_OUTPUT_LEVEL = 0b0110_0000;
+
+const VOLUME_LEVELS: Record<Int2, number> = {
+    0b00: 0,
+    0b01: 1,
+    0b10: 0.5,
+    0b11: 0.25,
+};
 
 /**
  * Sound channel 3 generates a wave that can be customised as needed.
@@ -18,12 +28,34 @@ class SoundChannel3 extends SoundChannel {
     protected nrX4 = new PaddedSubRegister([0b0011_1000], 0xbf);
     protected waveData = new RAM(16);
 
+    // For output
+    protected ticksNextSample = 0;
+    protected waveStep = 0;
+
+    protected currentSample = 0;
+
     override doTick(divChanged: boolean) {
         super.doTick(divChanged);
+
+        if (this.ticksNextSample-- <= 0) {
+            const frequency = (2048 - this.getWavelength()) / 2;
+            this.ticksNextSample = frequency;
+
+            this.waveStep = (this.waveStep + 1) % 32;
+
+            const waveIndex = this.waveStep >> 1;
+            const waveByte = this.waveData.read(waveIndex);
+            const waveNibble = this.waveStep & 1 ? waveByte >> 4 : waveByte & 0b1111;
+            // Linearly translate [0x0; 0xf] to [-1; 1]
+            this.currentSample = (-waveNibble / 0xf) * 2 + 1;
+        }
     }
 
     override getSample(): number {
-        return 0;
+        if (!this.enabled) return 0;
+        const outputLevel = ((this.nrX2.get() & NRX2_OUTPUT_LEVEL) >> 5) as Int2;
+        const volume = VOLUME_LEVELS[outputLevel];
+        return this.currentSample * volume;
     }
 
     protected address(pos: number): Addressable {
@@ -57,6 +89,22 @@ class SoundChannel3 extends SoundChannel {
 
     write(pos: number, data: number): void {
         const component = this.address(pos);
+
+        if (component === this.nrX0) {
+            const oldDacState = this.nrX0.flag(NRX0_DAC_FLAG);
+            const newDacState = (data & NRX0_DAC_FLAG) === NRX0_DAC_FLAG;
+            if (oldDacState && !newDacState) {
+                this.stop();
+            } else if (!oldDacState && newDacState) {
+                this.start();
+            }
+        }
+        if (component === this.nrX3) {
+            if ((data & NRX4_RESTART_CHANNEL) === NRX4_RESTART_CHANNEL) {
+                this.stop();
+                this.start();
+            }
+        }
         if (component === this.waveData) {
             pos -= 0xff30;
         }
