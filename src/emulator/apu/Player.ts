@@ -11,12 +11,16 @@ class Player {
         this.context = new AudioContext();
     }
 
+    delete() {
+        this.context.close();
+    }
+
     enqued: number = 0;
     lastCheck = Date.now();
 
     enqueue(samples: Float32Array[]) {
-        // Not allowed to have more than 16 samples in the queue, to avoid delay
-        if (this.enqued > 16) return;
+        // Not allowed to have more than 8 samples in the queue, to avoid delay
+        if (this.enqued > 8) return;
 
         this.enqued++;
 

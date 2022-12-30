@@ -4,7 +4,7 @@ import { PaddedSubRegister, SubRegister } from "../Register";
 import { Int2 } from "../util";
 import SoundChannel, { NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
-const NRX0_DAC_FLAG = 0b1000_0000;
+const NRX0_DAC_FLAG = 1 << 7;
 const NRX2_OUTPUT_LEVEL = 0b0110_0000;
 
 const VOLUME_LEVELS: Record<Int2, number> = {
@@ -33,11 +33,13 @@ class SoundChannel3 extends SoundChannel {
     protected waveStep: number = 0;
     protected currentSample: number = 0;
 
+    protected lastReadByte: number = 0xff;
+
     override doTick(divChanged: boolean) {
         super.doTick(divChanged);
 
         if (this.ticksNextSample-- <= 0) {
-            const frequency = (2048 - this.getWavelength()) / 2;
+            const frequency = (2048 - this.getWavelength()) >> 1;
             this.ticksNextSample = frequency;
 
             this.waveStep = (this.waveStep + 1) % 32;
@@ -47,6 +49,9 @@ class SoundChannel3 extends SoundChannel {
             const waveNibble = this.waveStep & 1 ? waveByte >> 4 : waveByte & 0b1111;
             // Linearly translate [0x0; 0xf] to [-1; 1]
             this.currentSample = (-waveNibble / 0xf) * 2 + 1;
+            this.lastReadByte = waveByte;
+        } else {
+            this.lastReadByte = 0xff;
         }
     }
 
@@ -55,6 +60,12 @@ class SoundChannel3 extends SoundChannel {
         const outputLevel = ((this.nrX2.get() & NRX2_OUTPUT_LEVEL) >> 5) as Int2;
         const volume = VOLUME_LEVELS[outputLevel];
         return this.currentSample * volume;
+    }
+
+    override start(): void {
+        super.start();
+        const frequency = (2048 - this.getWavelength()) >> 1;
+        this.ticksNextSample = frequency;
     }
 
     protected address(pos: number): Addressable {
@@ -82,7 +93,10 @@ class SoundChannel3 extends SoundChannel {
         // only bit 6 is readable
         if (component === this.nrX4) return this.nrX4.get() | 0b1011_1111;
         // wave data is offset by 0xff30
-        if (component === this.waveData) pos -= 0xff30;
+        if (component === this.waveData) {
+            if (this.enabled) return this.lastReadByte;
+            pos -= 0xff30;
+        }
         return component.read(pos);
     }
 
@@ -98,8 +112,8 @@ class SoundChannel3 extends SoundChannel {
                 this.start();
             }
         }
-        if (component === this.nrX3) {
-            if ((data & NRX4_RESTART_CHANNEL) === NRX4_RESTART_CHANNEL) {
+        if (component === this.nrX4) {
+            if (data & NRX4_RESTART_CHANNEL) {
                 this.stop();
                 this.start();
             }

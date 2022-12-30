@@ -62,6 +62,7 @@ export class APU implements Addressable {
     }
 
     removeAudio() {
+        this.player?.delete();
         this.player = null;
     }
 

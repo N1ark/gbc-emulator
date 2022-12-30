@@ -67,7 +67,6 @@ class SoundChannel4 extends SoundChannel {
         this.envelopeVolume = this.nrX2.get() >> 4;
         this.lfsr = 0;
         this.refreshLsfrTicks();
-        console.log("Started channel 4");
     }
 
     protected address(pos: number): Addressable {
