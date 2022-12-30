@@ -1,9 +1,11 @@
 import Addressable from "../Addressable";
 import { PaddedSubRegister, SubRegister } from "../Register";
+import System from "../System";
 import { FREQUENCY_SWEEP_PACE } from "./SoundChannel";
 import SoundChannel2 from "./SoundChannel2";
 
-const CHAN1_SWEEP_CHANGE = 1 << 3;
+const NRX0_SWEEP_CHANGE = 1 << 3;
+const NRX0_MULTIPlIER = 0b0000_0111;
 
 /**
  * Sound channel 1 generates a pulse signal, with a wavelength sweep.
@@ -17,38 +19,41 @@ class SoundChannel1 extends SoundChannel2 {
     protected nrX4 = new SubRegister(0xbf);
 
     // Wavelength sweep pace
-    protected waveSweepSubcounter: number = 0;
     protected waveSweepCounter: number = 0;
 
     override doTick(divChanged: boolean): void {
         super.doTick(divChanged);
-
-        if (
-            divChanged &&
-            this.waveSweepSubcounter++ >= FREQUENCY_SWEEP_PACE &&
-            this.waveSweepCounter !== -1
-        ) {
-            this.waveSweepSubcounter = 0;
-            if (this.waveSweepCounter-- === 0) {
-                this.resetSweepPaceCounter();
-                const addOrSub = this.nrX0.flag(CHAN1_SWEEP_CHANGE) ? -1 : 1;
-                const multiplier = this.nrX0.get() & 0b111; // bits 0-2
-                const wave = this.getWavelength();
-                this.setWavelength(wave + addOrSub * (wave >> multiplier));
-            }
+        if (divChanged && --this.waveSweepCounter <= 0) {
+            this.resetSweepPaceCounter(); // Will set to -1 if disabled, positive number
+            if (this.waveSweepCounter !== -1) this.applyWavelengthSweep();
         }
+    }
+
+    protected applyWavelengthSweep(): void {
+        const addOrSub = this.nrX0.flag(NRX0_SWEEP_CHANGE) ? -1 : 1;
+        const multiplier = this.nrX0.get() & NRX0_MULTIPlIER; // bits 0-2
+        const wave = this.getWavelength();
+        // Can't underflow, saturate at 0
+        const newWave = Math.max(0, wave + addOrSub * (wave >> multiplier));
+
+        // On overflow, stop channel
+        if (newWave > 0x7ff) this.stop();
+        else this.setWavelength(newWave);
     }
 
     protected resetSweepPaceCounter() {
         const nextCounter = (this.nrX0.get() >> 4) & 0b111; // bits 4-6
         this.waveSweepCounter = nextCounter === 0 ? -1 : FREQUENCY_SWEEP_PACE * nextCounter;
-        this.waveSweepSubcounter = 0;
     }
 
     override start(): void {
         if (this.enabled) return;
         super.start();
-        this.resetSweepPaceCounter();
+
+        // On start, if the shift isn't 0, a sweep overflow check is made
+        if ((this.nrX0.get() & NRX0_MULTIPlIER) !== 0) {
+            this.applyWavelengthSweep();
+        }
     }
 
     protected override address(pos: number): Addressable {

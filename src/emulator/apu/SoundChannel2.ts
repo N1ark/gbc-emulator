@@ -107,14 +107,14 @@ class SoundChannel2 extends SoundChannel {
     write(pos: number, data: number): void {
         const component = this.address(pos);
 
+        component.write(pos, data);
+
         // Restart
         if (component === this.nrX4 && (data & NRX4_RESTART_CHANNEL) !== 0) {
             this.stop();
             this.start();
             data &= ~NRX4_RESTART_CHANNEL; // bit is write-only
         }
-
-        component.write(pos, data);
 
         // Clearing bits 3-7 of NRX2 turns the DAC (and the channel) off
         if (component === this.nrX2 && (data & NRX2_STOP_DAC) === 0) {
