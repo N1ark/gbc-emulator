@@ -48,6 +48,12 @@ const makeGameboy = (
 
 type TestResult = Record<string, { group: string; state: TestOutput }>;
 
+const loadTestRom = async (testType: string, fileName: string) => {
+    const romResponse = await fetch(`/tests/${testType}/${fileName}.gb`);
+    const romBlob = await romResponse.blob();
+    return new Uint8Array(await romBlob.arrayBuffer());
+};
+
 const runTests = async (validGroups: string[] = [], results: (r: TestResult) => void) => {
     const allTests = Object.entries(testFiles).flatMap(([testType, groups]) =>
         Object.entries(groups).flatMap(([group, tests]) =>
@@ -63,9 +69,7 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
         console.log(`Running test ${testType}/${group} -> ${fileName}`);
 
         const getTestState = testConfig[testType as keyof typeof testFiles];
-        const romResponse = await fetch(`/tests/${testType}/${fileName}.gb`);
-        const romBlob = await romResponse.blob();
-        const romArray = new Uint8Array(await romBlob.arrayBuffer());
+        const romArray = await loadTestRom(testType, fileName);
 
         let videoOut: Uint32Array = new Uint32Array();
         let caughtError: unknown = undefined;
@@ -126,7 +130,11 @@ const testGroups = Object.entries(testFiles).flatMap(([key, groups]) =>
 
 const localStorageKey = "test-drawer-groups";
 
-const TestDrawer: FunctionalComponent = () => {
+type TestDrawerProps = {
+    loadRom: (rom: Uint8Array) => void;
+};
+
+const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
     const testsRunning = useSignal<boolean>(false);
     const testResults = useSignal<TestResult>({});
     const keptTests = useSignal<string[]>(testGroups);
@@ -212,10 +220,18 @@ const TestDrawer: FunctionalComponent = () => {
                             </label>
                             {selected &&
                                 matchingTests.map(([testName, { state }]) => (
-                                    <div key={testName} className="test-result">
+                                    <button
+                                        key={testName}
+                                        className="test-result"
+                                        onClick={() =>
+                                            loadTestRom(group.split("/")[0], testName).then(
+                                                loadRom
+                                            )
+                                        }
+                                    >
                                         <span className="test-name">{testName}</span>
                                         <span className="test-state">{state}</span>
-                                    </div>
+                                    </button>
                                 ))}
                         </Fragment>
                     );

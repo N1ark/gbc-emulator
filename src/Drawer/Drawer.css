@@ -71,6 +71,7 @@
 }
 
 .test-result {
+    all: inherit;
     width: 100%;
     margin: -4px 0;
     display: flex;

@@ -18,7 +18,21 @@ const testFiles = {
             "instr_timing",
             "mem_timing",
         ],
-        other: ["dmg_sound", "halt_bug", "oam_bug"],
+        apu: [
+            "apu-01-registers",
+            "apu-02-len ctr",
+            "apu-03-trigger",
+            "apu-04-sweep",
+            "apu-05-sweep details",
+            "apu-06-overflow on trigger",
+            "apu-07-len sweep period sync",
+            "apu-08-len ctr during power",
+            "apu-09-wave read while on",
+            "apu-10-wave trigger while on",
+            "apu-11-regs after power",
+            "apu-12-wave write while on",
+        ],
+        other: ["halt_bug", "oam_bug"],
     },
     mooneye: {
         itrAndCpu: [
@@ -168,16 +182,22 @@ const testConfig: Record<
     blaarg: async (gbc, serialOut, vid, testName) => {
         if (serialOut.toLowerCase().includes("pass")) return "success";
         if (serialOut.toLowerCase().includes("fail")) return "failure";
+
+        if (testName.startsWith("apu-")) {
+            if (gbc["system"].inspect(0xa001, 3) === "de b0 61") {
+                // APU tests write to a000, with status
+                const status = gbc["system"].read(0xa000);
+                if (status === 0x80) return null;
+                return status === 0x00 ? "success" : "failure";
+            }
+        }
+
         if (testName === "halt_bug" && gbc["cpu"].getStepCounts() >= 700_000) {
             const expected = await loadImageData("blaarg/reference-halt_bug");
             return compareImages(expected, vid);
         }
         if (testName === "oam_bug" && gbc["cpu"].getStepCounts() >= 6_030_000) {
             const expected = await loadImageData("blaarg/reference-oam_bug");
-            return compareImages(expected, vid);
-        }
-        if (testName === "dmg_sound" && gbc["cpu"].getStepCounts() > 2_900_000) {
-            const expected = await loadImageData("blaarg/reference-dmg_sound");
             return compareImages(expected, vid);
         }
         return null;

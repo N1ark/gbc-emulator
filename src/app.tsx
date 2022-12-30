@@ -179,7 +179,7 @@ const App: FunctionalComponent = () => {
 
     return (
         <>
-            <Drawer />
+            <Drawer loadRom={(rom) => loadGame(rom)} />
 
             <h1>Emmy</h1>
             <h2>The GBC Browser Emulator</h2>

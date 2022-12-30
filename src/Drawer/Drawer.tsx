@@ -5,7 +5,11 @@ import ExpressionDrawer from "./ExpressionDrawer";
 import { useEffect, useState } from "preact/hooks";
 import TestDrawer from "./TestDrawer";
 
-const Drawer: FunctionalComponent = () => {
+type DrawerProps = {
+    loadRom: (rom: Uint8Array) => void;
+};
+
+const Drawer: FunctionalComponent<DrawerProps> = ({ loadRom }) => {
     const [ticker, setTicker] = useState<number>(0);
 
     useEffect(() => {
@@ -19,7 +23,7 @@ const Drawer: FunctionalComponent = () => {
                 <ExpressionDrawer updater={ticker} />
             </DrawerSection>
             <DrawerSection title="test roms">
-                <TestDrawer />
+                <TestDrawer loadRom={loadRom} />
             </DrawerSection>
         </div>
     );
