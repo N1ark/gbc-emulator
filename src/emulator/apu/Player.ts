@@ -4,15 +4,34 @@
  * @link https://github.com/denislins/gameboy/blob/master/emulator/apu/Player.js
  */
 class Player {
-    protected context: AudioContext;
+    protected context: AudioContext | undefined;
     protected lastPlayEnd: number | undefined;
+
+    protected windowBlurListener: () => void;
+    protected windowFocusListener: () => void;
 
     constructor() {
         this.context = new AudioContext();
+        this.windowBlurListener = () => {
+            this.context?.close();
+            this.context = undefined;
+        };
+        this.windowFocusListener = () => {
+            this.context = new AudioContext();
+            this.enqued = 0;
+            this.lastPlayEnd = undefined;
+            console.log("focused");
+        };
+
+        window.addEventListener("blur", this.windowBlurListener, false);
+        window.addEventListener("focus", this.windowFocusListener, false);
     }
 
     delete() {
-        this.context.close();
+        this.context?.close();
+        delete this.context;
+        window.removeEventListener("blur", this.windowBlurListener, false);
+        window.removeEventListener("focus", this.windowFocusListener, false);
     }
 
     enqued: number = 0;
@@ -20,7 +39,10 @@ class Player {
 
     enqueue(samples: Float32Array[]) {
         // Not allowed to have more than 8 samples in the queue, to avoid delay
-        if (this.enqued > 8) return;
+        if (this.enqued > 8 || !this.context) {
+            console.log(`skiped enque, ${this.enqued} / ${this.context}`);
+            return;
+        }
 
         this.enqued++;
 
@@ -30,7 +52,8 @@ class Player {
                 : this.context.currentTime;
         this.lastPlayEnd = startTime;
 
-        samples.forEach((data, i) => {
+        let index = 0;
+        for (let data of samples) {
             // Create the buffer
             const buffer = this.context.createBuffer(1, data.length, 44100);
             const bufferContent = buffer.getChannelData(0);
@@ -38,12 +61,12 @@ class Player {
 
             const source = this.context.createBufferSource();
             source.buffer = buffer;
-            if (i === 0) {
+            if (index++ === 0) {
                 source.onended = () => this.enqued--;
             }
             source.connect(this.context.destination);
             source.start(startTime);
-        });
+        }
     }
 }
 
