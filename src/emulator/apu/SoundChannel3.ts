@@ -1,17 +1,18 @@
 import Addressable from "../Addressable";
 import { RAM } from "../Memory";
 import { PaddedSubRegister, SubRegister } from "../Register";
-import { Int2 } from "../util";
+import { Int2, Int4 } from "../util";
 import SoundChannel, { NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX0_DAC_FLAG = 1 << 7;
 const NRX2_OUTPUT_LEVEL = 0b0110_0000;
 
+/** How much to shift the sound to the right */
 const VOLUME_LEVELS: Record<Int2, number> = {
-    0b00: 0,
-    0b01: 1,
-    0b10: 0.5,
-    0b11: 0.25,
+    0b00: 4, // = muted
+    0b01: 0, // = full volume
+    0b10: 1, // = 50%
+    0b11: 2, // = 25%
 };
 
 /**
@@ -31,7 +32,7 @@ class SoundChannel3 extends SoundChannel {
     // For output
     protected ticksNextSample: number = 0;
     protected waveStep: number = 0;
-    protected currentSample: number = 0;
+    protected currentSample: Int4 = 0;
 
     protected lastReadByte: number = 0xff;
 
@@ -47,19 +48,17 @@ class SoundChannel3 extends SoundChannel {
             const waveIndex = this.waveStep >> 1;
             const waveByte = this.waveData.read(waveIndex);
             const waveNibble = this.waveStep & 1 ? waveByte >> 4 : waveByte & 0b1111;
-            // Linearly translate [0x0; 0xf] to [-1; 1]
-            this.currentSample = (-waveNibble / 0xf) * 2 + 1;
+            this.currentSample = waveNibble as Int4;
             this.lastReadByte = waveByte;
         } else {
             this.lastReadByte = 0xff;
         }
     }
 
-    override getSample(): number {
-        if (!this.enabled) return 0;
+    protected override getSample(): Int4 {
         const outputLevel = ((this.nrX2.get() & NRX2_OUTPUT_LEVEL) >> 5) as Int2;
         const volume = VOLUME_LEVELS[outputLevel];
-        return this.currentSample * volume;
+        return (this.currentSample >> volume) as Int4;
     }
 
     override start(): void {

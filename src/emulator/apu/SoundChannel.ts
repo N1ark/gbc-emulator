@@ -2,6 +2,7 @@ import Addressable from "../Addressable";
 import { CLOCK_SPEED } from "../constants";
 import { SubRegister } from "../Register";
 import System from "../System";
+import { Int4 } from "../util";
 
 const FREQUENCY_SWEEP_PACE = 4;
 const FREQUENCY_ENVELOPE = 8;
@@ -77,10 +78,14 @@ abstract class SoundChannel implements Addressable {
      */
     protected doTick(divChanged: boolean): void {}
 
+    getOutput(): Int4 {
+        return this.enabled ? this.getSample() : 0;
+    }
+
     /**
-     * @returns The current value of the channel.
+     * @returns The current value of the channel (value between 0-F).
      */
-    abstract getSample(): number;
+    protected abstract getSample(): Int4;
 
     /**
      * @returns The channel's wavelength, using the NRX3 and NRX4 registers. Only relevant for

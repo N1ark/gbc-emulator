@@ -2,6 +2,7 @@ import Addressable from "../Addressable";
 import { CLOCK_SPEED, FRAME_RATE } from "../constants";
 import { PaddedSubRegister, SubRegister } from "../Register";
 import System from "../System";
+import { Int4 } from "../util";
 import Player from "./Player";
 import SoundChannel1 from "./SoundChannel1";
 import SoundChannel2 from "./SoundChannel2";
@@ -10,8 +11,13 @@ import SoundChannel4 from "./SoundChannel4";
 
 const SAMPLE_RATE = 44100;
 
-/** Cycles for one full sample at 44.1Hz (for some reason was 4 times too slow?) */
-const CYCLES_PER_SAMPLE = Math.floor(CLOCK_SPEED / 4 / SAMPLE_RATE);
+/**
+ * Cycles for one full sample at 44.1Hz
+ * - We divide clock speed by 4 to get M-cycles
+ * - We add a tolerance of 0.9, meaning there will be 10% of samples thrown away - this helps
+ *   ensure the audio buffer never get empty (or don't get empty as often).
+ */
+const CYCLES_PER_SAMPLE = Math.floor((CLOCK_SPEED / 4 / SAMPLE_RATE) * 0.9);
 /** Frequency at which we push new sound samples */
 const SAMPLE_SIZE = Math.floor(SAMPLE_RATE / FRAME_RATE);
 
@@ -20,6 +26,13 @@ const NR52_CHAN1_ON = 1 << 0;
 const NR52_CHAN2_ON = 1 << 1;
 const NR52_CHAN3_ON = 1 << 2;
 const NR52_CHAN4_ON = 1 << 3;
+
+/**
+ * Converts a digital value in 0 - F into an analog value in -1 - 0 (negative slope)
+ */
+function DAC(n: Int4): number {
+    return (-n / 0xf) * 2 + 1;
+}
 
 /**
  * The APU (Audio Processing Unit) of the Gameboy - it handles producing sound.
@@ -41,12 +54,7 @@ export class APU implements Addressable {
     protected cyclesForSample: number = 0;
     protected sampleIndex: number = 0;
     protected player: Player | null = null;
-    protected audioBuffer: Float32Array[] = [
-        new Float32Array(SAMPLE_SIZE),
-        new Float32Array(SAMPLE_SIZE),
-        new Float32Array(SAMPLE_SIZE),
-        new Float32Array(SAMPLE_SIZE),
-    ];
+    protected audioBuffer = new Float32Array(SAMPLE_SIZE);
 
     constructor() {
         const makeChangeHandler = (flag: number) => (state: boolean) =>
@@ -81,10 +89,12 @@ export class APU implements Addressable {
         if (++this.cyclesForSample === CYCLES_PER_SAMPLE) {
             this.cyclesForSample = 0;
 
-            this.audioBuffer[0][this.sampleIndex] = this.channel1.getSample() * 0.05;
-            this.audioBuffer[1][this.sampleIndex] = this.channel2.getSample() * 0.05;
-            this.audioBuffer[2][this.sampleIndex] = this.channel3.getSample() * 0.05;
-            this.audioBuffer[3][this.sampleIndex] = this.channel4.getSample() * 0.05;
+            this.audioBuffer[this.sampleIndex] =
+                (DAC(this.channel1.getOutput()) +
+                    DAC(this.channel2.getOutput()) +
+                    DAC(this.channel3.getOutput()) +
+                    DAC(this.channel4.getOutput())) *
+                0.05;
 
             if (++this.sampleIndex === SAMPLE_SIZE) {
                 this.sampleIndex = 0;

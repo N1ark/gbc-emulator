@@ -1,6 +1,6 @@
 import Addressable from "../Addressable";
 import { PaddedSubRegister, RegisterFF, SubRegister } from "../Register";
-import { clamp } from "../util";
+import { clamp, Int4 } from "../util";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX2_STOP_DAC = 0b1111_1000;
@@ -25,7 +25,7 @@ class SoundChannel4 extends SoundChannel {
 
     // Channel envelope volume
     protected envelopeVolumeSteps: number = 0;
-    protected envelopeVolume: number = 0;
+    protected envelopeVolume: Int4 = 0;
 
     // LFSR
     protected ticksForLfsr: number = 0;
@@ -36,7 +36,7 @@ class SoundChannel4 extends SoundChannel {
 
         if (divChanged && this.envelopeVolumeSteps-- <= 0 && (this.cachedNRX2 & 0b111) !== 0) {
             const direction = (this.cachedNRX2 & 0b0000_1000) === 0 ? -1 : 1;
-            this.envelopeVolume = clamp(this.envelopeVolume + direction, 0x0, 0xf);
+            this.envelopeVolume = clamp(this.envelopeVolume + direction, 0x0, 0xf) as Int4;
             this.envelopeVolumeSteps = FREQUENCY_ENVELOPE * (this.cachedNRX2 & 0b111);
         }
 
@@ -54,9 +54,8 @@ class SoundChannel4 extends SoundChannel {
         this.ticksForLfsr = 4 * (clockDivider * (1 << clockShift));
     }
 
-    override getSample(): number {
-        if (!this.enabled) return 0;
-        return (this.lfsr & 1) * (this.envelopeVolume / 0xf);
+    protected override getSample(): Int4 {
+        return ((this.lfsr & 1) * this.envelopeVolume) as Int4;
     }
 
     override start(): void {
@@ -64,7 +63,7 @@ class SoundChannel4 extends SoundChannel {
         super.start();
 
         this.cachedNRX2 = this.nrX2.get();
-        this.envelopeVolume = this.nrX2.get() >> 4;
+        this.envelopeVolume = (this.cachedNRX2 >> 4) as Int4;
         this.lfsr = 0;
         this.refreshLsfrTicks();
     }

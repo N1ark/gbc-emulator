@@ -1,14 +1,14 @@
 import Addressable from "../Addressable";
 import { RegisterFF, SubRegister } from "../Register";
-import { clamp, Int2 } from "../util";
+import { clamp, Int2, Int4 } from "../util";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX2_STOP_DAC = 0b1111_1000;
-const wavePatterns: Record<Int2, (-1 | 1)[]> = {
-    0b00: [1, 1, 1, 1, 1, 1, 1, 0].map((n) => (n ? 1 : -1)),
-    0b01: [0, 1, 1, 1, 1, 1, 1, 0].map((n) => (n ? 1 : -1)),
-    0b10: [0, 1, 1, 1, 1, 0, 0, 0].map((n) => (n ? 1 : -1)),
-    0b11: [1, 0, 0, 0, 0, 0, 0, 1].map((n) => (n ? 1 : -1)),
+const wavePatterns: Record<Int2, (0 | 1)[]> = {
+    0b00: [1, 1, 1, 1, 1, 1, 1, 0],
+    0b01: [0, 1, 1, 1, 1, 1, 1, 0],
+    0b10: [0, 1, 1, 1, 1, 0, 0, 0],
+    0b11: [1, 0, 0, 0, 0, 0, 0, 1],
 };
 
 /**
@@ -33,7 +33,7 @@ class SoundChannel2 extends SoundChannel {
 
     // Channel envelope volume
     protected envelopeVolumeSteps: number = 0;
-    protected envelopeVolume: number = 0;
+    protected envelopeVolume: Int4 = 0;
 
     override doTick(divChanged: boolean): void {
         super.doTick(divChanged);
@@ -45,15 +45,15 @@ class SoundChannel2 extends SoundChannel {
 
         if (divChanged && this.envelopeVolumeSteps-- <= 0 && (this.cachedNRX2 & 0b111) !== 0) {
             const direction = (this.cachedNRX2 & 0b0000_1000) === 0 ? -1 : 1;
-            this.envelopeVolume = clamp(this.envelopeVolume + direction, 0x0, 0xf);
+            this.envelopeVolume = clamp(this.envelopeVolume + direction, 0x0, 0xf) as Int4;
             this.envelopeVolumeSteps = FREQUENCY_ENVELOPE * (this.cachedNRX2 & 0b111);
         }
     }
 
-    override getSample() {
+    protected override getSample(): Int4 {
         const dutyCycleType = ((this.nrX1.get() >> 6) & 0b11) as Int2;
         const wavePattern = wavePatterns[dutyCycleType];
-        return wavePattern[this.waveStep] * (this.envelopeVolume / 0xf);
+        return (wavePattern[this.waveStep] * this.envelopeVolume) as Int4;
     }
 
     protected override setWavelength(waveLength: number): void {
@@ -71,7 +71,7 @@ class SoundChannel2 extends SoundChannel {
         super.start();
 
         this.cachedNRX2 = this.nrX2.get();
-        this.envelopeVolume = this.nrX2.get() >> 4;
+        this.envelopeVolume = (this.cachedNRX2 >> 4) as Int4;
         this.waveLengthUpdate();
     }
 
