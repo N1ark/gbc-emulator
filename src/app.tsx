@@ -42,7 +42,6 @@ const App: FunctionalComponent = () => {
     const debugEnabled = useSignal(false);
     const tripleSpeed = useSignal(false);
     const emulatorRunning = useSignal(true);
-    const isTesting = useSignal(false);
     const canStep = useSignal(true);
     const hasSound = useSignal(false);
 
@@ -220,14 +219,6 @@ const App: FunctionalComponent = () => {
                     onClick={() => (debugEnabled.value = !debugEnabled.value)}
                 >
                     <Bug />
-                </button>
-
-                <button
-                    title="Testing"
-                    className={`icon-button ${isTesting.value ? "toggled" : ""}`}
-                    onClick={() => (isTesting.value = !isTesting.value)}
-                >
-                    <FileQuestion />
                 </button>
 
                 <button
