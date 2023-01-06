@@ -1,7 +1,7 @@
 import Addressable from "./Addressable";
 import { IFLAG_LCDC, IFLAG_VBLANK, SCREEN_HEIGHT, SCREEN_WIDTH } from "./constants";
 import { RAM } from "./Memory";
-import { PaddedSubRegister, RegisterFF, SubRegister } from "./Register";
+import { PaddedSubRegister, SubRegister } from "./Register";
 import System from "./System";
 import { asSignedInt8, Int2, wrap8 } from "./util";
 import GameBoyOutput from "./GameBoyOutput";
@@ -125,7 +125,7 @@ class PPU implements Addressable {
     /** @link https://gbdev.io/pandocs/LCDC.html */
     lcdControl = new SubRegister(0x91);
     /** @link https://gbdev.io/pandocs/STAT.html */
-    lcdStatus = new PaddedSubRegister(7, 0x85);
+    lcdStatus = new PaddedSubRegister(0b1000_0000, 0x85);
 
     // Positioning
     screenY = new SubRegister(0x00); // these two indicate position of the viewport

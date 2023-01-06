@@ -53,7 +53,7 @@ class System implements Addressable {
     // Interrupts
     protected intMasterEnable: IntMasterEnableStateType = "DISABLED"; // IME - master enable flag
     protected intEnable = new SubRegister(0x00); // IE - interrupt enable (handler)
-    protected intFlag = new PaddedSubRegister(5, 0xe1); // IF - interrupt flag (requests)
+    protected intFlag = new PaddedSubRegister(0b1110_0000, 0xe1); // IF - interrupt flag (requests)
 
     // Devices
     protected timer = new Timer();

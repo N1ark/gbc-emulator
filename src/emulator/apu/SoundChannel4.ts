@@ -18,7 +18,7 @@ class SoundChannel4 extends SoundChannel {
     protected nrX1 = new SubRegister(0xff);
     protected nrX2 = new SubRegister(0x00);
     protected nrX3 = new SubRegister(0x00);
-    protected nrX4 = new PaddedSubRegister([0b0011_1111], 0xbf);
+    protected nrX4 = new PaddedSubRegister(0b0011_1111, 0xbf);
 
     // NRx2 needs retriggering when changed
     protected cachedNRX2: number = this.nrX2.get();

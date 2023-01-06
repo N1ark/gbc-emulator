@@ -13,8 +13,8 @@ class SubRegister implements Addressable {
     protected value: number;
 
     /** Initialises a subregister with either 0 or a value */
-    constructor(value?: number) {
-        this.value = value ?? 0;
+    constructor(value: number = 0) {
+        this.value = value;
     }
 
     /** Sets this register byte to the given value */
@@ -47,8 +47,7 @@ class SubRegister implements Addressable {
 /**
  * A PaddedSubRegister is similar to a SubRegister but it only uses a set given of bits. All
  * other bits are hard-wired to 1, and can't be changed.
- * e.g. writing 0x02 to a PaddedSubRegister that uses 4 bits will actually write 0xf2
- * e.g. writing 0x0A to a PaddedSubRegister with a [4, 1] padding will actually write 0xfb
+ * e.g. writing 0x02 to a PaddedSubRegister that has a 10000001 mask will actually write 0x83
  */
 class PaddedSubRegister extends SubRegister {
     protected mask: number;
@@ -59,24 +58,13 @@ class PaddedSubRegister extends SubRegister {
      * padded) or an array containing the mask of the subregister.
      * @param value The initial value of the register
      */
-    constructor(usedBits: number | [number], value?: number) {
-        let mask: number;
-        if (typeof usedBits === "number") {
-            if (usedBits <= 0 || 8 <= usedBits)
-                throw new Error(
-                    `The used bits of a PaddedSubRegister must be more than 0 and less than 8 (got ${usedBits})`
-                );
-            mask = 0xff ^ ((1 << usedBits) - 1);
-        } else if (typeof usedBits === "object") {
-            mask = usedBits[0] & 0xff;
-        } else {
-            throw new Error(`Invalid object to initialize PaddedSubRegister: ${usedBits}`);
-        }
-        super((value ?? 0) | mask);
+    constructor(mask: number, value: number = 0) {
+        mask &= 0xff;
+        super(value | mask);
         this.mask = mask;
     }
 
-    set(value: number): void {
+    override set(value: number): void {
         super.set(value | this.mask);
     }
 }

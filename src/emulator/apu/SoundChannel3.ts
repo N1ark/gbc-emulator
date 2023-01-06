@@ -22,11 +22,11 @@ const VOLUME_LEVELS: Record<Int2, number> = {
 class SoundChannel3 extends SoundChannel {
     protected NRX1_LENGTH_TIMER_BITS: number = 0b1111_1111;
 
-    protected nrX0 = new PaddedSubRegister([0b0111_1111]);
+    protected nrX0 = new PaddedSubRegister(0b0111_1111);
     protected nrX1 = new SubRegister(0xbf);
-    protected nrX2 = new PaddedSubRegister([0b1001_1111], 0xf3);
+    protected nrX2 = new PaddedSubRegister(0b1001_1111, 0xf3);
     protected nrX3 = new SubRegister(0xff);
-    protected nrX4 = new PaddedSubRegister([0b0011_1000], 0xbf);
+    protected nrX4 = new PaddedSubRegister(0b0011_1000, 0xbf);
     protected waveData = new RAM(16);
 
     // For output

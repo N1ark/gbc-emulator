@@ -29,7 +29,7 @@ class Timer implements Addressable {
     // TMA - timer modulo
     protected timerModulo = new SubRegister(0x00);
     // TAC - timer control
-    protected timerControl = new PaddedSubRegister(3);
+    protected timerControl = new PaddedSubRegister(0b1111_1000);
 
     protected previousDivider = this.divider.get();
     protected previousTimerControl = this.timerControl.get();

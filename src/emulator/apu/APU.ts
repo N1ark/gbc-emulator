@@ -48,7 +48,7 @@ export class APU implements Addressable {
     /** Stereo mix control register */
     protected nr51 = new SubRegister(0xf3);
     /** Status and control register */
-    protected nr52 = new PaddedSubRegister([0b0111_0000], 0xf1);
+    protected nr52 = new PaddedSubRegister(0b0111_0000, 0xf1);
 
     /** Audio output */
     protected cyclesForSample: number = 0;
