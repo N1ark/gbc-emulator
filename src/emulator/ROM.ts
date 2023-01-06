@@ -1,6 +1,7 @@
 import Addressable from "./Addressable";
 import MBC from "./mbc/abstract";
 import MBC1 from "./mbc/mbc1";
+import MBC3 from "./mbc/mbc3";
 import NoMBC from "./mbc/nombc";
 
 const TITLE_START = 0x134;
@@ -25,20 +26,23 @@ class ROM implements Addressable {
             .replaceAll("\u0000", "");
 
         const mbcType = data[CARTRIDGE_TYPE];
-        switch (mbcType) {
-            case 0x00:
-                this.mbc = new NoMBC(data);
-                break;
-            case 0x01:
-                this.mbc = new MBC1(data, { hasRam: false });
-            case 0x02:
-                this.mbc = new MBC1(data, { hasRam: true });
-            case 0x03:
-                this.mbc = new MBC1(data, { hasRam: true });
-                break;
-            default:
-                throw new Error(`[ROM] Invalid cartridge type: ${mbcType?.toString(16)}`);
-        }
+        const mbcInstance = {
+            // No MBC
+            0x00: () => new NoMBC(data),
+            // MBC1
+            0x01: () => new MBC1(data, { hasRam: false }),
+            0x02: () => new MBC1(data, { hasRam: true }),
+            0x03: () => new MBC1(data, { hasRam: true }),
+            // MBC3
+            0x0f: () => new MBC3(data, { hasTimer: true, hasRam: false }),
+            0x10: () => new MBC3(data, { hasTimer: true, hasRam: true }),
+            0x11: () => new MBC3(data, { hasTimer: false, hasRam: false }),
+            0x12: () => new MBC3(data, { hasTimer: false, hasRam: true }),
+            0x13: () => new MBC3(data, { hasTimer: false, hasRam: true }),
+        }[mbcType];
+        if (mbcInstance === undefined)
+            throw new Error(`[ROM] Invalid cartridge type: ${mbcType?.toString(16)}`);
+        this.mbc = mbcInstance();
         console.debug(`(ROM) Saved data for game "${this.title}": `, data);
     }
 
