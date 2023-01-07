@@ -8,6 +8,9 @@ import {
     Redo,
     Volume2,
     VolumeX,
+    Dice1,
+    Dice2,
+    Dice3,
 } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
@@ -44,6 +47,7 @@ const App: FunctionalComponent = () => {
     const emulatorRunning = useSignal(true);
     const canStep = useSignal(true);
     const hasSound = useSignal(false);
+    const canvasScale = useSignal<0 | 1 | 2>(1);
 
     // DOM Refs
     const emulatorFrameIn = useRef<VideoReceiver | undefined>(undefined);
@@ -228,6 +232,22 @@ const App: FunctionalComponent = () => {
                 >
                     <FastForward />
                 </button>
+
+                <button
+                    title="Scale"
+                    className="icon-button"
+                    onClick={() =>
+                        (canvasScale.value = ((canvasScale.value + 1) % 3) as 0 | 1 | 2)
+                    }
+                >
+                    {
+                        {
+                            0: <Dice1 />,
+                            1: <Dice2 />,
+                            2: <Dice3 />,
+                        }[canvasScale.value]
+                    }
+                </button>
             </div>
 
             {gameboy && (
@@ -238,7 +258,7 @@ const App: FunctionalComponent = () => {
                         <div>{millisPerFrame.value.toLocaleString()} ms/f</div>
                     </div>
                     <div id="emu-screens">
-                        <Screen inputRef={emulatorFrameIn} />
+                        <Screen inputRef={emulatorFrameIn} scale={canvasScale.value + 1} />
                         {debugEnabled.value && (
                             <>
                                 <Screen width={256} height={256} inputRef={bgDebugger} />
