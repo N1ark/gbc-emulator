@@ -1,5 +1,4 @@
-import Addressable from "./Addressable";
-import { RAM } from "./Memory";
+import { Addressable, RAM } from "./Memory";
 import { SubRegister } from "./Register";
 import System from "./System";
 

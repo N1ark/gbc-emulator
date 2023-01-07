@@ -1,8 +1,8 @@
-import Addressable from "./Addressable";
 import MBC from "./mbc/abstract";
 import MBC1 from "./mbc/mbc1";
 import MBC3 from "./mbc/mbc3";
 import NoMBC from "./mbc/nombc";
+import { Addressable } from "./Memory";
 
 const TITLE_START = 0x134;
 const TITLE_END = 0x143;

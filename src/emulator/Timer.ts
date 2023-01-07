@@ -1,5 +1,5 @@
-import Addressable from "./Addressable";
 import { IFLAG_TIMER } from "./constants";
+import { Addressable } from "./Memory";
 import { PaddedSubRegister, Register, SubRegister } from "./Register";
 import System from "./System";
 import { Int2, wrap16 } from "./util";
