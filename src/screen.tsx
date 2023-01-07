@@ -32,7 +32,7 @@ const Screen: FunctionalComponent<ScreenProps> = ({
         const targetHeight = height * scale;
 
         return (data: Uint32Array) => {
-            const context = canvas.getContext("2d");
+            const context = canvas.getContext("2d", { alpha: false });
             if (!context) return;
 
             context.imageSmoothingEnabled = false;

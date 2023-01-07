@@ -1,6 +1,5 @@
-import Addressable from "./Addressable";
 import { IFLAG_LCDC, IFLAG_VBLANK, SCREEN_HEIGHT, SCREEN_WIDTH } from "./constants";
-import { RAM } from "./Memory";
+import { CircularRAM, Addressable } from "./Memory";
 import { PaddedSubRegister, SubRegister } from "./Register";
 import System from "./System";
 import { asSignedInt8, Int2, wrap8 } from "./util";
@@ -107,7 +106,7 @@ class PPU implements Addressable {
     readSprites: Sprite[] = [];
 
     // Data Store
-    vram = new RAM(8192); // 8Kb memory
+    vram = new CircularRAM(8192, 0x8000); // 8Kb memory
     canReadVram: boolean = true;
     canWriteVram: boolean = true;
 
@@ -425,8 +424,8 @@ class PPU implements Addressable {
         if (!cachedTile.valid) {
             // Draw the 8 lines of the tile
             for (let tileY = 0; tileY < 8; tileY++) {
-                const tileDataH = this.readVram(tileAddress + tileY * 2);
-                const tileDataL = this.readVram(tileAddress + tileY * 2 + 1);
+                const tileDataH = this.vram.read(tileAddress + tileY * 2);
+                const tileDataL = this.vram.read(tileAddress + tileY * 2 + 1);
                 for (let tileX = 0; tileX < 8; tileX++) {
                     const shadeL = (tileDataH >> (7 - tileX)) & 0b1;
                     const shadeH = (tileDataL >> (7 - tileX)) & 0b1;
@@ -456,7 +455,7 @@ class PPU implements Addressable {
             const posX = i % 32; // 32 tiles on width
             const posY = Math.floor(i / 32); // 32 tiles on height
             // Get the tile address
-            const tileId = this.readVram(tileMapLoc + i);
+            const tileId = this.vram.read(tileMapLoc + i);
             const tileAddress = this.getTileAddress(tileId);
             // Get tile data
             const tileData = this.getTile(tileAddress);
@@ -541,7 +540,7 @@ class PPU implements Addressable {
             // Index of the tile in the current tile data
             const tileIndex = tileMapLoc + tileX + tileY * 32;
             // The ID (pointer) of the tile
-            const tileAddress = this.readVram(tileIndex);
+            const tileAddress = this.vram.read(tileIndex);
             // Convert the ID to the actual address
             const tileDataAddress = this.getTileAddress(tileAddress);
             // Get the tile data
@@ -592,7 +591,7 @@ class PPU implements Addressable {
             // Index of the tile in the current tile data
             const tileIndex = tileMapLoc + tileX + tileY * 32;
             // The ID (pointer) of the tile
-            const tileAddress = this.readVram(tileIndex);
+            const tileAddress = this.vram.read(tileIndex);
             // Convert the ID to the actual address
             const tileDataAddress = this.getTileAddress(tileAddress);
             // Get the tile data
@@ -677,68 +676,53 @@ class PPU implements Addressable {
         };
     }
 
-    /** Allows reading the VRAM bypassing restrictions. */
-    readVram(pos: number) {
-        return this.vram.read(pos - 0x8000);
-    }
+    protected registerAddresses: Record<number, Addressable> = {
+        0xff40: this.lcdControl,
+        0xff41: this.lcdStatus,
+        0xff42: this.screenY,
+        0xff43: this.screenX,
+        0xff44: this.lcdY,
+        0xff45: this.lcdYCompare,
+        0xff46: this.oam,
+        0xff47: this.bgPalette,
+        0xff48: this.objPalette0,
+        0xff49: this.objPalette1,
+        0xff4a: this.windowY,
+        0xff4b: this.windowX,
+    };
 
-    address(pos: number): [Addressable, number] {
+    protected address(pos: number): Addressable {
         // VRAM
-        if (0x8000 <= pos && pos <= 0x9fff) return [this.vram, pos - 0x8000];
+        if (0x8000 <= pos && pos <= 0x9fff) return this.vram;
         // OAM
-        if (0xfe00 <= pos && pos <= 0xfe9f) return [this.oam, pos];
+        if (0xfe00 <= pos && pos <= 0xfe9f) return this.oam;
         // Registers
-        switch (pos) {
-            case 0xff40:
-                return [this.lcdControl, 0];
-            case 0xff41:
-                return [this.lcdStatus, 0];
-            case 0xff42:
-                return [this.screenY, 0];
-            case 0xff43:
-                return [this.screenX, 0];
-            case 0xff44:
-                return [this.lcdY, 0];
-            case 0xff45:
-                return [this.lcdYCompare, 0];
-            case 0xff46:
-                return [this.oam, pos];
-            case 0xff47:
-                return [this.bgPalette, 0];
-            case 0xff48:
-                return [this.objPalette0, 0];
-            case 0xff49:
-                return [this.objPalette1, 0];
-            case 0xff4a:
-                return [this.windowY, 0];
-            case 0xff4b:
-                return [this.windowX, 0];
-            default:
-                break;
-        }
+        const register = this.registerAddresses[pos];
+        if (register) return register;
 
         throw new Error(`Invalid address given to PPU: ${pos.toString(16)}`);
     }
 
-    read(pos: number): number {
-        const [component, address] = this.address(pos);
+    read(address: number): number {
+        const component = this.address(address);
         if (component === this.oam && !this.canReadOam) return 0xff;
         if (component === this.vram && !this.canReadVram) return 0xff;
         return component.read(address);
     }
-    write(pos: number, data: number): void {
-        const [component, address] = this.address(pos);
+    write(address: number, data: number): void {
+        const component = this.address(address);
 
         if (component === this.oam && !this.canWriteOam) return;
         if (component === this.vram && !this.canWriteVram) return;
 
         if (
+            // if in tile memory, dirty tile
             component === this.vram &&
-            0x8000 <= pos &&
-            pos <= 0x9800 &&
+            0x8000 <= address &&
+            address <= 0x9800 &&
             data !== component.read(address)
         ) {
-            const cachedTile = this.tileCache[pos >> 4];
+            const cachedTile = this.tileCache[address >> 4];
             if (cachedTile) cachedTile.valid = false;
         }
         if (component === this.lcdControl) {

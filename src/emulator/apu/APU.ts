@@ -1,9 +1,9 @@
-import Addressable from "../Addressable";
+import { Addressable } from "../Memory";
 import { CLOCK_SPEED, FRAME_RATE } from "../constants";
 import GameBoyOutput from "../GameBoyOutput";
 import { PaddedSubRegister, SubRegister } from "../Register";
 import System from "../System";
-import { Int4 } from "../util";
+import { Int4, rangeObject } from "../util";
 import SoundChannel1 from "./SoundChannel1";
 import SoundChannel2 from "./SoundChannel2";
 import SoundChannel3 from "./SoundChannel3";
@@ -36,10 +36,10 @@ function DAC(n: Int4): number {
  * The APU (Audio Processing Unit) of the Gameboy - it handles producing sound.
  */
 export class APU implements Addressable {
-    protected channel1: SoundChannel1;
-    protected channel2: SoundChannel2;
-    protected channel3: SoundChannel3;
-    protected channel4: SoundChannel4;
+    protected channel1 = new SoundChannel1((s) => this.nr52.sflag(NR52_CHAN1_ON, s));
+    protected channel2 = new SoundChannel2((s) => this.nr52.sflag(NR52_CHAN2_ON, s));
+    protected channel3 = new SoundChannel3((s) => this.nr52.sflag(NR52_CHAN3_ON, s));
+    protected channel4 = new SoundChannel4((s) => this.nr52.sflag(NR52_CHAN4_ON, s));
 
     /** Master voulume and stereo mix control  */
     protected nr50 = new SubRegister(0x77);
@@ -56,12 +56,6 @@ export class APU implements Addressable {
 
     constructor(output: GameBoyOutput) {
         this.output = output;
-        const makeChangeHandler = (flag: number) => (state: boolean) =>
-            this.nr52.sflag(flag, state);
-        this.channel1 = new SoundChannel1(makeChangeHandler(NR52_CHAN1_ON));
-        this.channel2 = new SoundChannel2(makeChangeHandler(NR52_CHAN2_ON));
-        this.channel3 = new SoundChannel3(makeChangeHandler(NR52_CHAN3_ON));
-        this.channel4 = new SoundChannel4(makeChangeHandler(NR52_CHAN4_ON));
     }
 
     /**
@@ -95,52 +89,22 @@ export class APU implements Addressable {
         }
     }
 
-    address(pos: number): Addressable {
-        switch (pos) {
-            case 0xff10:
-            case 0xff11:
-            case 0xff12:
-            case 0xff13:
-            case 0xff14:
-                return this.channel1;
-            case 0xff15:
-            case 0xff16:
-            case 0xff17:
-            case 0xff18:
-            case 0xff19:
-                return this.channel2;
-            case 0xff1a:
-            case 0xff1b:
-            case 0xff1c:
-            case 0xff1d:
-            case 0xff1e:
-                return this.channel3;
-            case 0xff1f:
-            case 0xff20:
-            case 0xff21:
-            case 0xff22:
-            case 0xff23:
-                return this.channel4;
-            case 0xff24:
-                return this.nr50;
-            case 0xff25:
-                return this.nr51;
-            case 0xff26:
-                return this.nr52;
-        }
-
-        // Wave ram
-        if (0xff30 <= pos && pos <= 0xff3f) return this.channel3;
-
-        throw new Error(`Invalid address given to APU: ${pos.toString(16)}`);
-    }
+    protected addresses: Record<number, Addressable> = {
+        ...rangeObject(0xff10, 0xff14, this.channel1),
+        ...rangeObject(0xff15, 0xff19, this.channel2),
+        ...rangeObject(0xff1a, 0xff1e, this.channel3),
+        ...rangeObject(0xff1f, 0xff23, this.channel4),
+        0xff24: this.nr50,
+        0xff25: this.nr51,
+        0xff26: this.nr52,
+        ...rangeObject(0xff30, 0xff3f, this.channel3), // wave RAM
+    };
 
     read(pos: number): number {
-        const component = this.address(pos);
-        return component.read(pos);
+        return this.addresses[pos].read(pos);
     }
     write(pos: number, data: number): void {
-        const component = this.address(pos);
+        const component = this.addresses[pos];
 
         // ignore writes to channel when turned off (except for NRX1 and wave RAM)
         if (

@@ -1,4 +1,4 @@
-import Addressable from "../Addressable";
+import { Addressable } from "../Memory";
 import { PaddedSubRegister, RegisterFF, SubRegister } from "../Register";
 import { clamp, Int4 } from "../util";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
@@ -19,6 +19,14 @@ class SoundChannel4 extends SoundChannel {
     protected nrX2 = new SubRegister(0x00);
     protected nrX3 = new SubRegister(0x00);
     protected nrX4 = new PaddedSubRegister(0b0011_1111, 0xbf);
+
+    protected addresses: Record<number, Addressable> = {
+        0xff1f: RegisterFF,
+        0xff20: this.nrX1,
+        0xff21: this.nrX2,
+        0xff22: this.nrX3,
+        0xff23: this.nrX4,
+    };
 
     // NRx2 needs retriggering when changed
     protected cachedNRX2: number = this.nrX2.get();
@@ -68,24 +76,8 @@ class SoundChannel4 extends SoundChannel {
         this.refreshLsfrTicks();
     }
 
-    protected address(pos: number): Addressable {
-        switch (pos) {
-            case 0xff1f:
-                return RegisterFF;
-            case 0xff20:
-                return this.nrX1;
-            case 0xff21:
-                return this.nrX2;
-            case 0xff22:
-                return this.nrX3;
-            case 0xff23:
-                return this.nrX4;
-        }
-        throw new Error(`Invalid address passed to sound channel 4: ${pos.toString(16)}`);
-    }
-
     read(pos: number): number {
-        const component = this.address(pos);
+        const component = this.addresses[pos];
         // register is write only
         if (component === this.nrX1) return 0xff;
         // only bit 6 is readable
@@ -94,7 +86,7 @@ class SoundChannel4 extends SoundChannel {
     }
 
     write(pos: number, data: number): void {
-        const component = this.address(pos);
+        const component = this.addresses[pos];
 
         // Restart
         if (component === this.nrX4 && (data & NRX4_RESTART_CHANNEL) !== 0) {

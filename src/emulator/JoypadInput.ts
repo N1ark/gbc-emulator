@@ -1,4 +1,3 @@
-import Addressable from "./Addressable";
 import {
     ARROW_DOWN,
     ARROW_LEFT,
@@ -10,6 +9,7 @@ import {
     BUTTON_START,
 } from "./constants";
 import GameBoyInput from "./GameBoyInput";
+import { Addressable } from "./Memory";
 
 const READ_ARROWS_BIT = 1 << 4;
 const READ_BUTTON_BIT = 1 << 5;

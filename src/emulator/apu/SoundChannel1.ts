@@ -1,4 +1,4 @@
-import Addressable from "../Addressable";
+import { Addressable } from "../Memory";
 import { PaddedSubRegister, SubRegister } from "../Register";
 import System from "../System";
 import { FREQUENCY_SWEEP_PACE } from "./SoundChannel";
@@ -17,6 +17,14 @@ class SoundChannel1 extends SoundChannel2 {
     protected nrX2 = new SubRegister(0xf3);
     protected nrX3 = new SubRegister(0xff);
     protected nrX4 = new SubRegister(0xbf);
+
+    protected override addresses: Record<number, Addressable> = {
+        0xff10: this.nrX0,
+        0xff11: this.nrX1,
+        0xff12: this.nrX2,
+        0xff13: this.nrX3,
+        0xff14: this.nrX4,
+    };
 
     // Wavelength sweep pace
     protected waveSweepCounter: number = 0;
@@ -54,22 +62,6 @@ class SoundChannel1 extends SoundChannel2 {
         if ((this.nrX0.get() & NRX0_MULTIPlIER) !== 0) {
             this.applyWavelengthSweep();
         }
-    }
-
-    protected override address(pos: number): Addressable {
-        switch (pos) {
-            case 0xff10:
-                return this.nrX0;
-            case 0xff11:
-                return this.nrX1;
-            case 0xff12:
-                return this.nrX2;
-            case 0xff13:
-                return this.nrX3;
-            case 0xff14:
-                return this.nrX4;
-        }
-        throw new Error(`Invalid address passed to sound channel 1: ${pos.toString(16)}`);
     }
 }
 

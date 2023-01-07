@@ -1,4 +1,4 @@
-import Addressable from "../Addressable";
+import { Addressable } from "../Memory";
 import { RegisterFF, SubRegister } from "../Register";
 import { clamp, Int2, Int4 } from "../util";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
@@ -22,6 +22,14 @@ class SoundChannel2 extends SoundChannel {
     protected nrX2 = new SubRegister(0x00);
     protected nrX3 = new SubRegister(0xff);
     protected nrX4 = new SubRegister(0xbf);
+
+    protected addresses: Record<number, Addressable> = {
+        0xff15: RegisterFF,
+        0xff16: this.nrX1,
+        0xff17: this.nrX2,
+        0xff18: this.nrX3,
+        0xff19: this.nrX4,
+    };
 
     // For output
     protected ticksPerWaveStep: number = 0;
@@ -75,24 +83,8 @@ class SoundChannel2 extends SoundChannel {
         this.waveLengthUpdate();
     }
 
-    protected address(pos: number): Addressable {
-        switch (pos) {
-            case 0xff15:
-                return RegisterFF;
-            case 0xff16:
-                return this.nrX1;
-            case 0xff17:
-                return this.nrX2;
-            case 0xff18:
-                return this.nrX3;
-            case 0xff19:
-                return this.nrX4;
-        }
-        throw new Error(`Invalid address passed to sound channel 2: ${pos.toString(16)}`);
-    }
-
     read(pos: number): number {
-        const component = this.address(pos);
+        const component = this.addresses[pos];
 
         // bits 0-5 are write only
         if (component === this.nrX1) return component.read(pos) | 0b0011_1111;
@@ -105,7 +97,7 @@ class SoundChannel2 extends SoundChannel {
     }
 
     write(pos: number, data: number): void {
-        const component = this.address(pos);
+        const component = this.addresses[pos];
 
         component.write(pos, data);
 

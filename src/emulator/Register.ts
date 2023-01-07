@@ -1,4 +1,4 @@
-import Addressable from "./Addressable";
+import { Addressable } from "./Memory";
 import { wrap16 } from "./util";
 
 /**

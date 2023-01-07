@@ -1,4 +1,10 @@
-import Addressable from "./Addressable";
+/**
+ * A basic interface for all addressable objects.
+ */
+interface Addressable {
+    read(pos: number): number;
+    write(pos: number, data: number): void;
+}
 
 /**
  * Simple abstract memory object.
@@ -30,4 +36,27 @@ class RAM extends AbstractMemory {
     }
 }
 
-export { AbstractMemory, RAM };
+/**
+ * Circular RAM is similar to RAM, but it also stores an offset. Any access on the memory (both
+ * reads and writes) occur at the position (X - O) % S, where S is the size of the memory, O the
+ * offset, and X the accessed address. This means out of bound exeptions cannot happen.
+ */
+class CircularRAM extends RAM {
+    protected offset: number;
+
+    constructor(size: number, offset: number, data?: Uint8Array) {
+        super(size, data);
+        this.offset = offset;
+    }
+
+    override read(pos: number): number {
+        return super.read((pos - this.offset) % this.size);
+    }
+
+    override write(pos: number, data: number): void {
+        super.write((pos - this.offset) % this.size, data);
+    }
+}
+
+export type { Addressable };
+export { AbstractMemory, RAM, CircularRAM };

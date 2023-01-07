@@ -1,4 +1,3 @@
-import Addressable from "./Addressable";
 import APU from "./apu/APU";
 import {
     HRAM_SIZE,
@@ -12,12 +11,12 @@ import {
 import GameBoyInput from "./GameBoyInput";
 import PPU from "./PPU";
 import JoypadInput from "./JoypadInput";
-import { RAM } from "./Memory";
+import { CircularRAM, RAM, Addressable } from "./Memory";
 import { PaddedSubRegister, Register00, RegisterFF, SubRegister } from "./Register";
 import ROM from "./ROM";
 import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
-import { Int4 } from "./util";
+import { Int4, rangeObject } from "./util";
 
 type IntMasterEnableStateType = "DISABLED" | "WILL_ENABLE" | "WILL_ENABLE2" | "ENABLED";
 
@@ -41,14 +40,12 @@ const INTERRUPT_CALLS: [number, number][] = [
     [IFLAG_JOYPAD, 0x0060],
 ];
 
-type AddressData = [Addressable, number];
-
 class System implements Addressable {
     // Core components / memory
     protected rom: ROM;
     protected ppu: PPU;
-    protected wram: RAM = new RAM(WRAM_SIZE);
-    protected hram: RAM = new RAM(HRAM_SIZE);
+    protected wram: RAM = new CircularRAM(WRAM_SIZE, 0xc000);
+    protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
 
     // Interrupts
     protected intMasterEnable: IntMasterEnableStateType = "DISABLED"; // IME - master enable flag
@@ -75,6 +72,27 @@ class System implements Addressable {
         this.ppu = new PPU(output);
         this.apu = new APU(output);
         this.serialOut = output.serialOut;
+
+        this.addressesLastNibble = {
+            ...rangeObject(0x0, 0x7, this.rom),
+            ...rangeObject(0x8, 0x9, this.ppu),
+            ...rangeObject(0xa, 0xb, this.rom),
+            ...rangeObject(0xc, 0xe, this.wram), // wram and echo
+            0xf: undefined, // handled separately
+        };
+
+        this.addressesRegisters = {
+            0x00: this.joypad, // joypad
+            0x01: this.registerSerial, // SB - serial data
+            0x02: Register00, // CB - serial control
+            ...rangeObject(0x04, 0x07, this.timer), // timer registers
+            0x0f: this.intFlag, // IF
+            ...rangeObject(0x10, 0x26, this.apu), // actual apu registers
+            ...rangeObject(0x30, 0x3f, this.apu), // wave ram
+            ...rangeObject(0x40, 0x4b, this.ppu), // ppu registers
+            ...rangeObject(0x80, 0xfe, this.hram), // hram
+            0xff: this.intEnable, // IE
+        };
     }
 
     /** Ticks the whole system for the given number of cycles. */
@@ -88,101 +106,46 @@ class System implements Addressable {
     }
 
     /**
+     * Mapping of addressables dependending on the last (most significant) nibble of an address
+     * e.g. 0x0 to 0x7 maps to ROM, etc.
+     */
+    protected addressesLastNibble: Partial<Record<Int4, Addressable>>;
+    /**
+     * Mapping of addressables depending on the first (most significant) byte of an address -
+     * this is only applicable to the 0xff00 to 0xffff range.
+     * e.g. 0x00 maps to joypad, 0x01 maps to serial,0x04 to 0x07 maps to timer, etc.
+     */
+    protected addressesRegisters: Partial<Record<number, Addressable>>;
+
+    /**
      * Responsible for following the memory map.
      * @link https://gbdev.io/pandocs/Memory_Map.html#memory-map
      */
-    protected getAddress(pos: number): AddressData {
+    protected getAddress(pos: number): Addressable {
         if (pos < 0x0000 || pos > 0xffff)
             throw new Error(`Invalid address to read from ${pos.toString(16)}`);
 
-        // Checking leftmost symbol of address (X000)
-        switch ((pos >> 12) & (0xf as Int4)) {
-            case 0x0:
-            case 0x1:
-            case 0x2:
-            case 0x3:
-            case 0x4:
-            case 0x5:
-            case 0x6:
-            case 0x7:
-                return [this.rom, pos]; // ROM
-            case 0x8:
-            case 0x9:
-                return [this.ppu, pos]; // VRAM
-            case 0xa:
-            case 0xb:
-                return [this.rom, pos]; // ERAM
-            case 0xc:
-            case 0xd:
-                return [this.wram, pos & (WRAM_SIZE - 1)]; // WRAM
-            case 0xe:
-                return [this.wram, pos & (WRAM_SIZE - 1)]; // ECHO RAM
-            case 0xf:
-                break; // fall through - ECHO RAM + registers
-        }
+        // Checking last nibble
+        let addressable = this.addressesLastNibble[(pos >> 12) as Int4];
+        if (addressable) return addressable;
 
         // Echo RAM
-        if (pos <= 0xfdff) return [this.wram, pos & (WRAM_SIZE - 1)];
-
+        if (pos <= 0xfdff) return this.wram;
         // OAM
-        if (pos <= 0xfe9f) return [this.ppu, pos];
-
+        if (pos <= 0xfe9f) return this.ppu;
         // Illegal Area
-        if (pos <= 0xfeff) {
-            console.debug(
-                `Accessed illegal area ${pos.toString(16)}, returned a fake 0x00 register`
-            );
-            return [Register00, 0];
-        }
+        if (pos <= 0xfeff) return Register00;
 
         // Registers
-        switch (pos) {
-            case 0xff00:
-                return [this.joypad, pos];
-            case 0xff01:
-                return [this.registerSerial, pos];
-            case 0xff02:
-                return [Register00, pos];
-            case 0xff04:
-            case 0xff05:
-            case 0xff06:
-            case 0xff07:
-                return [this.timer, pos];
-            case 0xff40:
-            case 0xff41:
-            case 0xff42:
-            case 0xff43:
-            case 0xff44:
-            case 0xff45:
-            case 0xff46:
-            case 0xff47:
-            case 0xff48:
-            case 0xff49:
-            case 0xff4a:
-            case 0xff4b:
-                return [this.ppu, pos];
-            case 0xff0f:
-                return [this.intFlag, pos];
-            case 0xffff:
-                return [this.intEnable, pos];
-            default:
-                break;
-        }
-
-        // Audio registers
-        if (0xff10 <= pos && pos <= 0xff26) return [this.apu, pos];
-        // Audio wave
-        if (0xff30 <= pos && pos <= 0xff3f) return [this.apu, pos];
-
-        // High RAM (HRAM)
-        if (0xff80 <= pos && pos <= 0xfffe) return [this.hram, pos - 0xff80];
+        addressable = this.addressesRegisters[pos & 0xff];
+        if (addressable) return addressable;
 
         console.debug(
             `Accessed unmapped area ${pos
                 .toString(16)
                 .padStart(4, "0")}, return a fake 0xff register`
         );
-        return [RegisterFF, 0];
+        return RegisterFF;
     }
 
     /**
@@ -190,16 +153,14 @@ class System implements Addressable {
      * return the data belonging to the right component.
      */
     read(pos: number): number {
-        const [component, address] = this.getAddress(pos);
-        return component.read(address);
+        return this.getAddress(pos).read(pos);
     }
     /**
      * Write the 8-bit data at the given 16-bit address. This method will follow the memory map
      * and write the data in the right component.
      */
     write(pos: number, data: number): void {
-        const [component, address] = this.getAddress(pos);
-        component.write(address, data);
+        this.getAddress(pos).write(pos, data);
     }
 
     /**

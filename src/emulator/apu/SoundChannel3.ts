@@ -1,7 +1,6 @@
-import Addressable from "../Addressable";
-import { RAM } from "../Memory";
+import { CircularRAM, Addressable } from "../Memory";
 import { PaddedSubRegister, SubRegister } from "../Register";
-import { Int2, Int4 } from "../util";
+import { Int2, Int4, rangeObject } from "../util";
 import SoundChannel, { NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX0_DAC_FLAG = 1 << 7;
@@ -27,7 +26,16 @@ class SoundChannel3 extends SoundChannel {
     protected nrX2 = new PaddedSubRegister(0b1001_1111, 0xf3);
     protected nrX3 = new SubRegister(0xff);
     protected nrX4 = new PaddedSubRegister(0b0011_1000, 0xbf);
-    protected waveData = new RAM(16);
+    protected waveData = new CircularRAM(16, 0xff30);
+
+    protected addresses: Record<number, Addressable> = {
+        0xff1a: this.nrX0,
+        0xff1b: this.nrX1,
+        0xff1c: this.nrX2,
+        0xff1d: this.nrX3,
+        0xff1e: this.nrX4,
+        ...rangeObject(0xff30, 0xff3f, this.waveData),
+    };
 
     // For output
     protected ticksNextSample: number = 0;
@@ -67,25 +75,8 @@ class SoundChannel3 extends SoundChannel {
         this.ticksNextSample = frequency;
     }
 
-    protected address(pos: number): Addressable {
-        switch (pos) {
-            case 0xff1a:
-                return this.nrX0;
-            case 0xff1b:
-                return this.nrX1;
-            case 0xff1c:
-                return this.nrX2;
-            case 0xff1d:
-                return this.nrX3;
-            case 0xff1e:
-                return this.nrX4;
-        }
-        if (0xff30 <= pos && pos <= 0xff3f) return this.waveData;
-        throw new Error(`Invalid address passed to sound channel 3: ${pos.toString(16)}`);
-    }
-
     read(pos: number): number {
-        const component = this.address(pos);
+        const component = this.addresses[pos];
 
         // registers are write only
         if (component === this.nrX1 || component === this.nrX3) return 0xff;
@@ -94,13 +85,12 @@ class SoundChannel3 extends SoundChannel {
         // wave data is offset by 0xff30
         if (component === this.waveData) {
             // if (this.enabled) return this.lastReadByte;
-            pos -= 0xff30;
         }
         return component.read(pos);
     }
 
     write(pos: number, data: number): void {
-        const component = this.address(pos);
+        const component = this.addresses[pos];
 
         if (component === this.nrX0) {
             const oldDacState = this.nrX0.flag(NRX0_DAC_FLAG);
@@ -116,9 +106,6 @@ class SoundChannel3 extends SoundChannel {
                 this.stop();
                 this.start();
             }
-        }
-        if (component === this.waveData) {
-            pos -= 0xff30;
         }
         component.write(pos, data);
     }

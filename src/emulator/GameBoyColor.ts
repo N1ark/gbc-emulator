@@ -73,6 +73,7 @@ class GameBoyColor {
         this.system.pushOutput();
         this.output.frameDrawDuration &&
             this.output.frameDrawDuration(window.performance.now() - frameDrawStart);
+        this.output.stepCount && this.output.stepCount(this.cpu.getStepCounts());
         if (this.output.cyclesPerSec && Date.now() - this.cycleChrono.time >= 1000) {
             const count = this.cycleChrono.count;
             this.cycleChrono.time = Date.now();
@@ -86,10 +87,8 @@ class GameBoyColor {
     protected run() {
         try {
             if (!this.isRunning) return;
-            const breakpoint = this.drawFrame();
 
-            // Outputs
-            this.output.stepCount && this.output.stepCount(this.cpu.getStepCounts());
+            const breakpoint = this.drawFrame();
 
             if ((this.debug && !this.debug().skipDebug) || breakpoint) {
                 // force a "button up, button down, button up" cycle (ie full button press)
