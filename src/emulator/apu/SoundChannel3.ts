@@ -93,7 +93,7 @@ class SoundChannel3 extends SoundChannel {
         if (component === this.nrX4) return this.nrX4.get() | 0b1011_1111;
         // wave data is offset by 0xff30
         if (component === this.waveData) {
-            if (this.enabled) return this.lastReadByte;
+            // if (this.enabled) return this.lastReadByte;
             pos -= 0xff30;
         }
         return component.read(pos);

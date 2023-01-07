@@ -153,8 +153,13 @@ export class APU implements Addressable {
     write(pos: number, data: number): void {
         const component = this.address(pos);
 
-        // ignore writes to channel when turned off (except for NRX1)
-        if (!this.nr52.flag(NR52_APU_TOGGLE) && component !== this.nr52) return;
+        // ignore writes to channel when turned off (except for NRX1 and wave RAM)
+        if (
+            !this.nr52.flag(NR52_APU_TOGGLE) &&
+            component !== this.nr52 &&
+            !(0xff30 <= pos && pos <= 0xff3f)
+        )
+            return;
 
         if (component === this.nr52) {
             data = data & 0xf0; // lower 4 bits (status of channels) are read-only
