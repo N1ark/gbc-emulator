@@ -13,6 +13,7 @@ class Player {
 
     constructor() {
         this.context = new AudioContext();
+        this.context.resume();
         this.windowBlurListener = () => this.context?.suspend();
         this.windowFocusListener = () => this.context?.resume();
         window.addEventListener("blur", this.windowBlurListener, false);
