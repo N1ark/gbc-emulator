@@ -1,5 +1,5 @@
 import { FunctionalComponent } from "preact";
-import { useCallback, MutableRef, useRef, useEffect, useMemo } from "preact/hooks";
+import { useCallback, MutableRef, useRef, useEffect, useMemo, useState } from "preact/hooks";
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
 
 type ScreenProps = {
@@ -17,11 +17,15 @@ const Screen: FunctionalComponent<ScreenProps> = ({
     height = SCREEN_HEIGHT,
     scale = 1,
 }) => {
+    const [stateRefresh, setStateRefresh] = useState(0);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const newFrame = useMemo(() => {
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas) {
+            setStateRefresh((state) => state + 1);
+            return;
+        }
 
         const currentFrame = new Uint32Array(width * height);
         const previousFrame = new Uint32Array(width * height);
@@ -65,7 +69,7 @@ const Screen: FunctionalComponent<ScreenProps> = ({
                 bitmap.close();
             });
         };
-    }, [canvasRef.current, width, height, scale]);
+    }, [stateRefresh, canvasRef.current, width, height, scale]);
 
     useEffect(() => {
         inputRef.current = newFrame;

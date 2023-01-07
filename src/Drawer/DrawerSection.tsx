@@ -29,12 +29,8 @@ const DrawerSection: FunctionalComponent<DrawerSectionProps> = ({ title, childre
                     {isOpen.value ? <ChevronDown /> : <ChevronUp />}
                 </button>
             </div>
-            <div
-                className="drawer-content"
-                ref={contentRef}
-                style={{ maxHeight: isOpen.value ? contentRef.current?.scrollHeight : 0 }}
-            >
-                <div>{children}</div>
+            <div className="drawer-content">
+                {isOpen.value && <div ref={contentRef}>{children}</div>}
             </div>
         </div>
     );

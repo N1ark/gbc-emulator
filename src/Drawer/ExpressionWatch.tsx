@@ -6,7 +6,6 @@ type ExpressionWatchProps = {
     onChange: (expression: string) => void;
     label: string;
     onLabelChange: (label: string) => void;
-    updater: number;
 };
 
 const handleValue = (
@@ -28,7 +27,6 @@ const ExpressionWatch: FunctionalComponent<ExpressionWatchProps> = ({
     onChange,
     label,
     onLabelChange,
-    updater,
 }) => {
     const [func, setFunction] = useState<Function | null>(null);
     const [output, setOutput] = useState<string | null>(null);
@@ -42,15 +40,19 @@ const ExpressionWatch: FunctionalComponent<ExpressionWatchProps> = ({
     }, [expression]);
 
     useEffect(() => {
-        let value: typeof output;
-        try {
-            if (func === null) value = null;
-            else value = handleValue(func());
-        } catch {
-            value = null;
-        }
-        setOutput(value);
-    }, [updater, func]);
+        const callbackId = setInterval(() => {
+            let value: typeof output;
+            try {
+                if (func === null) value = null;
+                else value = handleValue(func());
+            } catch {
+                value = null;
+                setFunction(null);
+            }
+            setOutput(value);
+        }, 100);
+        return () => clearInterval(callbackId);
+    }, [func]);
 
     return (
         <div className="exp-watch">

@@ -4,13 +4,9 @@ import { FunctionalComponent } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import ExpressionWatch from "./ExpressionWatch";
 
-type ExpressionDrawerProps = {
-    updater: number;
-};
-
 const localStorageKey = "exp-drawer-list";
 
-const ExpressionDrawer: FunctionalComponent<ExpressionDrawerProps> = ({ updater }) => {
+const ExpressionDrawer: FunctionalComponent = () => {
     const expressionList = useSignal<[string, string][]>([]);
     useEffect(
         () =>
@@ -36,7 +32,6 @@ const ExpressionDrawer: FunctionalComponent<ExpressionDrawerProps> = ({ updater 
                         expressionList.value[i][1] = l;
                         saveToLocalStorage();
                     }}
-                    updater={updater}
                 />
             ))}
             <div className="drawer-section-title">

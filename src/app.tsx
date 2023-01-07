@@ -62,9 +62,9 @@ const App: FunctionalComponent = () => {
     const serialOut = useSignal("");
 
     // Debug state
-    const cyclesPerSec = useSignal(0);
-    const stepCount = useSignal(0);
-    const millisPerFrame = useSignal(0);
+    const cyclesPerSec = useRef<HTMLDivElement>(null);
+    const stepCount = useRef<HTMLDivElement>(null);
+    const millisPerFrame = useRef<HTMLDivElement>(null);
 
     const toggleHasSound = () => {
         hasSound.value = !hasSound.value;
@@ -126,9 +126,18 @@ const App: FunctionalComponent = () => {
                 get debugTileset() {
                     return tilesetDebugger.current;
                 },
-                stepCount: (x) => (stepCount.value = x),
-                cyclesPerSec: (x) => (cyclesPerSec.value = x),
-                frameDrawDuration: (x) => (millisPerFrame.value = x),
+                stepCount: (x) => {
+                    if (stepCount.current)
+                        stepCount.current.innerHTML = `${x.toLocaleString()} steps`;
+                },
+                cyclesPerSec: (x) => {
+                    if (cyclesPerSec.current)
+                        cyclesPerSec.current.innerHTML = `${x.toLocaleString()} cycles/s`;
+                },
+                frameDrawDuration: (x) => {
+                    if (millisPerFrame.current)
+                        millisPerFrame.current.innerHTML = `${x.toLocaleString()} ms/frame`;
+                },
             };
 
             const gbc = new GameBoyColor(rom, gameIn, gbOut, debug);
@@ -261,9 +270,9 @@ const App: FunctionalComponent = () => {
             {gameboy && (
                 <div id="emu-stack">
                     <div id="emu-stats">
-                        <div>{stepCount.value.toLocaleString()} steps</div>
-                        <div>{cyclesPerSec.value.toLocaleString()} C/s</div>
-                        <div>{millisPerFrame.value.toLocaleString()} ms/f</div>
+                        <div ref={stepCount} />
+                        <div ref={cyclesPerSec} />
+                        <div ref={millisPerFrame} />
                     </div>
                     <div id="emu-screens">
                         <Screen inputRef={emulatorFrameIn} scale={canvasScale.value + 1} />

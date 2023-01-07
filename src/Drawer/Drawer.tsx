@@ -9,24 +9,15 @@ type DrawerProps = {
     loadRom: (rom: Uint8Array) => void;
 };
 
-const Drawer: FunctionalComponent<DrawerProps> = ({ loadRom }) => {
-    const [ticker, setTicker] = useState<number>(0);
-
-    useEffect(() => {
-        const intervalId = setInterval(() => setTicker((p) => p + 1), 100);
-        return () => clearInterval(intervalId);
-    }, [setTicker]);
-
-    return (
-        <div id="drawer">
-            <DrawerSection title="watch expressions">
-                <ExpressionDrawer updater={ticker} />
-            </DrawerSection>
-            <DrawerSection title="test roms">
-                <TestDrawer loadRom={loadRom} />
-            </DrawerSection>
-        </div>
-    );
-};
+const Drawer: FunctionalComponent<DrawerProps> = ({ loadRom }) => (
+    <div id="drawer">
+        <DrawerSection title="watch expressions">
+            <ExpressionDrawer />
+        </DrawerSection>
+        <DrawerSection title="test roms">
+            <TestDrawer loadRom={loadRom} />
+        </DrawerSection>
+    </div>
+);
 
 export default Drawer;

@@ -32,7 +32,6 @@
 }
 
 .drawer-section > div:nth-child(2) {
-    transition: max-height 0.2s ease;
     overflow: hidden;
 }
 
