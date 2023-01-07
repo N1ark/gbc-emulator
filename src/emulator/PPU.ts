@@ -407,19 +407,18 @@ class PPU implements Addressable {
               0x9000 + asSignedInt8(n) * 16;
     }
 
-    tileCache: { [key in number]: { valid: boolean; data: Int2[][] } | undefined } = {};
+    protected tileCache: Record<number, { valid: boolean; data: Int2[][] }> = [
+        ...new Array(0x180),
+    ].map(() => ({
+        valid: false,
+        data: Array.from(Array(8), () => new Array(8)),
+    }));
 
     /**
      * Returns the tile data as a 2D 8x8 array of shades (0-3)
      */
     getTile(tileAddress: number): Int2[][] {
-        let cachedTile = this.tileCache[tileAddress >> 4];
-
-        // Create cached tile if not done
-        if (!cachedTile) {
-            cachedTile = { valid: false, data: Array.from(Array(8), () => new Array(8)) };
-            this.tileCache[tileAddress >> 4] = cachedTile;
-        }
+        let cachedTile = this.tileCache[(tileAddress >> 4) & 0x1ff];
 
         if (!cachedTile.valid) {
             // Draw the 8 lines of the tile
@@ -719,11 +718,10 @@ class PPU implements Addressable {
             // if in tile memory, dirty tile
             component === this.vram &&
             0x8000 <= address &&
-            address <= 0x9800 &&
+            address < 0x9800 &&
             data !== component.read(address)
         ) {
-            const cachedTile = this.tileCache[address >> 4];
-            if (cachedTile) cachedTile.valid = false;
+            this.tileCache[(address >> 4) & 0x1ff].valid = false;
         }
         if (component === this.lcdControl) {
             const isEnabled = this.lcdControl.flag(LCDC_LCD_ENABLE);

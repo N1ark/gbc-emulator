@@ -11,6 +11,24 @@ type ScreenProps = {
 
 export type VideoReceiver = (data: Uint32Array) => void;
 
+function mixImages(frame1: Uint32Array, frame2: Uint32Array, target: Uint32Array) {
+    for (let index = 0; index < frame1.length; index++) {
+        const r1 = (frame1[index] >> 16) & 0xff;
+        const g1 = (frame1[index] >> 8) & 0xff;
+        const b1 = (frame1[index] >> 0) & 0xff;
+
+        const r2 = (frame2[index] >> 16) & 0xff;
+        const g2 = (frame2[index] >> 8) & 0xff;
+        const b2 = (frame2[index] >> 0) & 0xff;
+
+        const r = Math.floor((r1 + r2) / 2);
+        const g = Math.floor((g1 + g2) / 2);
+        const b = Math.floor((b1 + b2) / 2);
+
+        target[index] = (0xff << 24) | (r << 16) | (g << 8) | b;
+    }
+}
+
 const Screen: FunctionalComponent<ScreenProps> = ({
     inputRef,
     width = SCREEN_WIDTH,
@@ -47,21 +65,7 @@ const Screen: FunctionalComponent<ScreenProps> = ({
             // We mix both frames into the previous one. This is needed because some games actually
             // flicker entities to display more sprites and have a darker color
             // (example: Link's Awakening chains)
-            previousFrame.forEach((value, index) => {
-                const r1 = (value >> 16) & 0xff;
-                const g1 = (value >> 8) & 0xff;
-                const b1 = (value >> 0) & 0xff;
-
-                const r2 = (currentFrame[index] >> 16) & 0xff;
-                const g2 = (currentFrame[index] >> 8) & 0xff;
-                const b2 = (currentFrame[index] >> 0) & 0xff;
-
-                const r = Math.floor((r1 + r2) / 2);
-                const g = Math.floor((g1 + g2) / 2);
-                const b = Math.floor((b1 + b2) / 2);
-
-                previousFrame[index] = (0xff << 24) | (r << 16) | (g << 8) | b;
-            });
+            mixImages(currentFrame, previousFrame, previousFrame);
 
             // Actual drawing to the canvas - we scale the image to fit the canvas
             createImageBitmap(imageData).then((bitmap) => {
