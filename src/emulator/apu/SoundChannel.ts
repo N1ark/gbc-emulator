@@ -2,13 +2,12 @@ import { CLOCK_SPEED } from "../constants";
 import { Addressable } from "../Memory";
 import { SubRegister } from "../Register";
 import System from "../System";
+import Timer from "../Timer";
 import { Int4 } from "../util";
 
 const FREQUENCY_SWEEP_PACE = 4;
 const FREQUENCY_ENVELOPE = 8;
 const FREQUENCY_LENGTH_TIMER = 2;
-
-const DIV_TICK_BIT = 1 << 4;
 
 const NRX4_RESTART_CHANNEL = 1 << 7;
 const NRX4_LENGTH_TIMER_FLAG = 1 << 6;
@@ -26,7 +25,6 @@ abstract class SoundChannel implements Addressable {
     // State
     protected enabled = false;
     protected onStateChange: (state: boolean) => void;
-    protected oldDivBitState = false;
 
     // Counters
     protected lengthTimerCounter: number = 0;
@@ -39,13 +37,9 @@ abstract class SoundChannel implements Addressable {
      * Ticks the whole channel. This method should not be overrided by subclasses - for ticking
      * behavior, override doTick instead.
      */
-    tick(system: System): void {
-        const divBitState = (system.read(0xff04) & DIV_TICK_BIT) === DIV_TICK_BIT;
-        const divChanged = !divBitState && this.oldDivBitState;
-        this.oldDivBitState = divBitState;
-
+    tick(divChanged: boolean): void {
         // Ticks even when disabled
-        this.tickLengthTimer(divChanged);
+        if (divChanged) this.tickLengthTimer();
 
         if (!this.enabled) return;
         this.doTick(divChanged);
@@ -54,9 +48,9 @@ abstract class SoundChannel implements Addressable {
     /**
      * Ticks the length timer.
      */
-    private tickLengthTimer(divChanged: boolean): void {
+    private tickLengthTimer(): void {
         // Tick length timer
-        if (divChanged && ++this.lengthTimerCounter >= FREQUENCY_LENGTH_TIMER) {
+        if (++this.lengthTimerCounter >= FREQUENCY_LENGTH_TIMER) {
             this.lengthTimerCounter = 0;
             if (this.nrX4.flag(NRX4_LENGTH_TIMER_FLAG)) {
                 const timerBits = this.NRX1_LENGTH_TIMER_BITS;

@@ -86,28 +86,20 @@ class Timer implements Addressable {
         this.previousDivider = this.divider.get();
     }
 
-    protected address(pos: number): SubRegister {
-        switch (pos) {
-            case 0xff04:
-                return this.divider.h; // we only ever read the upper 8 bits of the divider
-            case 0xff05:
-                return this.timerCounter;
-            case 0xff06:
-                return this.timerModulo;
-            case 0xff07:
-                return this.timerControl;
-            default:
-                throw new Error(`Invalid address given to timer: ${pos.toString(16)}`);
-        }
-    }
+    protected addresses: Record<number, SubRegister> = {
+        0xff04: this.divider.h, // we only ever read the upper 8 bits of the divider
+        0xff05: this.timerCounter,
+        0xff06: this.timerModulo,
+        0xff07: this.timerControl,
+    };
 
     read(pos: number): number {
-        return this.address(pos).get();
+        return this.addresses[pos].get();
     }
 
     write(pos: number, data: number): void {
         // Trying to write anything to DIV clears it.
-        const register = this.address(pos);
+        const register = this.addresses[pos];
         if (register === this.divider.h) {
             this.divider.set(0);
         } else if (register === this.timerCounter) {

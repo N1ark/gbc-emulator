@@ -99,7 +99,7 @@ class System implements Addressable {
     tick() {
         this.ppu.tick(this);
         this.timer.tick(this);
-        this.apu.tick(this);
+        this.apu.tick(this.timer);
 
         // Tick IME
         this.intMasterEnable = IntMasterEnableState[this.intMasterEnable];

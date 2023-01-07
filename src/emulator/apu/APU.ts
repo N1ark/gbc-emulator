@@ -2,12 +2,12 @@ import { Addressable } from "../Memory";
 import { CLOCK_SPEED, FRAME_RATE } from "../constants";
 import GameBoyOutput from "../GameBoyOutput";
 import { PaddedSubRegister, SubRegister } from "../Register";
-import System from "../System";
 import { Int4, rangeObject } from "../util";
 import SoundChannel1 from "./SoundChannel1";
 import SoundChannel2 from "./SoundChannel2";
 import SoundChannel3 from "./SoundChannel3";
 import SoundChannel4 from "./SoundChannel4";
+import Timer from "../Timer";
 
 const SAMPLE_RATE = 44100;
 
@@ -24,6 +24,8 @@ const NR52_CHAN1_ON = 1 << 0;
 const NR52_CHAN2_ON = 1 << 1;
 const NR52_CHAN3_ON = 1 << 2;
 const NR52_CHAN4_ON = 1 << 3;
+
+const DIV_TICK_BIT = 1 << 4;
 
 /**
  * Converts a digital value in 0 - F into an analog value in -1 - 0 (negative slope)
@@ -48,6 +50,9 @@ export class APU implements Addressable {
     /** Status and control register */
     protected nr52 = new PaddedSubRegister(0b0111_0000, 0xf1);
 
+    /** Ticking control */
+    protected oldDivBitState = false;
+
     /** Audio output */
     protected cyclesForSample: number = 0;
     protected sampleIndex: number = 0;
@@ -61,14 +66,18 @@ export class APU implements Addressable {
     /**
      * Ticks the APU system.
      */
-    tick(system: System): void {
+    tick(timer: Timer): void {
         // Turned off
         if (!this.nr52.flag(NR52_APU_TOGGLE)) return;
 
-        this.channel1.tick(system);
-        this.channel2.tick(system);
-        this.channel3.tick(system);
-        this.channel4.tick(system);
+        const divBitState = (timer.read(0xff04) & DIV_TICK_BIT) === DIV_TICK_BIT;
+        const divChanged = !divBitState && this.oldDivBitState;
+        this.oldDivBitState = divBitState;
+
+        this.channel1.tick(divChanged);
+        this.channel2.tick(divChanged);
+        this.channel3.tick(divChanged);
+        this.channel4.tick(divChanged);
 
         if (++this.cyclesForSample === CYCLES_PER_SAMPLE) {
             this.cyclesForSample = 0;
