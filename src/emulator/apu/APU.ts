@@ -1,9 +1,9 @@
 import Addressable from "../Addressable";
 import { CLOCK_SPEED, FRAME_RATE } from "../constants";
+import GameBoyOutput from "../GameBoyOutput";
 import { PaddedSubRegister, SubRegister } from "../Register";
 import System from "../System";
 import { Int4 } from "../util";
-import Player from "./Player";
 import SoundChannel1 from "./SoundChannel1";
 import SoundChannel2 from "./SoundChannel2";
 import SoundChannel3 from "./SoundChannel3";
@@ -14,11 +14,9 @@ const SAMPLE_RATE = 44100;
 /**
  * Cycles for one full sample at 44.1Hz
  * - We divide clock speed by 4 to get M-cycles
- * - We add a tolerance of 0.9, meaning there will be 10% of samples thrown away - this helps
- *   ensure the audio buffer never get empty (or don't get empty as often).
  */
-const CYCLES_PER_SAMPLE = Math.floor((CLOCK_SPEED / 4 / SAMPLE_RATE) * 0.9);
-/** Frequency at which we push new sound samples */
+const CYCLES_PER_SAMPLE = Math.floor(CLOCK_SPEED / 4 / SAMPLE_RATE);
+/** Number of values in a "frame-wide" sample  */
 const SAMPLE_SIZE = Math.floor(SAMPLE_RATE / FRAME_RATE);
 
 const NR52_APU_TOGGLE = 1 << 7;
@@ -53,25 +51,17 @@ export class APU implements Addressable {
     /** Audio output */
     protected cyclesForSample: number = 0;
     protected sampleIndex: number = 0;
-    protected player: Player | null = null;
     protected audioBuffer = new Float32Array(SAMPLE_SIZE);
+    protected output: GameBoyOutput;
 
-    constructor() {
+    constructor(output: GameBoyOutput) {
+        this.output = output;
         const makeChangeHandler = (flag: number) => (state: boolean) =>
             this.nr52.sflag(flag, state);
         this.channel1 = new SoundChannel1(makeChangeHandler(NR52_CHAN1_ON));
         this.channel2 = new SoundChannel2(makeChangeHandler(NR52_CHAN2_ON));
         this.channel3 = new SoundChannel3(makeChangeHandler(NR52_CHAN3_ON));
         this.channel4 = new SoundChannel4(makeChangeHandler(NR52_CHAN4_ON));
-    }
-
-    addAudioContext() {
-        if (!this.player) this.player = new Player();
-    }
-
-    removeAudio() {
-        this.player?.delete();
-        this.player = null;
     }
 
     /**
@@ -98,9 +88,8 @@ export class APU implements Addressable {
 
             if (++this.sampleIndex === SAMPLE_SIZE) {
                 this.sampleIndex = 0;
-
-                if (this.player) {
-                    this.player.enqueue(this.audioBuffer);
+                if (this.output.receiveSound) {
+                    this.output.receiveSound(this.audioBuffer);
                 }
             }
         }

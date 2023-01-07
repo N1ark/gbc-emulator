@@ -29,16 +29,16 @@ class Player {
     enqueue(sample: Float32Array) {
         // Not allowed to have more than 8 samples in the queue, to avoid delay
         if (this.enqued > 8 || !this.context) {
-            console.log(`skiped enque, ${this.enqued} / ${this.context}`);
             return;
         }
 
         this.enqued++;
 
+        const sampleDuration = sample.length / 44100;
         const startTime =
             this.lastPlayEnd && this.lastPlayEnd >= this.context.currentTime
-                ? this.lastPlayEnd + sample.length / 44100
-                : this.context.currentTime;
+                ? this.lastPlayEnd + sampleDuration
+                : this.context.currentTime + sampleDuration; // add a delay to start
         this.lastPlayEnd = startTime;
 
         // Create the buffer

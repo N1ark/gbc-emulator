@@ -26,6 +26,7 @@ import GameBoyInput from "./emulator/GameBoyInput";
 import GameBoyOutput from "./emulator/GameBoyOutput";
 import setupTests from "./tests";
 import Drawer from "./Drawer/Drawer";
+import Player from "./Player";
 
 const CACHE_KEY = "rom";
 
@@ -48,6 +49,7 @@ const App: FunctionalComponent = () => {
     const canStep = useSignal(true);
     const hasSound = useSignal(false);
     const canvasScale = useSignal<0 | 1 | 2>(1);
+    const soundOutput = useSignal<Player | undefined>(undefined);
 
     // DOM Refs
     const emulatorFrameIn = useRef<VideoReceiver | undefined>(undefined);
@@ -63,6 +65,16 @@ const App: FunctionalComponent = () => {
     const cyclesPerSec = useSignal(0);
     const stepCount = useSignal(0);
     const millisPerFrame = useSignal(0);
+
+    const toggleHasSound = () => {
+        hasSound.value = !hasSound.value;
+        if (hasSound.value) {
+            soundOutput.value = new Player();
+        } else {
+            soundOutput.value?.delete();
+            delete soundOutput.value;
+        }
+    };
 
     /**
      * Loads a ROM into the gameboy, instantiating it. Also creates the 2nd emulator if needed
@@ -102,7 +114,7 @@ const App: FunctionalComponent = () => {
                 get receive() {
                     return emulatorFrameIn.current;
                 },
-                hasSoundEnabled: () => hasSound.value,
+                receiveSound: (d) => soundOutput.value?.enqueue(d),
                 serialOut: (d) => (serialOut.value += String.fromCharCode(d)),
                 errorOut: (e) => {
                     serialOut.value = `${e}`;
@@ -209,11 +221,7 @@ const App: FunctionalComponent = () => {
                     <Redo />
                 </button>
 
-                <button
-                    title="Sound"
-                    className="icon-button"
-                    onClick={() => (hasSound.value = !hasSound.value)}
-                >
+                <button title="Sound" className="icon-button" onClick={toggleHasSound}>
                     {hasSound.value ? <Volume2 /> : <VolumeX />}
                 </button>
 

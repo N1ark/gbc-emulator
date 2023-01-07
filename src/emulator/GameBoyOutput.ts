@@ -15,9 +15,10 @@ interface GameBoyOutput {
     debugTileset?(data: Uint32Array): void;
 
     /**
-     * Optional method that returns whether or not sound is enabled (false by default).
+     * Optional method that receives a sample of sound. The emulator produces samples at a
+     * 44.1Hz rate, and outputs them every 60th of a second (ie. every frame).
      */
-    hasSoundEnabled?(): boolean;
+    receiveSound?(data: Float32Array): void;
 
     /**
      * Optional method that receives the serial output of the gameboy, character by character.

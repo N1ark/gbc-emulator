@@ -57,12 +57,8 @@ class System implements Addressable {
 
     // Devices
     protected timer = new Timer();
-    protected apu = new APU();
+    protected apu: APU;
     protected joypad: JoypadInput;
-
-    // Sound Out
-    protected wasSoundOn: boolean = false;
-    protected hasSound: undefined | (() => boolean);
 
     // Registers + Utility Registers
     protected registerSerial: Addressable = {
@@ -77,7 +73,7 @@ class System implements Addressable {
         this.rom = new ROM(rom);
         this.joypad = new JoypadInput(input);
         this.ppu = new PPU(output);
-        this.hasSound = output.hasSoundEnabled;
+        this.apu = new APU(output);
         this.serialOut = output.serialOut;
     }
 
@@ -86,12 +82,6 @@ class System implements Addressable {
         this.ppu.tick(this);
         this.timer.tick(this);
         this.apu.tick(this);
-
-        if (this.hasSound && this.wasSoundOn !== this.hasSound()) {
-            this.wasSoundOn = this.hasSound();
-            if (this.wasSoundOn) this.apu.addAudioContext();
-            else this.apu.removeAudio();
-        }
 
         // Tick IME
         this.intMasterEnable = IntMasterEnableState[this.intMasterEnable];
