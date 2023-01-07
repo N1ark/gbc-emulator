@@ -43,9 +43,7 @@ class SoundChannel2 extends SoundChannel {
     protected envelopeVolumeSteps: number = 0;
     protected envelopeVolume: Int4 = 0;
 
-    override doTick(divChanged: boolean): void {
-        super.doTick(divChanged);
-
+    protected override doTick(divChanged: boolean): void {
         if (this.waveStepSubsteps++ >= this.ticksPerWaveStep) {
             this.waveStepSubsteps = 0;
             this.waveStep = (this.waveStep + 1) % 8;

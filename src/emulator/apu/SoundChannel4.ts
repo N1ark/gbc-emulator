@@ -39,16 +39,14 @@ class SoundChannel4 extends SoundChannel {
     protected ticksForLfsr: number = 0;
     protected lfsr: number = 0x00;
 
-    override doTick(divChanged: boolean) {
-        super.doTick(divChanged);
-
+    protected override doTick(divChanged: boolean) {
         if (divChanged && this.envelopeVolumeSteps-- <= 0 && (this.cachedNRX2 & 0b111) !== 0) {
             const direction = (this.cachedNRX2 & 0b0000_1000) === 0 ? -1 : 1;
             this.envelopeVolume = clamp(this.envelopeVolume + direction, 0x0, 0xf) as Int4;
             this.envelopeVolumeSteps = FREQUENCY_ENVELOPE * (this.cachedNRX2 & 0b111);
         }
 
-        if (this.ticksForLfsr-- <= 0) {
+        if (--this.ticksForLfsr <= 0) {
             this.refreshLsfrTicks();
             const lfsrBit = ~(this.lfsr ^ (this.lfsr >> 1)) & 1;
             const shortMode = this.nrX3.flag(NRX3_LFSR_SHORT_MODE);

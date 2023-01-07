@@ -29,7 +29,7 @@ class SoundChannel1 extends SoundChannel2 {
     // Wavelength sweep pace
     protected waveSweepCounter: number = 0;
 
-    override doTick(divChanged: boolean): void {
+    protected override doTick(divChanged: boolean): void {
         super.doTick(divChanged);
         if (divChanged && --this.waveSweepCounter <= 0) {
             this.resetSweepPaceCounter(); // Will set to -1 if disabled, positive number

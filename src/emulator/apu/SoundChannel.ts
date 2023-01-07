@@ -1,5 +1,5 @@
-import Addressable from "../Addressable";
 import { CLOCK_SPEED } from "../constants";
+import { Addressable } from "../Memory";
 import { SubRegister } from "../Register";
 import System from "../System";
 import { Int4 } from "../util";
@@ -76,7 +76,7 @@ abstract class SoundChannel implements Addressable {
      * behavior.
      * @param divChanged Whether the DIV has ticked (ie. bit 4 went from 1 to 0)
      */
-    protected doTick(divChanged: boolean): void {}
+    protected abstract doTick(divChanged: boolean): void;
 
     getOutput(): Int4 {
         return this.enabled ? this.getSample() : 0;
