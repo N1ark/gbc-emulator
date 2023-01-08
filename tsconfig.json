@@ -15,8 +15,9 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "preact"
+    "jsxImportSource": "preact",
+    "baseUrl": "src"
   },
-  "include": ["src"],
+  "include": ["src", "src/**/*.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
