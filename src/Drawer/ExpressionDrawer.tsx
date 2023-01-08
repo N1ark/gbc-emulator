@@ -7,6 +7,7 @@ import ExpressionWatch from "./ExpressionWatch";
 const localStorageKey = "exp-drawer-list";
 
 const ExpressionDrawer: FunctionalComponent = () => {
+    const refresh = useState(0)[1];
     const expressionList = useSignal<[string, string][]>([]);
     useEffect(
         () =>
@@ -26,11 +27,13 @@ const ExpressionDrawer: FunctionalComponent = () => {
                     onChange={(e) => {
                         expressionList.value[i][0] = e;
                         saveToLocalStorage();
+                        refresh((r) => r + 1);
                     }}
                     label={label}
                     onLabelChange={(l) => {
                         expressionList.value[i][1] = l;
                         saveToLocalStorage();
+                        refresh((r) => r + 1);
                     }}
                 />
             ))}

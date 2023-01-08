@@ -47,7 +47,6 @@ const ExpressionWatch: FunctionalComponent<ExpressionWatchProps> = ({
                 else value = handleValue(func());
             } catch {
                 value = null;
-                setFunction(null);
             }
             setOutput(value);
         }, 100);
