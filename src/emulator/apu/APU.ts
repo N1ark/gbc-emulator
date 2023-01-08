@@ -15,7 +15,7 @@ const SAMPLE_RATE = 44100;
  * Cycles for one full sample at 44.1Hz
  * - We divide clock speed by 4 to get M-cycles
  */
-const CYCLES_PER_SAMPLE = Math.floor(CLOCK_SPEED / 4 / SAMPLE_RATE);
+const CYCLES_PER_SAMPLE = CLOCK_SPEED / 4 / SAMPLE_RATE;
 /** Number of values in a "frame-wide" sample  */
 const SAMPLE_SIZE = Math.floor(SAMPLE_RATE / FRAME_RATE);
 
@@ -79,8 +79,8 @@ export class APU implements Addressable {
         this.channel3.tick(divChanged);
         this.channel4.tick(divChanged);
 
-        if (++this.cyclesForSample === CYCLES_PER_SAMPLE) {
-            this.cyclesForSample = 0;
+        if (++this.cyclesForSample >= CYCLES_PER_SAMPLE) {
+            this.cyclesForSample -= CYCLES_PER_SAMPLE;
 
             this.audioBuffer[this.sampleIndex] =
                 (DAC(this.channel1.getOutput()) +

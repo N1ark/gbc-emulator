@@ -47,7 +47,8 @@ class Timer implements Addressable {
         const bitStateBefore = (this.previousDivider >> checkedBit) & 1;
 
         // Increase internal counter, update DIV
-        this.divider.set(wrap16(this.divider.get() + 4));
+        const newDivider = wrap16(this.divider.get() + 4);
+        this.divider.set(newDivider);
 
         // Check overflow + interrupt
         this.previousTimerOverflowed = false;
@@ -61,7 +62,7 @@ class Timer implements Addressable {
 
         // Increase TIMA
         // Several edge-y cases can toggle a timer increase:
-        const bitStateAfter = (this.divider.get() >> checkedBit) & 1;
+        const bitStateAfter = (newDivider >> checkedBit) & 1;
         const timerIsEnabled = this.timerControl.flag(TIMER_ENABLE_FLAG);
         const timerWasEnabled = (this.previousTimerControl & TIMER_ENABLE_FLAG) !== 0;
         let timerNeedsIncrease = false;
@@ -83,7 +84,7 @@ class Timer implements Addressable {
         }
 
         this.previousTimerControl = this.timerControl.get();
-        this.previousDivider = this.divider.get();
+        this.previousDivider = newDivider;
     }
 
     protected addresses: Record<number, SubRegister> = {
