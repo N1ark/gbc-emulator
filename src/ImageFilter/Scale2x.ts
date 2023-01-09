@@ -9,20 +9,14 @@ class Scale2x extends ImageFilter {
         return [this.width * 2, this.height * 2];
     }
 
-    read(image: Uint32Array, x: number, y: number, or: number): number {
-        return 0 <= x && x < this.width && 0 <= y && y <= this.height
-            ? image[x + y * this.width]
-            : or;
-    }
-
     override apply(image: Uint32Array): void {
-        for (let x = 0; x < this.width; x++) {
-            for (let y = 0; y < this.height; y++) {
-                const value = image[x + y * this.width];
-                const n = this.read(image, x, y - 1, value);
-                const s = this.read(image, x, y + 1, value);
-                const w = this.read(image, x - 1, y, value);
-                const e = this.read(image, x + 1, y, value);
+        for (let y = 0; y < this.height; y++) {
+            let value = image[y * this.width];
+            let w = value;
+            let e = image[y * this.width + 1];
+            for (let x = 0; x < this.width; x++) {
+                const n = y - 1 < 0 ? value : image[x + (y - 1) * this.width];
+                const s = y + 1 >= this.height ? value : image[x + (y + 1) * this.width];
                 if (n !== s && w !== e) {
                     this.output[x * 2 + y * 2 * this.width * 2] = w === n ? w : value;
                     this.output[x * 2 + 1 + y * 2 * this.width * 2] = n === e ? e : value;
@@ -34,6 +28,10 @@ class Scale2x extends ImageFilter {
                     this.output[x * 2 + (y * 2 + 1) * this.width * 2] = value;
                     this.output[x * 2 + 1 + (y * 2 + 1) * this.width * 2] = value;
                 }
+
+                w = value;
+                value = e;
+                e = x + 2 >= this.width ? value : image[x + 2 + y * this.width];
             }
         }
     }
