@@ -51,12 +51,12 @@ const Screen: FunctionalComponent<ScreenProps> = ({
         const currentFrame = new Uint32Array(width * height);
         const previousFrame = new Uint32Array(width * height);
 
-        const targetWidth = width * scale;
-        const targetHeight = height * scale;
         const filterInstance = new Filter(width, height);
         const dataAsUint8 = new Uint8ClampedArray(filterInstance.output.buffer);
         const imageData = new ImageData(dataAsUint8, ...filterInstance.outputSize);
 
+        const targetWidth = width * scale * window.devicePixelRatio;
+        const targetHeight = height * scale * window.devicePixelRatio;
 
         return (data: Uint32Array) => {
             const context = canvas.getContext("2d", { alpha: false });
@@ -88,7 +88,17 @@ const Screen: FunctionalComponent<ScreenProps> = ({
         return () => (inputRef.current = undefined);
     }, [inputRef, newFrame]);
 
-    return <canvas ref={canvasRef} width={width * scale} height={height * scale} />;
+    return (
+        <canvas
+            ref={canvasRef}
+            width={width * scale * window.devicePixelRatio}
+            height={height * scale * window.devicePixelRatio}
+            style={{
+                width: width * scale,
+                height: height * scale,
+            }}
+        />
+    );
 };
 
 export default Screen;
