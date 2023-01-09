@@ -10,7 +10,7 @@ import {
     VolumeX,
     Dice1,
     Dice2,
-    Dice3,
+    Dice4,
 } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
@@ -261,7 +261,7 @@ const App: FunctionalComponent = () => {
                         {
                             0: <Dice1 />,
                             1: <Dice2 />,
-                            2: <Dice3 />,
+                            2: <Dice4 />,
                         }[canvasScale.value]
                     }
                 </button>
@@ -275,7 +275,7 @@ const App: FunctionalComponent = () => {
                         <div ref={millisPerFrame} />
                     </div>
                     <div id="emu-screens">
-                        <Screen inputRef={emulatorFrameIn} scale={canvasScale.value + 1} />
+                        <Screen inputRef={emulatorFrameIn} scale={1 << canvasScale.value} />
                         {debugEnabled.value && (
                             <>
                                 <Screen width={256} height={256} inputRef={bgDebugger} />
