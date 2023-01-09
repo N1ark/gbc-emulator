@@ -27,6 +27,7 @@ import GameBoyOutput from "./emulator/GameBoyOutput";
 import setupTests from "./tests";
 import Drawer from "./Drawer/Drawer";
 import Player from "./Player";
+import { Identity, ImageFilter } from "./ImageFilter";
 
 const CACHE_KEY = "rom";
 
@@ -50,6 +51,7 @@ const App: FunctionalComponent = () => {
     const hasSound = useSignal(false);
     const canvasScale = useSignal<0 | 1 | 2>(1);
     const soundOutput = useSignal<Player | undefined>(undefined);
+    const filter = useSignal<ImageFilter>(Identity);
 
     // DOM Refs
     const emulatorFrameIn = useRef<VideoReceiver | undefined>(undefined);
@@ -203,7 +205,11 @@ const App: FunctionalComponent = () => {
 
     return (
         <>
-            <Drawer loadRom={(rom) => loadGame(rom)} />
+            <Drawer
+                loadRom={(rom) => loadGame(rom)}
+                currentFilter={filter.value}
+                setFilter={(f) => (filter.value = f)}
+            />
 
             <h1>Emmy</h1>
             <h2>The GBC Browser Emulator</h2>
@@ -275,7 +281,11 @@ const App: FunctionalComponent = () => {
                         <div ref={millisPerFrame} />
                     </div>
                     <div id="emu-screens">
-                        <Screen inputRef={emulatorFrameIn} scale={1 << canvasScale.value} />
+                        <Screen
+                            inputRef={emulatorFrameIn}
+                            scale={1 << canvasScale.value}
+                            Filter={filter.value}
+                        />
                         {debugEnabled.value && (
                             <>
                                 <Screen width={256} height={256} inputRef={bgDebugger} />

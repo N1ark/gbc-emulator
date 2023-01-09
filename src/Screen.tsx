@@ -1,12 +1,14 @@
 import { FunctionalComponent } from "preact";
 import { useCallback, MutableRef, useRef, useEffect, useMemo, useState } from "preact/hooks";
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
+import { Identity, ImageFilter } from "./ImageFilter";
 
 type ScreenProps = {
     width?: number;
     height?: number;
     scale?: number;
     inputRef: MutableRef<VideoReceiver | undefined>;
+    Filter?: ImageFilter;
 };
 
 export type VideoReceiver = (data: Uint32Array) => void;
@@ -34,6 +36,7 @@ const Screen: FunctionalComponent<ScreenProps> = ({
     width = SCREEN_WIDTH,
     height = SCREEN_HEIGHT,
     scale = 1,
+    Filter = Identity,
 }) => {
     const [stateRefresh, setStateRefresh] = useState(0);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -47,11 +50,13 @@ const Screen: FunctionalComponent<ScreenProps> = ({
 
         const currentFrame = new Uint32Array(width * height);
         const previousFrame = new Uint32Array(width * height);
-        const dataAsUint8 = new Uint8ClampedArray(previousFrame.buffer);
-        const imageData = new ImageData(dataAsUint8, width, height);
 
         const targetWidth = width * scale;
         const targetHeight = height * scale;
+        const filterInstance = new Filter(width, height);
+        const dataAsUint8 = new Uint8ClampedArray(filterInstance.output.buffer);
+        const imageData = new ImageData(dataAsUint8, ...filterInstance.outputSize);
+
 
         return (data: Uint32Array) => {
             const context = canvas.getContext("2d", { alpha: false });
@@ -67,13 +72,16 @@ const Screen: FunctionalComponent<ScreenProps> = ({
             // (example: Link's Awakening chains)
             mixImages(currentFrame, previousFrame, previousFrame);
 
+            // We apply the filter to the frame
+            filterInstance.apply(previousFrame);
+
             // Actual drawing to the canvas - we scale the image to fit the canvas
             createImageBitmap(imageData).then((bitmap) => {
                 context.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
                 bitmap.close();
             });
         };
-    }, [stateRefresh, canvasRef.current, width, height, scale]);
+    }, [stateRefresh, canvasRef.current, width, height, scale, Filter]);
 
     useEffect(() => {
         inputRef.current = newFrame;
