@@ -2,6 +2,7 @@ import { useSignal } from "@preact/signals";
 import { Plus, Trash } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import IconButton from "../IconButton";
 import ExpressionWatch from "./ExpressionWatch";
 
 const localStorageKey = "exp-drawer-list";
@@ -39,23 +40,19 @@ const ExpressionDrawer: FunctionalComponent = () => {
             ))}
             <div className="drawer-section-title">
                 <div>Add/Remove:</div>
-                <button
+                <IconButton
                     title="Add"
-                    className="icon-button"
+                    Icon={Plus}
                     onClick={() => (expressionList.value = [...expressionList.value, ["", ""]])}
-                >
-                    <Plus />
-                </button>
+                />
                 {expressionList.value.length > 0 && (
-                    <button
+                    <IconButton
                         title="Delete"
-                        className="icon-button"
+                        Icon={Trash}
                         onClick={() =>
                             (expressionList.value = expressionList.value.slice(0, -1))
                         }
-                    >
-                        <Trash />
-                    </button>
+                    />
                 )}
             </div>
         </div>

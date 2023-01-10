@@ -2,6 +2,7 @@ import { Circle, CircleDot, Grid, Square, Target } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useEffect } from "preact/hooks";
 import Grid2x from "../Grid2x";
+import IconButton from "../IconButton";
 import { Identity, ImageFilter, Scale2x, Scale4x } from "../ImageFilter";
 
 type GraphicsDrawerProps = {
@@ -45,27 +46,24 @@ const GraphicsDrawer: FunctionalComponent<GraphicsDrawerProps> = ({
         <div>
             <div className="drawer-section-title">
                 <div>Filter:</div>
-                <button
+                <IconButton
                     title="identity"
-                    className={`icon-button ${currentFilter === Identity ? "toggled" : ""}`}
+                    toggled={currentFilter === Identity}
+                    Icon={Square}
                     onClick={() => setFilter(Identity)}
-                >
-                    <Square />
-                </button>
-                <button
+                />
+                <IconButton
                     title="scale2x"
-                    className={`icon-button ${currentFilter === Scale2x ? "toggled" : ""}`}
+                    toggled={currentFilter === Scale2x}
+                    Icon={Grid2x}
                     onClick={() => setFilter(Scale2x)}
-                >
-                    <Grid2x />
-                </button>
-                <button
+                />
+                <IconButton
                     title="scale4x"
-                    className={`icon-button ${currentFilter === Scale4x ? "toggled" : ""}`}
+                    toggled={currentFilter === Scale4x}
+                    Icon={Grid}
                     onClick={() => setFilter(Scale4x)}
-                >
-                    <Grid />
-                </button>
+                />
             </div>
         </div>
     );

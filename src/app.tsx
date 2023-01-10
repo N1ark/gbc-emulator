@@ -28,6 +28,7 @@ import setupTests from "./tests";
 import Drawer from "./Drawer/Drawer";
 import Player from "./Player";
 import { Identity, ImageFilter } from "./ImageFilter";
+import IconButton from "./IconButton";
 
 const CACHE_KEY = "rom";
 
@@ -211,105 +212,99 @@ const App: FunctionalComponent = () => {
                 setFilter={(f) => (filter.value = f)}
             />
 
-            <h1>Emmy</h1>
-            <h2>The GBC Browser Emulator</h2>
+            <div id="emulator">
+                <h1>Emmy</h1>
+                <h2>The GBC Browser Emulator</h2>
 
-            <RomInput type="gb" onLoad={loadRom} />
+                <RomInput type="gb" onLoad={loadRom} />
 
-            <div id="emu-options">
-                <button
-                    title="Play/Pause"
-                    className="icon-button"
-                    onClick={() =>
-                        (emulatorRunning.value = canStep.value = !emulatorRunning.value)
-                    }
-                >
-                    {emulatorRunning.value ? <Pause /> : <Play />}
-                </button>
+                <div id="emu-options">
+                    <IconButton
+                        title="Play/Pause"
+                        Icon={emulatorRunning.value ? Pause : Play}
+                        onClick={() =>
+                            (emulatorRunning.value = canStep.value = !emulatorRunning.value)
+                        }
+                    />
 
-                <button
-                    title="Step"
-                    className="icon-button"
-                    onClick={() => (canStep.value = true)}
-                    disabled={emulatorRunning.value}
-                >
-                    <Redo />
-                </button>
+                    <IconButton
+                        title="Step"
+                        Icon={Redo}
+                        onClick={() => (canStep.value = true)}
+                        disabled={emulatorRunning.value}
+                    />
 
-                <button title="Sound" className="icon-button" onClick={toggleHasSound}>
-                    {hasSound.value ? <Volume2 /> : <VolumeX />}
-                </button>
+                    <IconButton
+                        title="Sound"
+                        onClick={toggleHasSound}
+                        Icon={hasSound.value ? Volume2 : VolumeX}
+                    />
 
-                <button
-                    title="Debug"
-                    className={`icon-button ${debugEnabled.value ? "toggled" : ""}`}
-                    onClick={() => (debugEnabled.value = !debugEnabled.value)}
-                >
-                    <Bug />
-                </button>
+                    <IconButton
+                        title="Debug"
+                        onClick={() => (debugEnabled.value = !debugEnabled.value)}
+                        Icon={Bug}
+                        toggled={debugEnabled.value}
+                    />
 
-                <button
-                    title="Double Speed"
-                    className={`icon-button ${tripleSpeed.value ? "toggled" : ""}`}
-                    onClick={() => (tripleSpeed.value = !tripleSpeed.value)}
-                >
-                    <FastForward />
-                </button>
+                    <IconButton
+                        title="Double Speed"
+                        onClick={() => (tripleSpeed.value = !tripleSpeed.value)}
+                        Icon={FastForward}
+                        toggled={tripleSpeed.value}
+                    />
 
-                <button
-                    title="Scale"
-                    className="icon-button"
-                    onClick={() =>
-                        (canvasScale.value = ((canvasScale.value + 1) % 3) as 0 | 1 | 2)
-                    }
-                >
-                    {
-                        {
-                            0: <Dice1 />,
-                            1: <Dice2 />,
-                            2: <Dice4 />,
-                        }[canvasScale.value]
-                    }
-                </button>
-            </div>
+                    <IconButton
+                        title="Scale"
+                        onClick={() =>
+                            (canvasScale.value = ((canvasScale.value + 1) % 3) as 0 | 1 | 2)
+                        }
+                        Icon={{ 0: Dice1, 1: Dice2, 2: Dice4 }[canvasScale.value]}
+                    />
+                </div>
 
-            {gameboy && (
-                <div id="emu-stack">
-                    <div id="emu-stats">
-                        <div ref={stepCount} />
-                        <div ref={cyclesPerSec} />
-                        <div ref={millisPerFrame} />
-                    </div>
-                    <div id="emu-screens">
-                        <Screen
-                            inputRef={emulatorFrameIn}
-                            scale={1 << canvasScale.value}
-                            Filter={filter.value}
-                        />
-                        {debugEnabled.value && (
-                            <>
-                                <Screen width={256} height={256} inputRef={bgDebugger} />
-                                <Screen width={128} height={192} inputRef={tilesetDebugger} />
-                            </>
+                {gameboy && (
+                    <div id="emu-stack">
+                        <div id="emu-stats">
+                            <div ref={stepCount} />
+                            <div ref={cyclesPerSec} />
+                            <div ref={millisPerFrame} />
+                        </div>
+                        <div id="emu-screens">
+                            <Screen
+                                inputRef={emulatorFrameIn}
+                                scale={1 << canvasScale.value}
+                                Filter={filter.value}
+                            />
+                            {debugEnabled.value && (
+                                <>
+                                    <Screen width={256} height={256} inputRef={bgDebugger} />
+                                    <Screen
+                                        width={128}
+                                        height={192}
+                                        inputRef={tilesetDebugger}
+                                    />
+                                </>
+                            )}
+                        </div>
+                        {serialOut.value.length > 0 && (
+                            <code
+                                className={
+                                    serialOut.value.toLowerCase().includes("error")
+                                        ? "error"
+                                        : serialOut.value.toLowerCase().includes("failed")
+                                        ? "failed"
+                                        : serialOut.value.toLowerCase().includes("passed")
+                                        ? "passed"
+                                        : undefined
+                                }
+                            >
+                                {serialOut}
+                            </code>
                         )}
                     </div>
-                    {serialOut.value.length > 0 && (
-                        <code
-                            className={
-                                serialOut.value.toLowerCase().includes("error")
-                                    ? "error"
-                                    : serialOut.value.toLowerCase().includes("failed")
-                                    ? "failed"
-                                    : serialOut.value.toLowerCase().includes("passed")
-                                    ? "passed"
-                                    : undefined
-                            }
-                        >
-                            {serialOut}
-                        </code>
-                    )}
-                </div>
-            )}
+                )}
+            </div>
         </>
     );
 };

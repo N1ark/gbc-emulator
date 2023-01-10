@@ -2,6 +2,7 @@ import { useSignal } from "@preact/signals";
 import { ChevronDown, ChevronUp } from "lucide-preact";
 import { ComponentChildren, FunctionalComponent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
+import IconButton from "../IconButton";
 
 type DrawerSectionProps = {
     title: string;
@@ -25,9 +26,11 @@ const DrawerSection: FunctionalComponent<DrawerSectionProps> = ({ title, childre
         <div className="drawer-section">
             <div className="drawer-title">
                 <h3>{title}</h3>
-                <button className="icon-button" onClick={() => (isOpen.value = !isOpen.value)}>
-                    {isOpen.value ? <ChevronDown /> : <ChevronUp />}
-                </button>
+                <IconButton
+                    title="Open/Close Tab"
+                    onClick={() => (isOpen.value = !isOpen.value)}
+                    Icon={isOpen.value ? ChevronUp : ChevronDown}
+                />
             </div>
             <div className="drawer-content">
                 {isOpen.value && <div ref={contentRef}>{children}</div>}

@@ -5,6 +5,7 @@ import { useEffect } from "preact/hooks";
 import GameBoyColor from "../emulator/GameBoyColor";
 import GameBoyInput from "../emulator/GameBoyInput";
 import GameBoyOutput from "../emulator/GameBoyOutput";
+import IconButton from "../IconButton";
 import { testConfig, testFiles } from "../testConfig";
 
 type TestOutput = "❌" | "⌛" | "✅" | "🪦";
@@ -154,10 +155,10 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
         <div className="test-drawer">
             <div className="drawer-section-title">
                 <div>Settings:</div>
-                <button
+                <IconButton
                     title="Testing"
+                    Icon={FileQuestion}
                     disabled={testsRunning.value}
-                    className="icon-button"
                     onClick={() => {
                         testResults.value = {};
                         testsRunning.value = true;
@@ -166,19 +167,15 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
                             (r) => (testResults.value = { ...testResults.value, ...r })
                         ).then(() => (testsRunning.value = false));
                     }}
-                >
-                    <FileQuestion />
-                </button>
-                <button
+                />
+                <IconButton
                     title="Select/Unselect All"
+                    Icon={BoxSelect}
                     disabled={testsRunning.value}
-                    className="icon-button"
                     onClick={() =>
                         (keptTests.value = keptTests.value.length === 0 ? testGroups : [])
                     }
-                >
-                    <BoxSelect />
-                </button>
+                />
             </div>
             <div
                 style={{
