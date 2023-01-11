@@ -1,5 +1,11 @@
 import { render } from "preact";
 import App from "@/app";
 import "@/index.css";
+import { ConfigProvider } from "./helpers/ConfigContext";
 
-render(<App />, document.getElementById("app") as HTMLElement);
+render(
+    <ConfigProvider>
+        <App />
+    </ConfigProvider>,
+    document.getElementById("app") as HTMLElement
+);

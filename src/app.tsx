@@ -20,12 +20,13 @@ import Screen, { VideoReceiver } from "@components/Screen";
 import useKeys from "@/helpers/useKeys";
 
 import Drawer from "@components/Drawer/Drawer";
-import IconButton from "@components/IconButton";
+import IconButton from "@/components/IconButton";
 import GameBoyColor from "@emulator/GameBoyColor";
 import GameBoyInput from "@emulator/GameBoyInput";
 import GameBoyOutput from "@emulator/GameBoyOutput";
 import AudioPlayer from "@/helpers/AudioPlayer";
 import { Identity, ImageFilter } from "@/helpers/ImageFilter";
+import { useConfig } from "./helpers/ConfigContext";
 
 const CACHE_KEY = "rom";
 
@@ -46,10 +47,8 @@ const App: FunctionalComponent = () => {
     const tripleSpeed = useSignal(false);
     const emulatorRunning = useSignal(true);
     const canStep = useSignal(true);
-    const hasSound = useSignal(false);
-    const canvasScale = useSignal<0 | 1 | 2>(1);
+    const [config, setConfig] = useConfig();
     const soundOutput = useSignal<AudioPlayer | undefined>(undefined);
-    const filter = useSignal<ImageFilter>(Identity);
 
     // DOM Refs
     const emulatorFrameIn = useRef<VideoReceiver | undefined>(undefined);
@@ -67,8 +66,9 @@ const App: FunctionalComponent = () => {
     const millisPerFrame = useRef<HTMLDivElement>(null);
 
     const toggleHasSound = () => {
-        hasSound.value = !hasSound.value;
-        if (hasSound.value) {
+        const audioEnabled = !config.audioEnabled;
+        setConfig({ audioEnabled });
+        if (audioEnabled) {
             soundOutput.value = new AudioPlayer();
         } else {
             soundOutput.value?.delete();
@@ -201,11 +201,7 @@ const App: FunctionalComponent = () => {
 
     return (
         <>
-            <Drawer
-                loadRom={(rom) => loadGame(rom)}
-                currentFilter={filter.value}
-                setFilter={(f) => (filter.value = f)}
-            />
+            <Drawer loadRom={(rom) => loadGame(rom)} />
 
             <div id="emulator">
                 <h1>Emmy</h1>
@@ -232,7 +228,7 @@ const App: FunctionalComponent = () => {
                     <IconButton
                         title="Sound"
                         onClick={toggleHasSound}
-                        Icon={hasSound.value ? Volume2 : VolumeX}
+                        Icon={config.audioEnabled ? Volume2 : VolumeX}
                     />
 
                     <IconButton
@@ -252,9 +248,9 @@ const App: FunctionalComponent = () => {
                     <IconButton
                         title="Scale"
                         onClick={() =>
-                            (canvasScale.value = ((canvasScale.value + 1) % 3) as 0 | 1 | 2)
+                            setConfig({ scale: ((config.scale + 1) % 3) as 0 | 1 | 2 })
                         }
-                        Icon={{ 0: Dice1, 1: Dice2, 2: Dice4 }[canvasScale.value]}
+                        Icon={{ 0: Dice1, 1: Dice2, 2: Dice4 }[config.scale]}
                     />
                 </div>
 
@@ -268,8 +264,8 @@ const App: FunctionalComponent = () => {
                         <div id="emu-screens">
                             <Screen
                                 inputRef={emulatorFrameIn}
-                                scale={1 << canvasScale.value}
-                                Filter={filter.value}
+                                scale={1 << config.scale}
+                                Filter={config.filter}
                             />
                             {debugEnabled.value && (
                                 <>

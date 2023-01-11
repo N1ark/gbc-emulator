@@ -23,7 +23,10 @@ export const toKebabCase = (string: string) =>
  * Taken from Preact library directly:
  * @link https://github.com/lucide-icons/lucide/blob/main/packages/lucide-preact/src/createPreactComponent.ts
  */
-const createPreactComponent = (iconName: string, iconNode: IconNode) => {
+const createPreactComponent = (
+    iconName: string,
+    iconNode: IconNode
+): ((props: LucideProps) => JSX.Element) => {
     const Component = ({
         color = "currentColor",
         size = 24,

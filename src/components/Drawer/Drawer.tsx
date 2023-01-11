@@ -8,14 +8,12 @@ import TestDrawer from "./TestDrawer";
 
 type DrawerProps = {
     loadRom: (rom: Uint8Array) => void;
-    currentFilter: ImageFilter;
-    setFilter: (filter: ImageFilter) => void;
 };
 
-const Drawer: FunctionalComponent<DrawerProps> = ({ loadRom, currentFilter, setFilter }) => (
+const Drawer: FunctionalComponent<DrawerProps> = ({ loadRom }) => (
     <div id="drawer">
         <DrawerSection title="graphics">
-            <GraphicsDrawer currentFilter={currentFilter} setFilter={setFilter} />
+            <GraphicsDrawer />
         </DrawerSection>
         <DrawerSection title="watch expressions">
             <ExpressionDrawer />
