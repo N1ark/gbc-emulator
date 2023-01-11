@@ -81,10 +81,8 @@ const App: FunctionalComponent = () => {
      */
     const loadGame = useCallback(
         (rom: Uint8Array) => {
-            if (gameboy) {
-                gameboy.stop();
-                serialOut.value = "";
-            }
+            serialOut.value = "";
+
             const gameIn: GameBoyInput = {
                 read: () => ({
                     up: pressedKeys.includes("arrowup"),
@@ -98,28 +96,12 @@ const App: FunctionalComponent = () => {
                 }),
             };
 
-            const debug = () => {
-                const step = canStep.value;
-                if (step) {
-                    canStep.value = false;
-                }
-                return {
-                    canStep: step,
-                    skipDebug: emulatorRunning.value,
-                    tripleSpeed: tripleSpeed.value,
-                };
-            };
-
             const gbOut: GameBoyOutput = {
                 get receive() {
                     return emulatorFrameIn.current;
                 },
                 receiveSound: (d) => soundOutput.value?.enqueue(d),
                 serialOut: (d) => (serialOut.value += String.fromCharCode(d)),
-                errorOut: (e) => {
-                    serialOut.value = `${e}`;
-                    console.error(e);
-                },
                 get debugBackground() {
                     return bgDebugger.current;
                 },
@@ -140,9 +122,38 @@ const App: FunctionalComponent = () => {
                 },
             };
 
-            const gbc = new GameBoyColor(rom, gameIn, gbOut, debug);
+            const gbc = new GameBoyColor(rom, gameIn, gbOut);
             setGameboy(gbc);
-            requestAnimationFrame(() => gbc.start());
+
+            const runEmulator = () => {
+                const expectedInstance = gbc;
+                let currentInstance: GameBoyColor | undefined = undefined;
+                setGameboy((g) => (currentInstance = g)); // update the current instance
+
+                // if the instance has changed, don't run the emulator
+                if (currentInstance !== expectedInstance) return;
+
+                const speed = tripleSpeed.value ? 4 : 1;
+                const brokeExecution = gbc.drawFrame(speed, !emulatorRunning.value);
+
+                /** Need to handle wait for a step to be made. */
+                if (brokeExecution) {
+                    emulatorRunning.value = false;
+                    const waitForStep = () => {
+                        if (canStep.value || emulatorRunning.value) {
+                            canStep.value = false;
+                            runEmulator();
+                        } else {
+                            requestAnimationFrame(waitForStep);
+                        }
+                    };
+                    requestAnimationFrame(waitForStep);
+                } else {
+                    requestAnimationFrame(runEmulator);
+                }
+            };
+
+            requestAnimationFrame(runEmulator);
 
             // @ts-ignore helpful for debugging :)
             window.gbc = gbc;

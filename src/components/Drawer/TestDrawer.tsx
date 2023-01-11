@@ -13,8 +13,7 @@ type TestOutput = "❌" | "⌛" | "✅" | "🪦";
 const makeGameboy = (
     rom: Uint8Array,
     videoOut: (d: Uint32Array) => void,
-    serialOut: (s: string) => void,
-    errorOut: (e: unknown) => void
+    serialOut: (s: string) => void
 ) => {
     const gameIn: GameBoyInput = {
         read: () => ({
@@ -29,19 +28,12 @@ const makeGameboy = (
         }),
     };
 
-    const debug = () => ({
-        canStep: false,
-        skipDebug: true,
-        tripleSpeed: true,
-    });
-
     const gbOut: GameBoyOutput = {
         receive: videoOut,
         serialOut: (d) => serialOut(String.fromCharCode(d)),
-        errorOut: errorOut,
     };
 
-    return new GameBoyColor(rom, gameIn, gbOut, debug);
+    return new GameBoyColor(rom, gameIn, gbOut);
 };
 
 type TestResult = Record<string, { group: string; state: TestOutput }>;
@@ -70,7 +62,6 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
         const romArray = await loadTestRom(testType, fileName);
 
         let videoOut: Uint32Array = new Uint32Array();
-        let caughtError: unknown = undefined;
         let serialOut: string = "";
         let state: TestOutput;
 
@@ -78,16 +69,11 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
             const gbc = makeGameboy(
                 romArray,
                 (v) => (videoOut = v),
-                (s) => (serialOut += s),
-                (e) => (caughtError = e)
+                (s) => (serialOut += s)
             );
-            gbc.start();
 
             while (true) {
-                if (caughtError !== undefined) {
-                    state = "🪦";
-                    break;
-                }
+                gbc.drawFrame();
 
                 if (gbc["cpu"]["stepCounter"] > 10_000_000) {
                     state = "⌛";
@@ -99,10 +85,7 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
                     state = newState === "failure" ? "❌" : "✅";
                     break;
                 }
-                await new Promise((resolve) => setTimeout(resolve, 50));
             }
-
-            gbc.stop();
         } catch (e) {
             console.error("Caught error, skipping test", e);
             state = "🪦";

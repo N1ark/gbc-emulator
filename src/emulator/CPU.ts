@@ -108,11 +108,15 @@ class CPU {
     /**
      * Steps through one line of the code, and returns the M-cycles required for the
      * operation
+     * @param system The system to execute the instruction on
+     * @param verbose If true, prints the executed instruction to the console
+     * @returns true if the CPU is in a "set" state (ie. it's halted or just finished an
+     * instruction), false if it is mid-instruction.
      */
-    step(system: System, verbose?: boolean) {
+    step(system: System, verbose?: boolean): boolean {
         if (this.nextStep === null) {
             const nextStep = this.loadNextOp(system, verbose);
-            if (nextStep === "halted") return;
+            if (nextStep === "halted") return true;
             this.nextStep = nextStep;
         }
 
@@ -120,6 +124,7 @@ class CPU {
         if (this.nextStep === null) {
             this.currentOpcode = system.read(this.regPC.inc());
         }
+        return this.nextStep === null;
     }
 
     protected loadNextOp(system: System, verbose?: boolean): InstructionMethod | "halted" {
