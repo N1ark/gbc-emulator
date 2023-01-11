@@ -244,14 +244,6 @@ const App: FunctionalComponent = () => {
                         Icon={FastForward}
                         toggled={tripleSpeed.value}
                     />
-
-                    <IconButton
-                        title="Scale"
-                        onClick={() =>
-                            setConfig({ scale: ((config.scale + 1) % 3) as 0 | 1 | 2 })
-                        }
-                        Icon={{ 0: Dice1, 1: Dice2, 2: Dice4 }[config.scale]}
-                    />
                 </div>
 
                 {gameboy && (
@@ -266,6 +258,7 @@ const App: FunctionalComponent = () => {
                                 inputRef={emulatorFrameIn}
                                 scale={1 << config.scale}
                                 Filter={config.filter}
+                                blending={config.frameBlending}
                             />
                             {debugEnabled.value && (
                                 <>

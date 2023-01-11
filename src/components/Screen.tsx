@@ -9,6 +9,7 @@ type ScreenProps = {
     scale?: number;
     inputRef: MutableRef<VideoReceiver | undefined>;
     Filter?: ImageFilter;
+    blending?: boolean;
 };
 
 export type VideoReceiver = (data: Uint32Array) => void;
@@ -37,6 +38,7 @@ const Screen: FunctionalComponent<ScreenProps> = ({
     height = SCREEN_HEIGHT,
     scale = 1,
     Filter = Identity,
+    blending = false,
 }) => {
     const [stateRefresh, setStateRefresh] = useState(0);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -58,6 +60,8 @@ const Screen: FunctionalComponent<ScreenProps> = ({
         const targetWidth = width * scale * window.devicePixelRatio;
         const targetHeight = height * scale * window.devicePixelRatio;
 
+        let firstFrame = true;
+
         return (data: Uint32Array) => {
             const context = canvas.getContext("2d", { alpha: false });
             if (!context) return;
@@ -67,10 +71,22 @@ const Screen: FunctionalComponent<ScreenProps> = ({
             previousFrame.set(currentFrame);
             currentFrame.set(data);
 
-            // We mix both frames into the previous one. This is needed because some games actually
-            // flicker entities to display more sprites and have a darker color
-            // (example: Link's Awakening chains)
-            mixImages(currentFrame, previousFrame, previousFrame);
+            if (firstFrame) {
+                firstFrame = false;
+                // We copy the current frame into the previous one as it is entirely black
+                // This avoid a black frame at the beginning
+                previousFrame.set(currentFrame);
+            }
+
+            if (blending) {
+                // We mix both frames into the previous one. This is needed because some games actually
+                // flicker entities to display more sprites and have a darker color
+                // (example: Link's Awakening chains)
+                mixImages(currentFrame, previousFrame, previousFrame);
+            } else {
+                // We copy the current frame into the previous one to avoid a one frame delay
+                previousFrame.set(currentFrame);
+            }
 
             // We apply the filter to the frame
             filterInstance.apply(previousFrame);
@@ -81,24 +97,42 @@ const Screen: FunctionalComponent<ScreenProps> = ({
                 bitmap.close();
             });
         };
-    }, [stateRefresh, canvasRef.current, width, height, scale, Filter]);
+    }, [stateRefresh, canvasRef.current, width, height, scale, Filter, blending]);
 
     useEffect(() => {
         inputRef.current = newFrame;
         return () => (inputRef.current = undefined);
     }, [inputRef, newFrame]);
 
-    return (
-        <canvas
-            ref={canvasRef}
-            width={width * scale * window.devicePixelRatio}
-            height={height * scale * window.devicePixelRatio}
-            style={{
-                width: width * scale,
-                height: height * scale,
-            }}
-        />
-    );
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        let currentImage: ImageData | null = null;
+
+        const oldContext = canvas.getContext("2d", { alpha: false });
+        if (oldContext) {
+            currentImage = oldContext.getImageData(0, 0, canvas.width, canvas.height);
+        }
+
+        canvas.width = width * scale * window.devicePixelRatio;
+        canvas.height = height * scale * window.devicePixelRatio;
+        canvas.style.width = `${width * scale}px`;
+        canvas.style.height = `${height * scale}px`;
+
+        if (currentImage) {
+            const newContext = canvas.getContext("2d", { alpha: false });
+            if (!newContext) return;
+            newContext.imageSmoothingEnabled = false;
+            // Actual drawing to the canvas - we scale the image to fit the canvas
+            createImageBitmap(currentImage).then((bitmap) => {
+                newContext.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                bitmap.close();
+            });
+        }
+    }, [width, height, scale, canvasRef.current]);
+
+    return <canvas ref={canvasRef} />;
 };
 
 export default Screen;

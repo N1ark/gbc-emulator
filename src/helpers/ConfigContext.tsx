@@ -6,12 +6,14 @@ export type Configuration = {
     scale: 0 | 1 | 2;
     filter: ImageFilter;
     audioEnabled: boolean;
+    frameBlending: boolean;
 };
 
 const defaultConfig: Configuration = {
     scale: 1,
     filter: Identity,
     audioEnabled: false,
+    frameBlending: true,
 };
 
 const ConfigContext = createContext<
