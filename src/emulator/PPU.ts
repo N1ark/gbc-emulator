@@ -110,8 +110,6 @@ class PPU implements Addressable {
     canReadVram: boolean = true;
     canWriteVram: boolean = true;
 
-    // Video output/storage
-    output: GameBoyOutput;
     // Temporary buffer when drawing line by line
     videoBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH).fill(0xffffffff);
     // Complete buffer with the last fully drawn frame
@@ -147,10 +145,6 @@ class PPU implements Addressable {
         0b10: 0xff555555, // dark gray
         0b11: 0xff000000, // black
     };
-
-    constructor(output: GameBoyOutput) {
-        this.output = output;
-    }
 
     /**
      * This the PPU, effectively updating the screen-buffer and rendering it if it's done.
@@ -337,17 +331,17 @@ class PPU implements Addressable {
         }
     }
 
-    pushOutput() {
-        if (this.output.receive) {
-            this.output.receive(this.lastVideoOut);
+    pushOutput(output: GameBoyOutput) {
+        if (output.receive) {
+            output.receive(this.lastVideoOut);
         }
-        if (this.output.debugBackground) {
+        if (output.debugBackground) {
             const backgroundImg = this.debugBackground();
-            this.output.debugBackground(backgroundImg);
+            output.debugBackground(backgroundImg);
         }
-        if (this.output.debugTileset) {
+        if (output.debugTileset) {
             const tilesetImg = this.debugTileset();
-            this.output.debugTileset(tilesetImg);
+            output.debugTileset(tilesetImg);
         }
     }
 
@@ -775,18 +769,14 @@ class PPU implements Addressable {
  * but inside of the file everything is public and usable.
  */
 class PPUExported implements Addressable {
-    protected ppu: PPU;
-
-    constructor(output: GameBoyOutput) {
-        this.ppu = new PPU(output);
-    }
+    protected ppu = new PPU();
 
     tick(system: System): void {
         this.ppu.tick(system);
     }
 
-    pushOutput(): void {
-        this.ppu.pushOutput();
+    pushOutput(output: GameBoyOutput): void {
+        this.ppu.pushOutput(output);
     }
 
     read(pos: number): number {

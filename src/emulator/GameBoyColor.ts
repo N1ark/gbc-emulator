@@ -22,8 +22,6 @@ class GameBoyColor {
         this.output = output;
     }
 
-    protected totalTime = 0;
-
     /**
      * Draws a full frame
      * @param frames number of frames to draw (defaults to 1 to draw every frame - can be used
@@ -62,7 +60,7 @@ class GameBoyColor {
         this.system.readInput();
 
         // Output
-        this.system.pushOutput();
+        this.system.pushOutput(this.output);
 
         // Debug output
         this.output.frameDrawDuration &&

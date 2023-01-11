@@ -43,7 +43,7 @@ const INTERRUPT_CALLS: [number, number][] = [
 class System implements Addressable {
     // Core components / memory
     protected rom: ROM;
-    protected ppu: PPU;
+    protected ppu: PPU = new PPU();
     protected wram: RAM = new CircularRAM(WRAM_SIZE, 0xc000);
     protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
 
@@ -69,7 +69,6 @@ class System implements Addressable {
     constructor(rom: Uint8Array, input: GameBoyInput, output: GameBoyOutput) {
         this.rom = new ROM(rom);
         this.joypad = new JoypadInput(input);
-        this.ppu = new PPU(output);
         this.apu = new APU(output);
         this.serialOut = output.serialOut;
 
@@ -185,8 +184,8 @@ class System implements Addressable {
     }
 
     /** Pushes output data if needed */
-    pushOutput() {
-        this.ppu.pushOutput();
+    pushOutput(output: GameBoyOutput) {
+        this.ppu.pushOutput(output);
     }
 
     get interruptsEnabled(): boolean {
