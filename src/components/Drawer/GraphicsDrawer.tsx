@@ -1,9 +1,9 @@
-import { Circle, CircleDot, Grid, Square, Target } from "lucide-preact";
+import { Identity, ImageFilter, Scale2x, Scale4x } from "@/helpers/ImageFilter";
+import IconButton from "@components/IconButton";
+import { Grid, Square } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useEffect } from "preact/hooks";
-import Grid2x from "../Grid2x";
-import IconButton from "../IconButton";
-import { Identity, ImageFilter, Scale2x, Scale4x } from "../ImageFilter";
+import Grid2x from "./Grid2x";
 
 type GraphicsDrawerProps = {
     currentFilter: ImageFilter;

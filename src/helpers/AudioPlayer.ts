@@ -3,7 +3,7 @@
  * Largely inspired by:
  * @link https://github.com/denislins/gameboy/blob/master/emulator/apu/Player.js
  */
-class Player {
+class AudioPlayer {
     protected context: AudioContext | undefined;
     protected lastPlayEnd: number | undefined;
     protected enqued: number = 0;
@@ -56,4 +56,4 @@ class Player {
     }
 }
 
-export default Player;
+export default AudioPlayer;

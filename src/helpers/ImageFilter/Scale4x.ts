@@ -1,4 +1,3 @@
-import ImageFilter from "./Base";
 import Scale2x from "./Scale2x";
 
 class Scale4x extends Scale2x {

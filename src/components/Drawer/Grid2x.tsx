@@ -1,3 +1,4 @@
+import { LucideProps } from "lucide-preact";
 import { ComponentType, h, toChildArray } from "preact";
 import { JSX } from "preact/jsx-runtime";
 
@@ -15,11 +16,6 @@ const defaultAttributes = {
 
 type IconNode = [elementName: keyof JSX.IntrinsicElements, attrs: Record<string, string>][];
 
-interface LucideProps extends Omit<JSX.SVGAttributes<SVGElement>, "ref" | "size"> {
-    size?: string | number;
-    color?: string;
-}
-
 export const toKebabCase = (string: string) =>
     string.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 
@@ -33,6 +29,7 @@ const createPreactComponent = (iconName: string, iconNode: IconNode) => {
         size = 24,
         strokeWidth = 2,
         children,
+        ref, // ignore ref
         ...rest
     }: LucideProps) =>
         h(
@@ -44,7 +41,7 @@ const createPreactComponent = (iconName: string, iconNode: IconNode) => {
                 width: String(size),
                 height: size,
                 stroke: color,
-                ["stroke-width" as "strokeWidth"]: strokeWidth,
+                "stroke-width": strokeWidth,
                 class: `lucide lucide-${toKebabCase(iconName)}`,
                 ...rest,
             },

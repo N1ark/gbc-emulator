@@ -1,17 +1,14 @@
+import { testConfig, testFiles } from "@/testConfig";
+import IconButton from "@components/IconButton";
+import GameBoyColor from "@emulator/GameBoyColor";
+import GameBoyInput from "@emulator/GameBoyInput";
+import GameBoyOutput from "@emulator/GameBoyOutput";
 import { useSignal } from "@preact/signals";
 import { BoxSelect, FileQuestion } from "lucide-preact";
 import { Fragment, FunctionalComponent } from "preact";
 import { useEffect } from "preact/hooks";
-import GameBoyColor from "../emulator/GameBoyColor";
-import GameBoyInput from "../emulator/GameBoyInput";
-import GameBoyOutput from "../emulator/GameBoyOutput";
-import IconButton from "../IconButton";
-import { testConfig, testFiles } from "../testConfig";
 
 type TestOutput = "❌" | "⌛" | "✅" | "🪦";
-
-type TestFiles = typeof testFiles;
-type EntryOf<T> = T[keyof T];
 
 const makeGameboy = (
     rom: Uint8Array,

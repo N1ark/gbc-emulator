@@ -1,4 +1,4 @@
-import GameBoyColor from "./emulator/GameBoyColor";
+import GameBoyColor from "@emulator/GameBoyColor";
 
 /** The list of files to run for tests, per "test group" */
 const testFiles = {

@@ -1,5 +1,5 @@
 import { FunctionalComponent } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 
 type ExpressionWatchProps = {
     expression: string;

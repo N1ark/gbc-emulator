@@ -1,8 +1,8 @@
+import IconButton from "@components/IconButton";
 import { useSignal } from "@preact/signals";
 import { Plus, Trash } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import IconButton from "../IconButton";
 import ExpressionWatch from "./ExpressionWatch";
 
 const localStorageKey = "exp-drawer-list";

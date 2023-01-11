@@ -1,34 +1,31 @@
 import { useSignal } from "@preact/signals";
 import {
     Bug,
+    Dice1,
+    Dice2,
+    Dice4,
     FastForward,
-    FileQuestion,
     Pause,
     Play,
     Redo,
     Volume2,
     VolumeX,
-    Dice1,
-    Dice2,
-    Dice4,
 } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
-
-import "./app.css";
-import RomInput from "./RomInput";
-import Screen, { VideoReceiver } from "./Screen";
-import useKeys from "./useKeys";
-
 import localforage from "localforage";
-import GameBoyColor from "./emulator/GameBoyColor";
-import GameBoyInput from "./emulator/GameBoyInput";
-import GameBoyOutput from "./emulator/GameBoyOutput";
-import setupTests from "./tests";
-import Drawer from "./Drawer/Drawer";
-import Player from "./Player";
-import { Identity, ImageFilter } from "./ImageFilter";
-import IconButton from "./IconButton";
+
+import RomInput from "@components/RomInput";
+import Screen, { VideoReceiver } from "@components/Screen";
+import useKeys from "@/helpers/useKeys";
+
+import Drawer from "@components/Drawer/Drawer";
+import IconButton from "@components/IconButton";
+import GameBoyColor from "@emulator/GameBoyColor";
+import GameBoyInput from "@emulator/GameBoyInput";
+import GameBoyOutput from "@emulator/GameBoyOutput";
+import AudioPlayer from "@/helpers/AudioPlayer";
+import { Identity, ImageFilter } from "@/helpers/ImageFilter";
 
 const CACHE_KEY = "rom";
 
@@ -51,7 +48,7 @@ const App: FunctionalComponent = () => {
     const canStep = useSignal(true);
     const hasSound = useSignal(false);
     const canvasScale = useSignal<0 | 1 | 2>(1);
-    const soundOutput = useSignal<Player | undefined>(undefined);
+    const soundOutput = useSignal<AudioPlayer | undefined>(undefined);
     const filter = useSignal<ImageFilter>(Identity);
 
     // DOM Refs
@@ -72,7 +69,7 @@ const App: FunctionalComponent = () => {
     const toggleHasSound = () => {
         hasSound.value = !hasSound.value;
         if (hasSound.value) {
-            soundOutput.value = new Player();
+            soundOutput.value = new AudioPlayer();
         } else {
             soundOutput.value?.delete();
             delete soundOutput.value;
@@ -201,8 +198,6 @@ const App: FunctionalComponent = () => {
             loadGame(value as Uint8Array);
         });
     }, []);
-
-    useEffect(setupTests, []);
 
     return (
         <>

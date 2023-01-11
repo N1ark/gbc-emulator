@@ -1,7 +1,7 @@
 import { FunctionalComponent } from "preact";
-import { useCallback, MutableRef, useRef, useEffect, useMemo, useState } from "preact/hooks";
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./emulator/constants";
-import { Identity, ImageFilter } from "./ImageFilter";
+import { MutableRef, useRef, useEffect, useMemo, useState } from "preact/hooks";
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from "@emulator/constants";
+import { Identity, ImageFilter } from "@/helpers/ImageFilter";
 
 type ScreenProps = {
     width?: number;
