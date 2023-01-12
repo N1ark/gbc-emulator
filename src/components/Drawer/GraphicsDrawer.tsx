@@ -6,8 +6,6 @@ import { FunctionalComponent } from "preact";
 import { useEffect } from "preact/hooks";
 import Grid2x from "./Grid2x";
 
-const localStorageKey = "graphics-drawer-filter";
-
 const availableFilters = [
     {
         name: "identity",
@@ -26,26 +24,8 @@ const availableFilters = [
     },
 ];
 
-const filterToString = (f: ImageFilter) =>
-    availableFilters.find((g) => g.filter === f)?.name ?? "identity";
-
-const filterFromString = (f: string) =>
-    availableFilters.find((g) => g.name === f)?.filter ?? Identity;
-
 const GraphicsDrawer: FunctionalComponent = () => {
     const [{ filter: currentFilter, frameBlending, scale }, setConfig] = useConfig();
-
-    useEffect(() => {
-        const savedFilter = localStorage.getItem(localStorageKey);
-        if (savedFilter) {
-            const filter = filterFromString(savedFilter);
-            setConfig({ filter });
-        }
-    }, []);
-
-    useEffect(() => {
-        localStorage.setItem(localStorageKey, filterToString(currentFilter));
-    }, [currentFilter]);
 
     return (
         <div>
