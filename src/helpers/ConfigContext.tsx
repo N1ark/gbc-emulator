@@ -49,7 +49,6 @@ export const ConfigProvider: FunctionalComponent<ComponentChildren> = ({ childre
     const configUpdater = useCallback(
         (newConfig: Partial<Configuration>) => {
             let fullNewConfig: Configuration;
-            console.log(newConfig);
             setConfig((c) => (fullNewConfig = { ...c, ...newConfig }));
             localStorage.setItem(localStorageKey, configToString(fullNewConfig!));
         },

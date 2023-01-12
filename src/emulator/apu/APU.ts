@@ -28,7 +28,7 @@ const NR52_CHAN4_ON = 1 << 3;
 const DIV_TICK_BIT = 1 << 4;
 
 /**
- * Converts a digital value in 0 - F into an analog value in -1 - 0 (negative slope)
+ * Converts a digital value in 0 - F into an analog value in -1 - 1 (negative slope)
  */
 function DAC(n: Int4): number {
     return (-n / 0xf) * 2 + 1;
@@ -82,12 +82,39 @@ export class APU implements Addressable {
         if (++this.cyclesForSample >= CYCLES_PER_SAMPLE) {
             this.cyclesForSample -= CYCLES_PER_SAMPLE;
 
-            this.audioBuffer[this.sampleIndex] =
-                (DAC(this.channel1.getOutput()) +
-                    DAC(this.channel2.getOutput()) +
-                    DAC(this.channel3.getOutput()) +
-                    DAC(this.channel4.getOutput())) *
-                0.05;
+            // Get all variables for processing audio
+            const nr51 = this.nr51.get();
+            const nr52 = this.nr52.get();
+
+            // Get output from each channel (we only get it if it's used later on)
+            const out1 = (nr51 >> 0) | (nr51 >> 4) ? DAC(this.channel1.getOutput()) : 0;
+            const out2 = (nr51 >> 1) | (nr51 >> 5) ? DAC(this.channel2.getOutput()) : 0;
+            const out3 = (nr51 >> 2) | (nr51 >> 6) ? DAC(this.channel3.getOutput()) : 0;
+            const out4 = (nr51 >> 3) | (nr51 >> 7) ? DAC(this.channel4.getOutput()) : 0;
+
+            // Mix right stereo side, enabling relevant channels
+            const rightAudio =
+                out1 * ((nr51 >> 0) & 1) +
+                out2 * ((nr51 >> 1) & 1) +
+                out3 * ((nr51 >> 2) & 1) +
+                out4 * ((nr51 >> 3) & 1);
+
+            // Mix left stereo side, enabling relevant channels
+            const leftAudio =
+                out1 * ((nr51 >> 4) & 1) +
+                out2 * ((nr51 >> 5) & 1) +
+                out3 * ((nr51 >> 6) & 1) +
+                out4 * ((nr51 >> 7) & 1);
+
+            // Get volume for each side in range 1 to 8
+            const rightVolume = ((nr52 >> 0) & 0b111) + 1;
+            const leftVolume = ((nr52 >> 4) & 0b111) + 1;
+
+            // Mix both sides together, by averaging (taking into account each volume)
+            const monoAudio = (rightAudio * rightVolume + leftAudio * leftVolume) / 16;
+
+            // Do some balancing so the level is correct
+            this.audioBuffer[this.sampleIndex] = monoAudio / 32;
 
             if (++this.sampleIndex === SAMPLE_SIZE) {
                 this.sampleIndex = 0;
