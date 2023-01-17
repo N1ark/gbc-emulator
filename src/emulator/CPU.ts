@@ -16,12 +16,12 @@ type InstructionReturn = InstructionMethod | null;
 class CPU {
     // All registers are 16 bits long.
     // AF: lower is flags: ZNHC (zero, substraction, half-carry, carry)
-    protected regAF = new Register(0x01, FLAG_ZERO | FLAG_HALFCARRY | FLAG_CARRY);
-    protected regBC = new Register(0x00, 0x13);
-    protected regDE = new Register(0x00, 0xd8);
-    protected regHL = new Register(0x01, 0x4d);
-    protected regPC = new Register(0x0100); // program counter
-    protected regSP = new Register(0xfffe); // stack pointer
+    protected regAF = new Register();
+    protected regBC = new Register();
+    protected regDE = new Register();
+    protected regHL = new Register();
+    protected regPC = new Register(); // program counter
+    protected regSP = new Register(); // stack pointer
 
     // If the CPU is halted
     protected halted: boolean = false;
@@ -52,6 +52,15 @@ class CPU {
     protected logOffset: number = 0;
     protected logLimit: number = 0;
     protected logOutput: string[] | undefined = [];
+
+    fakeBootRegisters() {
+        this.regAF.set(0x01b0);
+        this.regBC.set(0x0013);
+        this.regDE.set(0x00d8);
+        this.regHL.set(0x014d);
+        this.regPC.set(0x0100);
+        this.regSP.set(0xfffe);
+    }
 
     // Returns the next opcode
     protected nextOpCode(system: System): number {

@@ -1,16 +1,5 @@
 import { useSignal } from "@preact/signals";
-import {
-    Bug,
-    Dice1,
-    Dice2,
-    Dice4,
-    FastForward,
-    Pause,
-    Play,
-    Redo,
-    Volume2,
-    VolumeX,
-} from "lucide-preact";
+import { Bug, FastForward, Pause, Play, Redo, Volume2, VolumeX } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import localforage from "localforage";
@@ -25,7 +14,6 @@ import GameBoyColor from "@emulator/GameBoyColor";
 import GameBoyInput from "@emulator/GameBoyInput";
 import GameBoyOutput from "@emulator/GameBoyOutput";
 import AudioPlayer from "@/helpers/AudioPlayer";
-import { Identity, ImageFilter } from "@/helpers/ImageFilter";
 import { useConfig } from "./helpers/ConfigContext";
 
 const CACHE_KEY = "rom";
@@ -49,6 +37,8 @@ const App: FunctionalComponent = () => {
     const canStep = useSignal(true);
     const [config, setConfig] = useConfig();
     const soundOutput = useSignal<AudioPlayer | undefined>(undefined);
+
+    console.log("rendered with ", config.bootRom);
 
     // DOM Refs
     const emulatorFrameIn = useRef<VideoReceiver | undefined>(undefined);
@@ -122,7 +112,14 @@ const App: FunctionalComponent = () => {
                 },
             };
 
-            const gbc = new GameBoyColor(rom, gameIn, gbOut);
+            let gbc: GameBoyColor;
+            try {
+                console.log(config.bootRom);
+                gbc = new GameBoyColor(rom, gameIn, gbOut, { bootRom: config.bootRom });
+            } catch (e) {
+                alert("Could not load ROM: " + e);
+                return;
+            }
             setGameboy(gbc);
 
             const runEmulator = () => {
@@ -160,7 +157,7 @@ const App: FunctionalComponent = () => {
 
             return gbc;
         },
-        [gameboy, debugEnabled]
+        [gameboy, debugEnabled, config]
     );
 
     /**

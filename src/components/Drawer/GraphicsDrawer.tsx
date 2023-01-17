@@ -1,7 +1,17 @@
 import { useConfig } from "@/helpers/ConfigContext";
 import { Identity, ImageFilter, Scale2x, Scale4x } from "@/helpers/ImageFilter";
 import IconButton from "@components/IconButton";
-import { Grid, ImageOff, Image, Square, Dice1, Dice2, Dice4 } from "lucide-preact";
+import {
+    Grid,
+    ImageOff,
+    Image,
+    Square,
+    Dice1,
+    Dice2,
+    Dice4,
+    FileDigit,
+    FileX2,
+} from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useEffect } from "preact/hooks";
 import Grid2x from "./Grid2x";
@@ -25,7 +35,7 @@ const availableFilters = [
 ];
 
 const GraphicsDrawer: FunctionalComponent = () => {
-    const [{ filter: currentFilter, frameBlending, scale }, setConfig] = useConfig();
+    const [{ filter: currentFilter, frameBlending, scale, bootRom }, setConfig] = useConfig();
 
     return (
         <div>
@@ -69,6 +79,15 @@ const GraphicsDrawer: FunctionalComponent = () => {
                     title="Toggle blending"
                     Icon={frameBlending ? Image : ImageOff}
                     onClick={() => setConfig({ frameBlending: !frameBlending })}
+                />
+            </div>
+
+            <div className="drawer-section-title">
+                <div>Boot Rom:</div>
+                <IconButton
+                    title="Boot ROM"
+                    Icon={bootRom === "real" ? FileDigit : FileX2}
+                    onClick={() => setConfig({ bootRom: bootRom === "none" ? "real" : "none" })}
                 />
             </div>
         </div>

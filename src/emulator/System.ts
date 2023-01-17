@@ -17,6 +17,7 @@ import ROM from "./ROM";
 import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
 import { Int4, rangeObject } from "./util";
+import BootROM from "./BootROM";
 
 type IntMasterEnableStateType = "DISABLED" | "WILL_ENABLE" | "WILL_ENABLE2" | "ENABLED";
 
@@ -46,6 +47,13 @@ class System implements Addressable {
     protected ppu: PPU = new PPU();
     protected wram: RAM = new CircularRAM(WRAM_SIZE, 0xc000);
     protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
+
+    // System registers
+    protected bootRomReadable = true;
+    protected bootRomRegister: Addressable = {
+        read: () => (this.bootRomReadable ? 0x0b1111_1110 : 0xff),
+        write: (pos, value) => (this.bootRomReadable &&= (value & 1) === 0),
+    };
 
     // Interrupts
     protected intMasterEnable: IntMasterEnableStateType = "DISABLED"; // IME - master enable flag
@@ -89,6 +97,7 @@ class System implements Addressable {
             ...rangeObject(0x10, 0x26, this.apu), // actual apu registers
             ...rangeObject(0x30, 0x3f, this.apu), // wave ram
             ...rangeObject(0x40, 0x4b, this.ppu), // ppu registers
+            0x50: this.bootRomRegister, // boot rom register
             ...rangeObject(0x80, 0xfe, this.hram), // hram
             0xff: this.intEnable, // IE
         };
@@ -123,6 +132,9 @@ class System implements Addressable {
     protected getAddress(pos: number): Addressable {
         if (pos < 0x0000 || pos > 0xffff)
             throw new Error(`Invalid address to read from ${pos.toString(16)}`);
+
+        // Boot ROM
+        if (this.bootRomReadable && pos < 0x100) return BootROM;
 
         // Checking last nibble
         let addressable = this.addressesLastNibble[(pos >> 12) as Int4];
@@ -236,6 +248,10 @@ class System implements Addressable {
             }
         }
         throw new Error("Cleared interrupt but nothing was called");
+    }
+
+    disableBootRom() {
+        this.bootRomReadable = false;
     }
 }
 

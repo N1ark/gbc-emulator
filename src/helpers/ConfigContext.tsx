@@ -7,6 +7,25 @@ export type Configuration = {
     filter: ImageFilter;
     audioEnabled: boolean;
     frameBlending: boolean;
+    bootRom: "none" | "real";
+};
+
+const IdentitySave = { to: (v: any) => v, from: (v: any) => v };
+
+const configLoaders: {
+    [k in keyof Configuration]: null | {
+        to: (v: Configuration[k]) => string;
+        from: (v: string) => Configuration[k];
+    };
+} = {
+    scale: IdentitySave,
+    filter: {
+        to: (v: ImageFilter) => v.name,
+        from: (v: string) => filterByName(v) ?? Identity,
+    },
+    audioEnabled: null,
+    frameBlending: IdentitySave,
+    bootRom: IdentitySave,
 };
 
 const defaultConfig: Configuration = {
@@ -14,24 +33,25 @@ const defaultConfig: Configuration = {
     filter: Identity,
     audioEnabled: false,
     frameBlending: true,
+    bootRom: "none",
 };
 
 const configToString = (config: Configuration): string =>
-    JSON.stringify({
-        scale: config.scale,
-        filter: config.filter.name,
-        frameBlending: config.frameBlending,
-    });
+    JSON.stringify(
+        Object.fromEntries(
+            Object.entries(config) // @ts-ignore
+                .filter(([k, v]) => configLoaders[k] !== null) // @ts-ignore
+                .map(([k, v]) => [k, configLoaders[k].to(v)])
+        )
+    );
 
 const configFromString = (configString: string): Configuration => {
     const rawConfig = JSON.parse(configString);
     // Create a partial config with only objects that are defined and part of the default config
     const loadedConfig: Partial<Configuration> = Object.fromEntries(
-        Object.entries({
-            filter: filterByName(rawConfig.filter),
-            scale: rawConfig.scale,
-            frameBlending: rawConfig.frameBlending,
-        }).filter(([k, v]) => k in defaultConfig && v !== undefined)
+        Object.entries(rawConfig)
+            .filter(([k, v]) => k in configLoaders && v !== undefined) // @ts-ignore
+            .map(([k, v]) => [k, configLoaders[k].from(v)])
     );
     return { ...defaultConfig, ...loadedConfig };
 };
@@ -45,7 +65,14 @@ export const useConfig = () => useContext(ConfigContext);
 const localStorageKey = "config";
 
 export const ConfigProvider: FunctionalComponent<ComponentChildren> = ({ children }) => {
-    const [config, setConfig] = useState<Configuration>(defaultConfig);
+    const [config, setConfig] = useState<Configuration>(() => {
+        const savedConfig = localStorage.getItem(localStorageKey);
+        if (savedConfig) {
+            const config = configFromString(savedConfig);
+            return { ...defaultConfig, ...config };
+        }
+        return defaultConfig;
+    });
     const configUpdater = useCallback(
         (newConfig: Partial<Configuration>) => {
             let fullNewConfig: Configuration;
@@ -54,13 +81,6 @@ export const ConfigProvider: FunctionalComponent<ComponentChildren> = ({ childre
         },
         [setConfig]
     );
-
-    useEffect(() => {
-        const savedConfig = localStorage.getItem(localStorageKey);
-        if (savedConfig) {
-            setConfig(configFromString(savedConfig));
-        }
-    }, []);
 
     return (
         <ConfigContext.Provider value={[config, configUpdater]}>

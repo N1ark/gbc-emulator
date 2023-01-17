@@ -79,7 +79,7 @@ class Register {
     public l = new SubRegister();
 
     /** Builds the register from either one 16-bit value or two 8-bit values */
-    constructor(high: number, low?: number) {
+    constructor(high: number = 0, low?: number) {
         if (low !== undefined) {
             this.h.set(high);
             this.l.set(low);

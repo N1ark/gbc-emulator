@@ -4,7 +4,17 @@ import GameBoyInput from "./GameBoyInput";
 import System from "./System";
 import GameBoyOutput from "./GameBoyOutput";
 
+export type GameBoyColorOptions = {
+    bootRom: "none" | "real";
+};
+
+const DEFAULT_OPTIONS: GameBoyColorOptions = {
+    bootRom: "none",
+};
+
 class GameBoyColor {
+    protected options: GameBoyColorOptions;
+
     protected isRunning = false;
     protected cpu: CPU;
     protected system: System;
@@ -15,11 +25,26 @@ class GameBoyColor {
     protected breakpoints: (number | ((c: CPU) => boolean))[] = [];
     protected cycleChrono: { count: number; time: number } = { count: 0, time: Date.now() };
 
-    constructor(rom: Uint8Array, input: GameBoyInput, output: GameBoyOutput) {
+    constructor(
+        rom: Uint8Array,
+        input: GameBoyInput,
+        output: GameBoyOutput,
+        options?: Partial<GameBoyColorOptions>
+    ) {
         this.cpu = new CPU();
         this.system = new System(rom, input, output);
         this.cycles = 0;
         this.output = output;
+        this.options = { ...DEFAULT_OPTIONS, ...options };
+
+        this.setup();
+    }
+
+    protected setup() {
+        if (this.options.bootRom === "none") {
+            this.cpu.fakeBootRegisters();
+            this.system.disableBootRom();
+        }
     }
 
     /**

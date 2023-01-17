@@ -705,8 +705,8 @@ class PPU implements Addressable {
     write(address: number, data: number): void {
         const component = this.address(address);
 
-        if (component === this.oam && !this.canWriteOam) return;
-        if (component === this.vram && !this.canWriteVram) return;
+        // if (component === this.oam && !this.canWriteOam) return;
+        // if (component === this.vram && !this.canWriteVram) return;
 
         if (
             // if in tile memory, dirty tile
