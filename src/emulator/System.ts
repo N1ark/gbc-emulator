@@ -249,10 +249,6 @@ class System implements Addressable {
         }
         throw new Error("Cleared interrupt but nothing was called");
     }
-
-    disableBootRom() {
-        this.bootRomReadable = false;
-    }
 }
 
 export default System;

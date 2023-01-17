@@ -53,15 +53,6 @@ class CPU {
     protected logLimit: number = 0;
     protected logOutput: string[] | undefined = [];
 
-    fakeBootRegisters() {
-        this.regAF.set(0x01b0);
-        this.regBC.set(0x0013);
-        this.regDE.set(0x00d8);
-        this.regHL.set(0x014d);
-        this.regPC.set(0x0100);
-        this.regSP.set(0xfffe);
-    }
-
     // Returns the next opcode
     protected nextOpCode(system: System): number {
         if (this.currentOpcode === null) {

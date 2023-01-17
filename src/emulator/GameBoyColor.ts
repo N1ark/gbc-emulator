@@ -41,9 +41,19 @@ class GameBoyColor {
     }
 
     protected setup() {
+        // Setup registers as if the boot ROM was executed
         if (this.options.bootRom === "none") {
-            this.cpu.fakeBootRegisters();
-            this.system.disableBootRom();
+            // CPU
+            this.cpu["regAF"].set(0x01b0);
+            this.cpu["regBC"].set(0x0013);
+            this.cpu["regDE"].set(0x00d8);
+            this.cpu["regHL"].set(0x014d);
+            this.cpu["regPC"].set(0x0100);
+            this.cpu["regSP"].set(0xfffe);
+            // General Registers
+            this.system["bootRomReadable"] = false;
+            // PPU
+            this.system["ppu"]["ppu"]["lcdControl"].set(0x91);
         }
     }
 

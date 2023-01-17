@@ -120,7 +120,7 @@ class PPU implements Addressable {
 
     // General use
     /** @link https://gbdev.io/pandocs/LCDC.html */
-    lcdControl = new SubRegister(0x91);
+    lcdControl = new SubRegister(0x00);
     /** @link https://gbdev.io/pandocs/STAT.html */
     lcdStatus = new PaddedSubRegister(0b1000_0000, 0x85);
 
@@ -705,8 +705,8 @@ class PPU implements Addressable {
     write(address: number, data: number): void {
         const component = this.address(address);
 
-        // if (component === this.oam && !this.canWriteOam) return;
-        // if (component === this.vram && !this.canWriteVram) return;
+        if (component === this.oam && !this.canWriteOam) return;
+        if (component === this.vram && !this.canWriteVram) return;
 
         if (
             // if in tile memory, dirty tile
