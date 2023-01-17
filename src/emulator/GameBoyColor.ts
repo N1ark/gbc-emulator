@@ -1,4 +1,4 @@
-import { CYCLES_PER_FRAME } from "./constants";
+import { ConsoleType, CYCLES_PER_FRAME } from "./constants";
 import CPU from "./CPU";
 import GameBoyInput from "./GameBoyInput";
 import System from "./System";
@@ -19,21 +19,21 @@ class GameBoyColor {
     protected cpu: CPU;
     protected system: System;
 
-    protected cycles: number;
+    protected cycles: number = 0;
 
     protected output: GameBoyOutput;
     protected breakpoints: (number | ((c: CPU) => boolean))[] = [];
     protected cycleChrono: { count: number; time: number } = { count: 0, time: Date.now() };
 
     constructor(
+        mode: ConsoleType,
         rom: Uint8Array,
         input: GameBoyInput,
         output: GameBoyOutput,
         options?: Partial<GameBoyColorOptions>
     ) {
         this.cpu = new CPU();
-        this.system = new System(rom, input, output);
-        this.cycles = 0;
+        this.system = new System(rom, input, output, mode);
         this.output = output;
         this.options = { ...DEFAULT_OPTIONS, ...options };
 

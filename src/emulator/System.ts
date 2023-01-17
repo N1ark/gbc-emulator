@@ -1,5 +1,6 @@
 import APU from "./apu/APU";
 import {
+    ConsoleType,
     HRAM_SIZE,
     IFLAG_JOYPAD,
     IFLAG_LCDC,
@@ -44,7 +45,7 @@ const INTERRUPT_CALLS: [number, number][] = [
 class System implements Addressable {
     // Core components / memory
     protected rom: ROM;
-    protected ppu: PPU = new PPU();
+    protected ppu: PPU;
     protected wram: RAM = new CircularRAM(WRAM_SIZE, 0xc000);
     protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
 
@@ -74,8 +75,14 @@ class System implements Addressable {
     // Debug
     protected serialOut: undefined | ((data: number) => void);
 
-    constructor(rom: Uint8Array, input: GameBoyInput, output: GameBoyOutput) {
+    constructor(
+        rom: Uint8Array,
+        input: GameBoyInput,
+        output: GameBoyOutput,
+        mode: ConsoleType
+    ) {
         this.rom = new ROM(rom);
+        this.ppu = new PPU(mode);
         this.joypad = new JoypadInput(input);
         this.apu = new APU(output);
         this.serialOut = output.serialOut;
@@ -98,6 +105,7 @@ class System implements Addressable {
             ...rangeObject(0x30, 0x3f, this.apu), // wave ram
             ...rangeObject(0x40, 0x4b, this.ppu), // ppu registers
             0x50: this.bootRomRegister, // boot rom register
+            ...rangeObject(0x68, 0x6b, this.ppu), // ppu palette registers (CGB only)
             ...rangeObject(0x80, 0xfe, this.hram), // hram
             0xff: this.intEnable, // IE
         };

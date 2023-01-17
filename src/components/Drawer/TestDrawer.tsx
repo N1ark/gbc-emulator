@@ -33,7 +33,7 @@ const makeGameboy = (
         serialOut: (d) => serialOut(String.fromCharCode(d)),
     };
 
-    return new GameBoyColor(rom, gameIn, gbOut);
+    return new GameBoyColor("DMG", rom, gameIn, gbOut);
 };
 
 type TestResult = Record<string, { group: string; state: TestOutput }>;

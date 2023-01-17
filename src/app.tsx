@@ -38,8 +38,6 @@ const App: FunctionalComponent = () => {
     const [config, setConfig] = useConfig();
     const soundOutput = useSignal<AudioPlayer | undefined>(undefined);
 
-    console.log("rendered with ", config.bootRom);
-
     // DOM Refs
     const emulatorFrameIn = useRef<VideoReceiver | undefined>(undefined);
     const bgDebugger = useRef<VideoReceiver | undefined>(undefined);
@@ -114,8 +112,15 @@ const App: FunctionalComponent = () => {
 
             let gbc: GameBoyColor;
             try {
-                console.log(config.bootRom);
-                gbc = new GameBoyColor(rom, gameIn, gbOut, { bootRom: config.bootRom });
+                gbc = new GameBoyColor(
+                    config.console === "dmg" ? "DMG" : "CGB",
+                    rom,
+                    gameIn,
+                    gbOut,
+                    {
+                        bootRom: config.bootRom,
+                    }
+                );
             } catch (e) {
                 alert("Could not load ROM: " + e);
                 return;

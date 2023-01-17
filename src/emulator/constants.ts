@@ -30,3 +30,6 @@ export const IFLAG_JOYPAD = 1 << 4;
 
 // Timer
 export const DIV_INC_RATE = 16384;
+
+// Types
+export type ConsoleType = "DMG" | "CGB";

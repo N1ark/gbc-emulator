@@ -8,6 +8,7 @@ export type Configuration = {
     audioEnabled: boolean;
     frameBlending: boolean;
     bootRom: "none" | "real";
+    console: "dmg" | "cgb";
 };
 
 const IdentitySave = { to: (v: any) => v, from: (v: any) => v };
@@ -26,6 +27,7 @@ const configLoaders: {
     audioEnabled: null,
     frameBlending: IdentitySave,
     bootRom: IdentitySave,
+    console: IdentitySave,
 };
 
 const defaultConfig: Configuration = {
@@ -34,6 +36,7 @@ const defaultConfig: Configuration = {
     audioEnabled: false,
     frameBlending: true,
     bootRom: "none",
+    console: "dmg",
 };
 
 const configToString = (config: Configuration): string =>

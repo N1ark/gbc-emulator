@@ -11,6 +11,8 @@ import {
     Dice4,
     FileDigit,
     FileX2,
+    Gamepad,
+    Palette,
 } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useEffect } from "preact/hooks";
@@ -35,10 +37,27 @@ const availableFilters = [
 ];
 
 const GraphicsDrawer: FunctionalComponent = () => {
-    const [{ filter: currentFilter, frameBlending, scale, bootRom }, setConfig] = useConfig();
+    const [{ filter: currentFilter, frameBlending, scale, bootRom, console }, setConfig] =
+        useConfig();
 
     return (
         <div>
+            <div className="drawer-section-title">
+                <div>Console:</div>
+                <IconButton
+                    title="Gameboy (DMG)"
+                    toggled={console === "dmg"}
+                    Icon={Gamepad}
+                    onClick={() => setConfig({ console: "dmg" })}
+                />
+                <IconButton
+                    title="Gameboy Color (CGB)"
+                    toggled={console === "cgb"}
+                    Icon={Palette}
+                    onClick={() => setConfig({ console: "cgb" })}
+                />
+            </div>
+
             <div className="drawer-section-title">
                 <div>Filter:</div>
                 {availableFilters.map(({ name, filter, icon }) => (

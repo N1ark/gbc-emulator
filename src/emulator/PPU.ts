@@ -1,6 +1,12 @@
-import { IFLAG_LCDC, IFLAG_VBLANK, SCREEN_HEIGHT, SCREEN_WIDTH } from "./constants";
+import {
+    ConsoleType,
+    IFLAG_LCDC,
+    IFLAG_VBLANK,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH,
+} from "./constants";
 import { CircularRAM, Addressable } from "./Memory";
-import { PaddedSubRegister, SubRegister } from "./Register";
+import { PaddedSubRegister, RegisterFF, SubRegister } from "./Register";
 import System from "./System";
 import { asSignedInt8, Int2, wrap8 } from "./util";
 import GameBoyOutput from "./GameBoyOutput";
@@ -75,6 +81,103 @@ const STAT_MODE = 0b11;
 const STAT_LYC_LY_EQ_FLAG = 1 << 2;
 const STAT_LYC_LY_EQ_INT = 1 << 6;
 
+abstract class ColorControl implements Addressable {
+    protected abstract readonly addresses: Record<number, Addressable>;
+    abstract getBgPalette(): Record<Int2, number>;
+    abstract getObjPalette(id: 0 | 1): Record<Int2, number>;
+
+    read(pos: number): number {
+        const component = this.addresses[pos];
+        if (!component) return 0xff;
+        return component.read(pos);
+    }
+
+    write(pos: number, value: number): void {
+        const component = this.addresses[pos];
+        if (!component) return;
+        component.write(pos, value);
+    }
+}
+
+class DMGColorControl extends ColorControl {
+    static readonly colorOptions: Record<Int2, number> = {
+        0b00: 0xffffffff, // white
+        0b01: 0xffaaaaaa, // light gray
+        0b10: 0xff555555, // dark gray
+        0b11: 0xff000000, // black
+    };
+
+    // Background palette
+    protected bgPalette = new SubRegister(0x00);
+    // Object palettes
+    protected objPalette0 = new SubRegister(0x00);
+    protected objPalette1 = new SubRegister(0x00);
+
+    protected addresses = {
+        0xff47: this.bgPalette,
+        0xff48: this.objPalette0,
+        0xff49: this.objPalette1,
+    };
+
+    /** An object containing the RGBA colors for each color ID in the background and window. */
+    getBgPalette(): Record<Int2, number> {
+        const palette = this.bgPalette.get();
+        return {
+            0b00: DMGColorControl.colorOptions[((palette >> 0) & 0b11) as Int2],
+            0b01: DMGColorControl.colorOptions[((palette >> 2) & 0b11) as Int2],
+            0b10: DMGColorControl.colorOptions[((palette >> 4) & 0b11) as Int2],
+            0b11: DMGColorControl.colorOptions[((palette >> 6) & 0b11) as Int2],
+        };
+    }
+
+    /** An object containing the RGBA colors for each color ID for objects.  */
+    getObjPalette(id: 0 | 1): Record<Int2, number> {
+        const palette = id === 0 ? this.objPalette0.get() : this.objPalette1.get();
+        return {
+            0b00: 0x00000000, // unused, color 0b00 is transparent
+            0b01: DMGColorControl.colorOptions[((palette >> 2) & 0b11) as Int2],
+            0b10: DMGColorControl.colorOptions[((palette >> 4) & 0b11) as Int2],
+            0b11: DMGColorControl.colorOptions[((palette >> 6) & 0b11) as Int2],
+        };
+    }
+}
+
+class CGBColorControl extends ColorControl {
+    // Background palette
+    protected bgPaletteOptions = new SubRegister(0x00);
+    protected bgPaletteData = new CircularRAM(64, 0xff69);
+    // Object palettes
+    protected objPaletteOptions = new SubRegister(0x00);
+    protected objPaletteData0 = new CircularRAM(64, 0xff6b);
+
+    protected addresses = {
+        0xff68: this.bgPaletteOptions,
+        0xff69: this.bgPaletteData,
+        0xff6a: this.objPaletteOptions,
+        0xff6b: this.objPaletteData0,
+    };
+
+    /** An object containing the RGBA colors for each color ID in the background and window. */
+    getBgPalette(): Record<Int2, number> {
+        return {
+            0b00: 0,
+            0b01: 0,
+            0b10: 0,
+            0b11: 0,
+        };
+    }
+
+    /** An object containing the RGBA colors for each color ID for objects.  */
+    getObjPalette(id: 0 | 1): Record<Int2, number> {
+        return {
+            0b00: 0,
+            0b01: 0,
+            0b10: 0,
+            0b11: 0,
+        };
+    }
+}
+
 /**
  * The PPU of the GBC, responsible for rendering the current state of the console.
  * @link https://gbdev.io/pandocs/Rendering.html
@@ -134,17 +237,34 @@ class PPU implements Addressable {
     windowY = new SubRegister(0x00); // position of the window
     windowX = new SubRegister(0x00);
 
-    // Palettes
-    bgPalette = new SubRegister(0x00);
-    objPalette0 = new SubRegister(0x00);
-    objPalette1 = new SubRegister(0x00);
+    // Color control
+    colorControl: ColorControl;
 
-    colorOptions: Record<Int2, number> = {
-        0b00: 0xffffffff, // white
-        0b01: 0xffaaaaaa, // light gray
-        0b10: 0xff555555, // dark gray
-        0b11: 0xff000000, // black
-    };
+    // General use
+    protected registerAddresses: Record<number, Addressable>;
+
+    constructor(mode: ConsoleType) {
+        this.colorControl = mode === "DMG" ? new DMGColorControl() : new CGBColorControl();
+
+        this.registerAddresses = {
+            0xff40: this.lcdControl,
+            0xff41: this.lcdStatus,
+            0xff42: this.screenY,
+            0xff43: this.screenX,
+            0xff44: this.lcdY,
+            0xff45: this.lcdYCompare,
+            0xff46: this.oam,
+            0xff47: this.colorControl,
+            0xff48: this.colorControl,
+            0xff49: this.colorControl,
+            0xff4a: this.windowY,
+            0xff4b: this.windowX,
+            0xff68: this.colorControl,
+            0xff69: this.colorControl,
+            0xff6a: this.colorControl,
+            0xff6b: this.colorControl,
+        };
+    }
 
     /**
      * This the PPU, effectively updating the screen-buffer and rendering it if it's done.
@@ -441,7 +561,7 @@ class PPU implements Addressable {
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
         // The colors used
-        const palette = this.bgAndWinPaletteColor();
+        const palette = this.colorControl.getBgPalette();
 
         for (let i = 0; i < 1024; i++) {
             // Tile positions (0 <= n < 32)
@@ -472,7 +592,7 @@ class PPU implements Addressable {
             this.tilesetVideoBuffer = new Uint32Array(width * height);
 
         // The colors used
-        const palette = this.bgAndWinPaletteColor();
+        const palette = this.colorControl.getBgPalette();
 
         for (let i = 0; i < 0x180; i++) {
             const tileAddress = 0x8000 + i * 16;
@@ -505,7 +625,7 @@ class PPU implements Addressable {
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
         // Map of colors for each shade
-        const palette = this.bgAndWinPaletteColor();
+        const palette = this.colorControl.getBgPalette();
 
         // The top-left corner of the 160x144 view area
         const viewX = this.screenX.get();
@@ -562,7 +682,7 @@ class PPU implements Addressable {
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_WIN_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
         // Map of colors for each shade
-        const palette = this.bgAndWinPaletteColor();
+        const palette = this.colorControl.getBgPalette();
 
         // The currently read Y pixel of the bg map
         const y = this.windowLineCounter++;
@@ -624,7 +744,7 @@ class PPU implements Addressable {
             let tileY = (y - sprite.y) % 8;
             tileY = sprite.yFlip ? 7 - tileY : tileY;
             // Get the palette for the object
-            const palette = this.objPaletteColors(sprite.paletteNumber ? 1 : 0);
+            const palette = this.colorControl.getObjPalette(sprite.paletteNumber ? 1 : 0);
 
             // Start of video buffer for this line
             const bufferStart = y * SCREEN_WIDTH;
@@ -647,42 +767,6 @@ class PPU implements Addressable {
             }
         }
     }
-
-    /** An object containing the RGBA colors for each color ID in the background and window. */
-    bgAndWinPaletteColor(): Record<Int2, number> {
-        const palette = this.bgPalette.get();
-        return {
-            0b00: this.colorOptions[((palette >> 0) & 0b11) as Int2],
-            0b01: this.colorOptions[((palette >> 2) & 0b11) as Int2],
-            0b10: this.colorOptions[((palette >> 4) & 0b11) as Int2],
-            0b11: this.colorOptions[((palette >> 6) & 0b11) as Int2],
-        };
-    }
-    /** An object containing the RGBA colors for each color ID for objects.  */
-    objPaletteColors(id: 0 | 1) {
-        const palette = (id === 0 ? this.objPalette0 : this.objPalette1).get();
-        return {
-            0b00: 0x00000000, // unused, color 0b00 is transparent
-            0b01: this.colorOptions[((palette >> 2) & 0b11) as Int2],
-            0b10: this.colorOptions[((palette >> 4) & 0b11) as Int2],
-            0b11: this.colorOptions[((palette >> 6) & 0b11) as Int2],
-        };
-    }
-
-    protected registerAddresses: Record<number, Addressable> = {
-        0xff40: this.lcdControl,
-        0xff41: this.lcdStatus,
-        0xff42: this.screenY,
-        0xff43: this.screenX,
-        0xff44: this.lcdY,
-        0xff45: this.lcdYCompare,
-        0xff46: this.oam,
-        0xff47: this.bgPalette,
-        0xff48: this.objPalette0,
-        0xff49: this.objPalette1,
-        0xff4a: this.windowY,
-        0xff4b: this.windowX,
-    };
 
     protected address(pos: number): Addressable {
         // VRAM
@@ -769,7 +853,11 @@ class PPU implements Addressable {
  * but inside of the file everything is public and usable.
  */
 class PPUExported implements Addressable {
-    protected ppu = new PPU();
+    protected ppu: PPU;
+
+    constructor(mode: ConsoleType) {
+        this.ppu = new PPU(mode);
+    }
 
     tick(system: System): void {
         this.ppu.tick(system);
