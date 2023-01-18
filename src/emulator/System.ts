@@ -10,7 +10,7 @@ import {
     WRAM_SIZE,
 } from "./constants";
 import GameBoyInput from "./GameBoyInput";
-import PPU from "./PPU";
+import PPU from "./ppu/PPU";
 import JoypadInput from "./JoypadInput";
 import { CircularRAM, RAM, Addressable } from "./Memory";
 import { PaddedSubRegister, Register00, RegisterFF, SubRegister } from "./Register";
