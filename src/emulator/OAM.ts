@@ -1,19 +1,26 @@
 import { Addressable, RAM } from "./Memory";
 import { SubRegister } from "./Register";
 import System from "./System";
+import { Int1, Int3 } from "./util";
 
 export type Sprite = {
     x: number;
     y: number;
     tileIndex: number;
     // From attributes:
-    paletteNumber: boolean;
     xFlip: boolean;
     yFlip: boolean;
     bgAndWinOverObj: boolean;
+    // DMG only
+    dmgPaletteNumber: Int1;
+    // CGB only
+    cgbPaletteNumber: Int3;
+    cgbVramBank: Int1;
 };
 
-const ATTRIB_PALETTE_NUM = 1 << 4;
+const ATTRIB_DMG_PALETTE_NUM_IDX = 4;
+const ATTRIB_CGB_PALETTE_NUM = 0b111;
+const ATTRIB_CGB_VRAM_BANK_IDX = 3;
 const ATTRIB_X_FLIP = 1 << 5;
 const ATTRIB_Y_FLIP = 1 << 6;
 const ATTRIB_BG_AND_WIN_OVER_OBJ = 1 << 7;
@@ -89,8 +96,10 @@ class OAM implements Addressable {
         tileIndex: 0,
         xFlip: false,
         yFlip: false,
-        paletteNumber: false,
         bgAndWinOverObj: false,
+        dmgPaletteNumber: 0,
+        cgbPaletteNumber: 0,
+        cgbVramBank: 0,
         valid: false,
     }));
 
@@ -104,8 +113,10 @@ class OAM implements Addressable {
                 sprite.tileIndex = this.data.read(address + 2);
                 sprite.xFlip = (attribs & ATTRIB_X_FLIP) !== 0;
                 sprite.yFlip = (attribs & ATTRIB_Y_FLIP) !== 0;
-                sprite.paletteNumber = (attribs & ATTRIB_PALETTE_NUM) !== 0;
                 sprite.bgAndWinOverObj = (attribs & ATTRIB_BG_AND_WIN_OVER_OBJ) !== 0;
+                sprite.dmgPaletteNumber = ((attribs >> ATTRIB_DMG_PALETTE_NUM_IDX) & 1) as Int1;
+                sprite.cgbPaletteNumber = (attribs & ATTRIB_CGB_PALETTE_NUM) as Int3;
+                sprite.cgbVramBank = ((attribs >> ATTRIB_CGB_VRAM_BANK_IDX) & 1) as Int1;
                 sprite.valid = true;
             }
         });

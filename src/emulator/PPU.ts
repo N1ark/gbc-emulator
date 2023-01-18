@@ -5,10 +5,10 @@ import {
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
 } from "./constants";
-import { CircularRAM, Addressable } from "./Memory";
-import { PaddedSubRegister, RegisterFF, SubRegister } from "./Register";
+import { CircularRAM, Addressable, RAM } from "./Memory";
+import { PaddedSubRegister, Register00, RegisterFF, SubRegister } from "./Register";
 import System from "./System";
-import { asSignedInt8, Int2, wrap8 } from "./util";
+import { asSignedInt8, Int2, Int3, wrap8 } from "./util";
 import GameBoyOutput from "./GameBoyOutput";
 import OAM, { Sprite } from "./OAM";
 
@@ -25,6 +25,8 @@ type PPUMode = {
 };
 
 type PPUModeI = PPUMode & { interrupt: number };
+
+type TileCache = Record<number, { valid: boolean; data: Int2[][] }>;
 
 /*
  * All modes, with:
@@ -81,10 +83,23 @@ const STAT_MODE = 0b11;
 const STAT_LYC_LY_EQ_FLAG = 1 << 2;
 const STAT_LYC_LY_EQ_INT = 1 << 6;
 
+// Palette flags
+type ColorPalette = Record<Int2, number>;
+const PALETTE_AUTO_INCREMENT = 1 << 7;
+const PALETTE_INDEX = 0b0011_1111;
+
+// VRAM2 Attributes
+const VBK_BANK_ID = 1 << 0;
+const VRAM2_ATTR_BG_OAM_PRIORITY = 1 << 7;
+const VRAM2_ATTR_V_FLIP = 1 << 6;
+const VRAM2_ATTR_H_FLIP = 1 << 5;
+const VRAM2_ATTR_VRAM_BANK = 1 << 3;
+const VRAM2_ATTR_PALETTE = 0b111;
+
 abstract class ColorControl implements Addressable {
     protected abstract readonly addresses: Record<number, Addressable>;
-    abstract getBgPalette(): Record<Int2, number>;
-    abstract getObjPalette(id: 0 | 1): Record<Int2, number>;
+    abstract getBgPalette(id: Int3): ColorPalette;
+    abstract getObjPalette(sprite: Sprite): ColorPalette;
 
     read(pos: number): number {
         const component = this.addresses[pos];
@@ -119,8 +134,7 @@ class DMGColorControl extends ColorControl {
         0xff49: this.objPalette1,
     };
 
-    /** An object containing the RGBA colors for each color ID in the background and window. */
-    getBgPalette(): Record<Int2, number> {
+    getBgPalette(): ColorPalette {
         const palette = this.bgPalette.get();
         return {
             0b00: DMGColorControl.colorOptions[((palette >> 0) & 0b11) as Int2],
@@ -130,9 +144,9 @@ class DMGColorControl extends ColorControl {
         };
     }
 
-    /** An object containing the RGBA colors for each color ID for objects.  */
-    getObjPalette(id: 0 | 1): Record<Int2, number> {
-        const palette = id === 0 ? this.objPalette0.get() : this.objPalette1.get();
+    getObjPalette(sprite: Sprite): ColorPalette {
+        const palette =
+            sprite.dmgPaletteNumber === 0 ? this.objPalette0.get() : this.objPalette1.get();
         return {
             0b00: 0x00000000, // unused, color 0b00 is transparent
             0b01: DMGColorControl.colorOptions[((palette >> 2) & 0b11) as Int2],
@@ -144,37 +158,191 @@ class DMGColorControl extends ColorControl {
 
 class CGBColorControl extends ColorControl {
     // Background palette
-    protected bgPaletteOptions = new SubRegister(0x00);
-    protected bgPaletteData = new CircularRAM(64, 0xff69);
+    protected bgPaletteOptions = new PaddedSubRegister(0b0100_0000);
+    protected bgPaletteData = new RAM(64);
     // Object palettes
-    protected objPaletteOptions = new SubRegister(0x00);
-    protected objPaletteData0 = new CircularRAM(64, 0xff6b);
+    protected objPaletteOptions = new PaddedSubRegister(0b0100_0000);
+    protected objPaletteData = new RAM(64);
 
     protected addresses = {
         0xff68: this.bgPaletteOptions,
         0xff69: this.bgPaletteData,
         0xff6a: this.objPaletteOptions,
-        0xff6b: this.objPaletteData0,
+        0xff6b: this.objPaletteData,
     };
 
-    /** An object containing the RGBA colors for each color ID in the background and window. */
-    getBgPalette(): Record<Int2, number> {
-        return {
-            0b00: 0,
-            0b01: 0,
-            0b10: 0,
-            0b11: 0,
-        };
+    override read(pos: number): number {
+        if (pos === 0xff69)
+            return this.bgPaletteData.read(this.bgPaletteOptions.get() & PALETTE_INDEX);
+
+        if (pos === 0xff6b)
+            return this.objPaletteData.read(this.objPaletteOptions.get() & PALETTE_INDEX);
+
+        return super.read(pos);
     }
 
-    /** An object containing the RGBA colors for each color ID for objects.  */
-    getObjPalette(id: 0 | 1): Record<Int2, number> {
-        return {
-            0b00: 0,
-            0b01: 0,
-            0b10: 0,
-            0b11: 0,
-        };
+    override write(pos: number, value: number): void {
+        if (pos === 0xff69) {
+            const bgPaletteOptions = this.bgPaletteOptions.get();
+            const index = bgPaletteOptions & PALETTE_INDEX;
+            this.bgPaletteData.write(index, value);
+            if (bgPaletteOptions & PALETTE_AUTO_INCREMENT)
+                this.bgPaletteOptions.set(
+                    (bgPaletteOptions & ~PALETTE_INDEX) | ((index + 1) & PALETTE_INDEX)
+                );
+        } else if (pos === 0xff6b) {
+            const objPaletteOptions = this.objPaletteOptions.get();
+            const index = objPaletteOptions & PALETTE_INDEX;
+            this.objPaletteData.write(index, value);
+            if (objPaletteOptions & PALETTE_AUTO_INCREMENT)
+                this.objPaletteOptions.set(
+                    (objPaletteOptions & ~PALETTE_INDEX) | ((index + 1) & PALETTE_INDEX)
+                );
+        } else {
+            super.write(pos, value);
+        }
+    }
+
+    protected decodePalette(data: RAM, id: number, offset: number) {
+        const palette: ColorPalette = new Uint32Array(4) as any as ColorPalette;
+        for (let colorIdx = offset; colorIdx < 4; colorIdx++) {
+            const colorLow = data.read(id * 8 + colorIdx * 2);
+            const colorHigh = data.read(id * 8 + colorIdx * 2 + 1);
+            const fullColor = (colorHigh << 8) | colorLow;
+
+            const red5 = (fullColor >> 0) & 0b0001_1111;
+            const green5 = (fullColor >> 5) & 0b0001_1111;
+            const blue5 = (fullColor >> 10) & 0b0001_1111;
+
+            const red8 = (red5 << 3) | (red5 >> 2);
+            const green8 = (green5 << 3) | (green5 >> 2);
+            const blue8 = (blue5 << 3) | (blue5 >> 2);
+
+            palette[colorIdx as Int2] = (0xff << 24) | (blue8 << 16) | (green8 << 8) | red8;
+        }
+        return palette;
+    }
+
+    getBgPalette(id: Int3): ColorPalette {
+        return this.decodePalette(this.bgPaletteData, id, 0);
+    }
+
+    getObjPalette(sprite: Sprite): ColorPalette {
+        return this.decodePalette(this.objPaletteData, sprite.cgbPaletteNumber, 1);
+    }
+}
+
+abstract class VRAMController implements Addressable {
+    protected abstract readonly addresses: Record<number, Addressable>;
+    protected abstract get currentBank(): Addressable;
+    protected abstract get currentCache(): TileCache;
+
+    protected static makeCache(): TileCache {
+        return [...new Array(0x180)].map(() => ({
+            valid: false,
+            data: Array.from(Array(8), () => new Array(8)),
+        }));
+    }
+
+    protected _getTile(tileAddress: number, bank: Addressable, cache: TileCache): Int2[][] {
+        const cachedTile = cache[(tileAddress >> 4) & 0x1ff];
+        if (!cachedTile.valid) {
+            // Draw the 8 lines of the tile
+            for (let tileY = 0; tileY < 8; tileY++) {
+                const tileDataH = bank.read(tileAddress + tileY * 2);
+                const tileDataL = bank.read(tileAddress + tileY * 2 + 1);
+                for (let tileX = 0; tileX < 8; tileX++) {
+                    const shadeL = (tileDataH >> (7 - tileX)) & 0b1;
+                    const shadeH = (tileDataL >> (7 - tileX)) & 0b1;
+                    const shade = ((shadeH << 1) | shadeL) as Int2;
+                    cachedTile.data[tileX][tileY] = shade;
+                }
+            }
+            cachedTile.valid = true;
+        }
+        return cachedTile.data;
+    }
+
+    abstract getTile(tileAddress: number, bankId: 0 | 1): Int2[][];
+
+    abstract readBank0(pos: number): number;
+    abstract readBank1(pos: number): number;
+
+    read(pos: number): number {
+        if (0x8000 <= pos && pos <= 0x9fff) return this.currentBank.read(pos);
+        const component = this.addresses[pos];
+        if (component) return component.read(pos);
+        return 0xff;
+    }
+
+    write(address: number, value: number): void {
+        if (0x8000 <= address && address <= 0x9fff) {
+            if (
+                // if in tile memory, dirty tile
+                0x8000 <= address &&
+                address < 0x9800 &&
+                value !== this.currentBank.read(address)
+            ) {
+                this.currentCache[(address >> 4) & 0x1ff].valid = false;
+            }
+            return this.currentBank.write(address, value);
+        }
+        const component = this.addresses[address];
+        if (component) return component.write(address, value);
+    }
+}
+
+class DMGVRAMController extends VRAMController {
+    protected vram = new CircularRAM(8192, 0x8000);
+    protected tileCache = VRAMController.makeCache();
+    protected currentBank = this.vram;
+    protected currentCache = this.tileCache;
+    protected readonly addresses: Record<number, Addressable> = {};
+
+    readBank0(pos: number): number {
+        return this.vram.read(pos);
+    }
+    readBank1(pos: number): number {
+        return 0;
+    }
+
+    getTile(tileAddress: number): Int2[][] {
+        return this._getTile(tileAddress, this.vram, this.tileCache);
+    }
+}
+
+class CGBVRAMController extends VRAMController {
+    protected vram0 = new CircularRAM(8192, 0x8000);
+    protected vram1 = new CircularRAM(8192, 0x8000);
+    protected tileCache0 = VRAMController.makeCache();
+    protected tileCache1 = VRAMController.makeCache();
+    protected vramBank = new PaddedSubRegister(0b1111_1110);
+
+    protected get currentBank() {
+        return this.vramBank.get() & 0b1 ? this.vram1 : this.vram0;
+    }
+    protected get currentCache() {
+        return this.vramBank.get() & 0b1 ? this.tileCache1 : this.tileCache0;
+    }
+
+    protected readonly addresses: Record<number, Addressable> = {
+        0xff4f: this.vramBank,
+    };
+
+    readBank0(pos: number): number {
+        return this.vram0.read(pos);
+    }
+
+    readBank1(pos: number): number {
+        return this.vram1.read(pos);
+    }
+
+    getTile(tileAddress: number, bank: 0 | 1): Int2[][] {
+        return this._getTile(
+            tileAddress,
+            bank ? this.vram1 : this.vram0,
+            bank ? this.tileCache1 : this.tileCache0
+        );
     }
 }
 
@@ -209,7 +377,7 @@ class PPU implements Addressable {
     readSprites: Sprite[] = [];
 
     // Data Store
-    vram = new CircularRAM(8192, 0x8000); // 8Kb memory
+    vramControl: VRAMController;
     canReadVram: boolean = true;
     canWriteVram: boolean = true;
 
@@ -226,6 +394,8 @@ class PPU implements Addressable {
     lcdControl = new SubRegister(0x00);
     /** @link https://gbdev.io/pandocs/STAT.html */
     lcdStatus = new PaddedSubRegister(0b1000_0000, 0x85);
+    /** Only for GBC @link https://gbdev.io/pandocs/CGB_Registers.html#ff6c--opri-cgb-mode-only-object-priority-mode */
+    objPriorityMode: Addressable;
 
     // Positioning
     screenY = new SubRegister(0x00); // these two indicate position of the viewport
@@ -241,11 +411,21 @@ class PPU implements Addressable {
     colorControl: ColorControl;
 
     // General use
+    consoleMode: ConsoleType;
     protected registerAddresses: Record<number, Addressable>;
 
     constructor(mode: ConsoleType) {
-        this.colorControl = mode === "DMG" ? new DMGColorControl() : new CGBColorControl();
+        if (mode === "CGB") {
+            this.vramControl = new CGBVRAMController();
+            this.colorControl = new CGBColorControl();
+            this.objPriorityMode = new PaddedSubRegister(0b1111_1110);
+        } else {
+            this.vramControl = new DMGVRAMController();
+            this.colorControl = new DMGColorControl();
+            this.objPriorityMode = RegisterFF;
+        }
 
+        this.consoleMode = mode;
         this.registerAddresses = {
             0xff40: this.lcdControl,
             0xff41: this.lcdStatus,
@@ -259,10 +439,12 @@ class PPU implements Addressable {
             0xff49: this.colorControl,
             0xff4a: this.windowY,
             0xff4b: this.windowX,
+            0xff4f: this.vramControl,
             0xff68: this.colorControl,
             0xff69: this.colorControl,
             0xff6a: this.colorControl,
             0xff6b: this.colorControl,
+            0xff6c: this.objPriorityMode,
         };
     }
 
@@ -380,6 +562,8 @@ class PPU implements Addressable {
             const y = this.lcdY.get();
             // Height of objects in pixels
             const objHeight = this.lcdControl.flag(LCDC_OBJ_SIZE) ? 16 : 8;
+            // This is only relevant in GBC: priority by position or by index
+            const objPriorityMode = this.objPriorityMode.read(0) & 1 ? "coordinate" : "index";
             // We select the sprites the following way:
             // - must be visible
             // - max 10 per line
@@ -393,8 +577,13 @@ class PPU implements Addressable {
                 .slice(0, 10) // only 10 sprites per scanline, lower index first
                 .map((sprite, index) => [sprite, index] as [Sprite, number])
                 // sort by x then index
-                .sort(([spriteA, indexA], [spriteB, indexB]) =>
-                    spriteA.x === spriteB.x ? indexA - indexB : spriteA.x - spriteB.x
+                .sort(
+                    ([spriteA, indexA], [spriteB, indexB]) =>
+                        objPriorityMode === "coordinate"
+                            ? spriteA.x === spriteB.x // first by coordinate then by index
+                                ? indexA - indexB
+                                : spriteA.x - spriteB.x
+                            : indexA - indexB // only by index
                 )
                 .map(([sprite]) => sprite);
         }
@@ -497,7 +686,8 @@ class PPU implements Addressable {
     /** Updates the current scanline, by rendering the background, window and then objects. */
     updateScanline(system: System) {
         const bgPriorities = [...new Array(SCREEN_WIDTH)].fill(false);
-        if (this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
+        // The BG/WIN priority flag acts as a toggle only in DMG
+        if (this.consoleMode === "CGB" || this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
             this.drawBackground(bgPriorities);
 
             if (this.lcdControl.flag(LCDC_WIN_ENABLE)) {
@@ -508,7 +698,7 @@ class PPU implements Addressable {
         }
 
         if (this.lcdControl.flag(LCDC_OBJ_ENABLE)) {
-            this.drawObjects(system, bgPriorities);
+            this.drawObjects(bgPriorities);
         }
     }
 
@@ -521,37 +711,6 @@ class PPU implements Addressable {
               0x9000 + asSignedInt8(n) * 16;
     }
 
-    protected tileCache: Record<number, { valid: boolean; data: Int2[][] }> = [
-        ...new Array(0x180),
-    ].map(() => ({
-        valid: false,
-        data: Array.from(Array(8), () => new Array(8)),
-    }));
-
-    /**
-     * Returns the tile data as a 2D 8x8 array of shades (0-3)
-     */
-    getTile(tileAddress: number): Int2[][] {
-        let cachedTile = this.tileCache[(tileAddress >> 4) & 0x1ff];
-
-        if (!cachedTile.valid) {
-            // Draw the 8 lines of the tile
-            for (let tileY = 0; tileY < 8; tileY++) {
-                const tileDataH = this.vram.read(tileAddress + tileY * 2);
-                const tileDataL = this.vram.read(tileAddress + tileY * 2 + 1);
-                for (let tileX = 0; tileX < 8; tileX++) {
-                    const shadeL = (tileDataH >> (7 - tileX)) & 0b1;
-                    const shadeH = (tileDataL >> (7 - tileX)) & 0b1;
-                    const shade = ((shadeH << 1) | shadeL) as Int2;
-                    cachedTile.data[tileX][tileY] = shade;
-                }
-            }
-            cachedTile.valid = true;
-        }
-
-        return cachedTile.data;
-    }
-
     debugBackground() {
         const width = 256;
         const height = 256;
@@ -560,18 +719,33 @@ class PPU implements Addressable {
 
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
-        // The colors used
-        const palette = this.colorControl.getBgPalette();
 
         for (let i = 0; i < 1024; i++) {
             // Tile positions (0 <= n < 32)
             const posX = i % 32; // 32 tiles on width
             const posY = Math.floor(i / 32); // 32 tiles on height
-            // Get the tile address
-            const tileId = this.vram.read(tileMapLoc + i);
-            const tileAddress = this.getTileAddress(tileId);
-            // Get tile data
-            const tileData = this.getTile(tileAddress);
+
+            const tileIndex = tileMapLoc + i;
+
+            // On CGB, the attributes of the tile
+            // Note we can do this even in DMG mode, because VRAM2 in DMG is just a 00 register,
+            // and all the 0 attributes match the normal behaviour of the DMG
+            const tileAttributes = this.vramControl.readBank1(tileIndex);
+            const flipX = (tileAttributes & VRAM2_ATTR_H_FLIP) !== 0;
+            const flipY = (tileAttributes & VRAM2_ATTR_V_FLIP) !== 0;
+            const vramBank = (tileAttributes & VRAM2_ATTR_VRAM_BANK) !== 0 ? 1 : 0;
+            const tilePalette = (tileAttributes & VRAM2_ATTR_PALETTE) as Int3;
+
+            // Map of colors for each shade
+            const palette = this.colorControl.getBgPalette(tilePalette);
+
+            // The ID (pointer) of the tile
+            const tileAddress = this.vramControl.readBank0(tileIndex);
+            // Convert the ID to the actual address
+            const tileDataAddress = this.getTileAddress(tileAddress);
+            // Get the tile data
+            const tileData = this.vramControl.getTile(tileDataAddress, vramBank);
+
             // Draw the 8 lines of the tile
             for (let tileY = 0; tileY < 8; tileY++) {
                 for (let tileX = 0; tileX < 8; tileX++) {
@@ -592,7 +766,12 @@ class PPU implements Addressable {
             this.tilesetVideoBuffer = new Uint32Array(width * height);
 
         // The colors used
-        const palette = this.colorControl.getBgPalette();
+        const palette = {
+            0b00: 0xffffffff,
+            0b01: 0xffaaaaaa,
+            0b10: 0xff555555,
+            0b11: 0xff000000,
+        };
 
         for (let i = 0; i < 0x180; i++) {
             const tileAddress = 0x8000 + i * 16;
@@ -600,7 +779,7 @@ class PPU implements Addressable {
             const posX = i % 16; // 20 tiles on width
             const posY = Math.floor(i / 16);
             // Get tile data
-            const tileData = this.getTile(tileAddress);
+            const tileData = this.vramControl.getTile(tileAddress, 0);
             // Draw the 8 lines of the tile
             for (let tileX = 0; tileX < 8; tileX++) {
                 for (let tileY = 0; tileY < 8; tileY++) {
@@ -624,8 +803,6 @@ class PPU implements Addressable {
     drawBackground(priorities: boolean[]) {
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
-        // Map of colors for each shade
-        const palette = this.colorControl.getBgPalette();
 
         // The top-left corner of the 160x144 view area
         const viewX = this.screenX.get();
@@ -652,20 +829,38 @@ class PPU implements Addressable {
 
             // Index of the tile in the current tile data
             const tileIndex = tileMapLoc + tileX + tileY * 32;
+
+            // On CGB, the attributes of the tile
+            // Note we can do this even in DMG mode, because VRAM2 in DMG is just a 00 register,
+            // and all the 0 attributes match the normal behaviour of the DMG
+            const tileAttributes = this.vramControl.readBank1(tileIndex);
+            const bgToOamPrio = (tileAttributes & VRAM2_ATTR_BG_OAM_PRIORITY) !== 0;
+            const flipX = (tileAttributes & VRAM2_ATTR_H_FLIP) !== 0;
+            const flipY = (tileAttributes & VRAM2_ATTR_V_FLIP) !== 0;
+            const vramBank = (tileAttributes & VRAM2_ATTR_VRAM_BANK) !== 0 ? 1 : 0;
+            const tilePalette = (tileAttributes & VRAM2_ATTR_PALETTE) as Int3;
+
+            // Map of colors for each shade
+            const palette = this.colorControl.getBgPalette(tilePalette);
+
             // The ID (pointer) of the tile
-            const tileAddress = this.vram.read(tileIndex);
+            const tileAddress = this.vramControl.readBank0(tileIndex);
             // Convert the ID to the actual address
             const tileDataAddress = this.getTileAddress(tileAddress);
             // Get the tile data
-            const tileData = this.getTile(tileDataAddress);
+            const tileData = this.vramControl.getTile(tileDataAddress, vramBank);
 
             for (let innerX = 0; innerX < 8; innerX++) {
-                const posX = i + innerX - scrollOffsetX;
+                let posX = i + innerX - scrollOffsetX;
                 if (posX < 0) continue;
+
+                const arrayX = flipX ? 7 - innerX : innerX;
+                const arrayY = flipY ? 7 - tileInnerY : tileInnerY;
+
                 // Get the RGBA color, and draw it!
-                const colorId = tileData[innerX][tileInnerY];
+                const colorId = tileData[arrayX][arrayY];
                 this.videoBuffer[bufferStart + posX] = palette[colorId];
-                if (colorId > 0) {
+                if ((this.consoleMode === "CGB" && bgToOamPrio) || colorId > 0) {
                     priorities[posX] = true;
                 }
             }
@@ -681,9 +876,6 @@ class PPU implements Addressable {
 
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_WIN_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
-        // Map of colors for each shade
-        const palette = this.colorControl.getBgPalette();
-
         // The currently read Y pixel of the bg map
         const y = this.windowLineCounter++;
         // The currently read Y position of the corresponding tile (one tile is 8 pixels long)
@@ -703,27 +895,45 @@ class PPU implements Addressable {
 
             // Index of the tile in the current tile data
             const tileIndex = tileMapLoc + tileX + tileY * 32;
+
+            // On CGB, the attributes of the tile
+            // Note we can do this even in DMG mode, because VRAM2 in DMG is just a 00 register,
+            // and all the 0 attributes match the normal behaviour of the DMG
+            const tileAttributes = this.vramControl.readBank1(tileIndex);
+            const bgToOamPrio = (tileAttributes & VRAM2_ATTR_BG_OAM_PRIORITY) !== 0;
+            const flipX = (tileAttributes & VRAM2_ATTR_H_FLIP) !== 0;
+            const flipY = (tileAttributes & VRAM2_ATTR_V_FLIP) !== 0;
+            const vramBank = (tileAttributes & VRAM2_ATTR_VRAM_BANK) !== 0 ? 1 : 0;
+            const tilePalette = (tileAttributes & VRAM2_ATTR_PALETTE) as Int3;
+
+            // Map of colors for each shade
+            const palette = this.colorControl.getBgPalette(tilePalette);
+
             // The ID (pointer) of the tile
-            const tileAddress = this.vram.read(tileIndex);
+            const tileAddress = this.vramControl.readBank0(tileIndex);
             // Convert the ID to the actual address
             const tileDataAddress = this.getTileAddress(tileAddress);
             // Get the tile data
-            const tileData = this.getTile(tileDataAddress);
+            const tileData = this.vramControl.getTile(tileDataAddress, vramBank);
 
             for (let innerX = 0; innerX < 8; innerX++) {
                 const posX = i + innerX;
                 if (posX < 0) continue;
+
                 // Get the RGBA color, and draw it!
-                const colorId = tileData[innerX][tileInnerY];
+                const arrayX = flipX ? 7 - innerX : innerX;
+                const arrayY = flipY ? 7 - tileInnerY : tileInnerY;
+
+                const colorId = tileData[arrayX][arrayY];
                 this.videoBuffer[bufferStart + posX] = palette[colorId];
-                if (colorId > 0) {
+                if ((this.consoleMode === "CGB" && bgToOamPrio) || colorId > 0) {
                     priorities[posX] = true;
                 }
             }
         }
     }
 
-    drawObjects(system: System, priorities: boolean[]) {
+    drawObjects(priorities: boolean[]) {
         const y = this.lcdY.get();
         const doubleObjects = this.lcdControl.flag(LCDC_OBJ_SIZE);
         const sprites = this.readSprites;
@@ -744,13 +954,10 @@ class PPU implements Addressable {
             let tileY = (y - sprite.y) % 8;
             tileY = sprite.yFlip ? 7 - tileY : tileY;
             // Get the palette for the object
-            const palette = this.colorControl.getObjPalette(sprite.paletteNumber ? 1 : 0);
-
-            // Start of video buffer for this line
-            const bufferStart = y * SCREEN_WIDTH;
+            const palette = this.colorControl.getObjPalette(sprite);
 
             // Get tile colors
-            const tileData = this.getTile(tileAddress);
+            const tileData = this.vramControl.getTile(tileAddress, sprite.cgbVramBank);
 
             for (let innerX = 0; innerX < 8; innerX++) {
                 const x = innerX + sprite.x;
@@ -770,7 +977,7 @@ class PPU implements Addressable {
 
     protected address(pos: number): Addressable {
         // VRAM
-        if (0x8000 <= pos && pos <= 0x9fff) return this.vram;
+        if (0x8000 <= pos && pos <= 0x9fff) return this.vramControl;
         // OAM
         if (0xfe00 <= pos && pos <= 0xfe9f) return this.oam;
         // Registers
@@ -783,24 +990,16 @@ class PPU implements Addressable {
     read(address: number): number {
         const component = this.address(address);
         if (component === this.oam && !this.canReadOam) return 0xff;
-        if (component === this.vram && !this.canReadVram) return 0xff;
+        if (component === this.vramControl && !this.canReadVram) return 0xff;
         return component.read(address);
     }
+
     write(address: number, data: number): void {
         const component = this.address(address);
 
         if (component === this.oam && !this.canWriteOam) return;
-        if (component === this.vram && !this.canWriteVram) return;
+        if (component === this.vramControl && !this.canWriteVram) return;
 
-        if (
-            // if in tile memory, dirty tile
-            component === this.vram &&
-            0x8000 <= address &&
-            address < 0x9800 &&
-            data !== component.read(address)
-        ) {
-            this.tileCache[(address >> 4) & 0x1ff].valid = false;
-        }
         if (component === this.lcdControl) {
             const isEnabled = this.lcdControl.flag(LCDC_LCD_ENABLE);
             const willEnable = (data & LCDC_LCD_ENABLE) === LCDC_LCD_ENABLE;

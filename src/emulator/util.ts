@@ -10,5 +10,7 @@ export const range = (from: number, to: number) =>
 export const rangeObject = <T>(from: number, to: number, obj: T) =>
     Object.fromEntries(range(from, to).map((i) => [i, obj]));
 
+export type Int1 = 0 | 1;
 export type Int2 = 0 | 1 | 2 | 3;
+export type Int3 = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type Int4 = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
