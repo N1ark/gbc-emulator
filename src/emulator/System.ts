@@ -44,16 +44,18 @@ const INTERRUPT_CALLS: [number, number][] = [
 
 class System implements Addressable {
     // Core components / memory
+    protected bootRom: Addressable;
     protected rom: ROM;
     protected ppu: PPU;
     protected wram: RAM = new CircularRAM(WRAM_SIZE, 0xc000);
     protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
 
     // System registers
-    protected bootRomReadable = true;
+    protected bootRomBoundary: number;
+    protected bootRomLocked = false;
     protected bootRomRegister: Addressable = {
-        read: () => (this.bootRomReadable ? 0x0b1111_1110 : 0xff),
-        write: (pos, value) => (this.bootRomReadable &&= (value & 1) === 0),
+        read: () => (this.bootRomLocked ? 0xff : 0xfe),
+        write: (pos, value) => (this.bootRomLocked ||= (value & 1) === 1),
     };
 
     // Interrupts
@@ -81,6 +83,8 @@ class System implements Addressable {
         output: GameBoyOutput,
         mode: ConsoleType
     ) {
+        this.bootRom = BootROM(mode);
+        this.bootRomBoundary = mode === "DMG" ? 0x100 : 0x900;
         this.rom = new ROM(rom);
         this.ppu = new PPU(mode);
         this.joypad = new JoypadInput(input);
@@ -104,6 +108,7 @@ class System implements Addressable {
             ...rangeObject(0x10, 0x26, this.apu), // actual apu registers
             ...rangeObject(0x30, 0x3f, this.apu), // wave ram
             ...rangeObject(0x40, 0x4b, this.ppu), // ppu registers
+            0x4f: this.ppu, // ppu vram bank register
             0x50: this.bootRomRegister, // boot rom register
             ...rangeObject(0x68, 0x6b, this.ppu), // ppu palette registers (CGB only)
             ...rangeObject(0x80, 0xfe, this.hram), // hram
@@ -142,7 +147,7 @@ class System implements Addressable {
             throw new Error(`Invalid address to read from ${pos.toString(16)}`);
 
         // Boot ROM
-        if (this.bootRomReadable && pos < 0x100) return BootROM;
+        if (!this.bootRomLocked && pos < this.bootRomBoundary) return this.bootRom;
 
         // Checking last nibble
         let addressable = this.addressesLastNibble[(pos >> 12) as Int4];
