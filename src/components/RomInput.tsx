@@ -2,19 +2,11 @@ import { FunctionalComponent } from "preact";
 import { useRef } from "preact/hooks";
 import { JSXInternal } from "preact/src/jsx";
 
-type ConsoleType = "gb" | "gbc";
-
-const consoleRomExtensions: Record<ConsoleType, string> = {
-    gb: ".gb",
-    gbc: ".gbc",
-};
-
 type RomInputProps = {
-    type?: ConsoleType;
     onLoad: (data: ArrayBuffer) => void;
 };
 
-const RomInput: FunctionalComponent<RomInputProps> = ({ type = "gb", onLoad }) => {
+const RomInput: FunctionalComponent<RomInputProps> = ({ onLoad }) => {
     const fileInput = useRef<HTMLInputElement>(null);
 
     const romClick = () => {
@@ -40,7 +32,7 @@ const RomInput: FunctionalComponent<RomInputProps> = ({ type = "gb", onLoad }) =
 
             <input
                 type="file"
-                accept={consoleRomExtensions[type]}
+                accept=".gb,.gbc"
                 ref={fileInput}
                 onChange={romChange}
                 style={{ display: "none" }}

@@ -220,7 +220,7 @@ const App: FunctionalComponent = () => {
                 <h1>Emmy</h1>
                 <h2>The GBC Browser Emulator</h2>
 
-                <RomInput type="gb" onLoad={loadRom} />
+                <RomInput onLoad={loadRom} />
 
                 <div id="emu-options">
                     <IconButton
