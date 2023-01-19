@@ -117,6 +117,10 @@ class System implements Addressable {
             ...rangeObject(0x51, 0x55, this.ppu), // ppu vram dma registers
             ...rangeObject(0x68, 0x6b, this.ppu), // ppu palette registers (CGB only)
             0x70: this.wram, // wram bank register
+            0x72: mode === "CGB" ? new SubRegister() : undefined, // undocumented register
+            0x73: mode === "CGB" ? new SubRegister() : undefined, // undocumented register
+            0x74: mode === "CGB" ? new SubRegister() : undefined, // undocumented register
+            0x75: mode === "CGB" ? new PaddedSubRegister(0b1000_1111) : undefined, // undocumented register
             ...rangeObject(0x80, 0xfe, this.hram), // hram
             0xff: this.intEnable, // IE
         };
