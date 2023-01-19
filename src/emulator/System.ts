@@ -44,6 +44,9 @@ const INTERRUPT_CALLS: [number, number][] = [
 ];
 
 class System implements Addressable {
+    // General use
+    protected mode: ConsoleType;
+
     // Core components / memory
     protected bootRom: Addressable;
     protected rom: ROM;
@@ -52,7 +55,6 @@ class System implements Addressable {
     protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
 
     // System registers
-    protected bootRomBoundary: number;
     protected bootRomLocked = false;
     protected bootRomRegister: Addressable = {
         read: () => (this.bootRomLocked ? 0xff : 0xfe),
@@ -84,8 +86,8 @@ class System implements Addressable {
         output: GameBoyOutput,
         mode: ConsoleType
     ) {
+        this.mode = mode;
         this.bootRom = BootROM(mode);
-        this.bootRomBoundary = mode === "DMG" ? 0x100 : 0x900;
         this.rom = new ROM(rom);
         this.ppu = new PPU(mode);
         this.wram = mode === "DMG" ? new DMGWRAM() : new GBCWRAM();
@@ -151,7 +153,10 @@ class System implements Addressable {
             throw new Error(`Invalid address to read from ${pos.toString(16)}`);
 
         // Boot ROM
-        if (!this.bootRomLocked && pos < this.bootRomBoundary) return this.bootRom;
+        if (!this.bootRomLocked && pos < 0x100) return this.bootRom;
+        // (the CGB's boot rom extends to 0x900, but leaves a gap for the header)
+        if (!this.bootRomLocked && this.mode === "CGB" && 0x200 <= pos && pos < 0x900)
+            return this.bootRom;
 
         // Checking last nibble
         let addressable = this.addressesLastNibble[(pos >> 12) as Int4];
