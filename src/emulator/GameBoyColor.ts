@@ -19,6 +19,7 @@ class GameBoyColor {
     protected cpu: CPU;
     protected system: System;
 
+    protected cpuIsHalted = false;
     protected cycles: number = 0;
 
     protected output: GameBoyOutput;
@@ -79,8 +80,11 @@ class GameBoyColor {
         const frameDrawStart = window.performance.now();
         while (this.cycles < cycleTarget) {
             // one CPU step, convert M-cycles to CPU cycles
-            const cpuIsDone = this.cpu.step(this.system, isDebugging);
-            this.system.tick();
+            let cpuIsDone: boolean;
+            if (!this.cpuIsHalted) cpuIsDone = this.cpu.step(this.system, isDebugging);
+            else cpuIsDone = true;
+
+            this.cpuIsHalted = this.system.tick();
             this.cycles += 4;
             this.cycleChrono.count += 4;
 

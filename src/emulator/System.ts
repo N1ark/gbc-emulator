@@ -126,14 +126,19 @@ class System implements Addressable {
         };
     }
 
-    /** Ticks the whole system for the given number of cycles. */
-    tick() {
-        this.ppu.tick(this);
+    /**
+     * Ticks the whole system for one M-cycle.
+     * @returns if the CPU should be halted (because a VRAM-DMA is in progress).
+     */
+    tick(): boolean {
+        const haltCpu = this.ppu.tick(this);
         this.timer.tick(this);
         this.apu.tick(this.timer);
 
         // Tick IME
         this.intMasterEnable = IntMasterEnableState[this.intMasterEnable];
+
+        return haltCpu;
     }
 
     /**

@@ -100,8 +100,8 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
     }
     console.log(
         `Finished running tests! Passed ${
-            Object.values(results).filter((x) => x.state === "✅").length
-        }/${Object.keys(results).length}`
+            Object.values(localResults).filter((x) => x.state === "✅").length
+        }/${Object.keys(localResults).length}`
     );
 };
 

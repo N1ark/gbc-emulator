@@ -199,12 +199,19 @@ class PPU implements Addressable {
 
     /**
      * This the PPU, effectively updating the screen-buffer and rendering it if it's done.
+     * @param system The system that links all components together
+     * @returns Whether the CPU should be halted (a GBC VRAM-DMA is in progress)
      * @link https://gbdev.io/pandocs/pixel_fifo.html
      */
-    tick(system: System) {
+    tick(system: System): boolean {
         this.oam.tick(system);
 
-        if (!this.lcdControl.flag(LCDC_LCD_ENABLE)) return;
+        if (!this.lcdControl.flag(LCDC_LCD_ENABLE)) return false;
+
+        const haltCpu = this.vramControl.tick(
+            system,
+            this.mode === MODE_HBLANK && this.lcdY.get() < SCREEN_HEIGHT
+        );
 
         // Update interrupt line from previous write operations?
         if (this.nextInterruptLineUpdate !== null) {
@@ -219,6 +226,8 @@ class PPU implements Addressable {
         }
 
         this[this.mode.doTick](system);
+
+        return haltCpu;
     }
 
     tickHBlankFirst(system: System) {
@@ -812,8 +821,8 @@ class PPUExported implements Addressable {
         this.ppu = new PPU(mode);
     }
 
-    tick(system: System): void {
-        this.ppu.tick(system);
+    tick(system: System): boolean {
+        return this.ppu.tick(system);
     }
 
     pushOutput(output: GameBoyOutput): void {

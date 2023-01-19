@@ -1,8 +1,12 @@
 import { Addressable, CircularRAM } from "../Memory";
-import { PaddedSubRegister } from "../Register";
+import { PaddedSubRegister, SubRegister } from "../Register";
+import System from "../System";
 import { Int2 } from "../util";
 
 type TileCache = Record<number, { valid: boolean; data: Int2[][] }>;
+
+const HDMA5_LENGTH = 0b0111_1111;
+const HDMA5_MODE = 0b1000_0000;
 
 abstract class VRAMController implements Addressable {
     protected abstract readonly addresses: Record<number, Addressable>;
@@ -39,6 +43,16 @@ abstract class VRAMController implements Addressable {
 
     abstract readBank0(pos: number): number;
     abstract readBank1(pos: number): number;
+
+    /**
+     * Ticks the VRAM. This does nothing on DMG, but ticks the VRAM-DMA on CGB.
+     * @param system The system of the Gameboy. Used for the DMA.
+     * @param isInHblank If the PPU is in a HBlank and LY=0-143.
+     * @returns If the CPU should be halted (because a DMA is in progress)
+     */
+    tick(system: System, isInHblank: boolean): boolean {
+        return false;
+    }
 
     read(pos: number): number {
         if (0x8000 <= pos && pos <= 0x9fff) return this.currentBank.read(pos);
@@ -90,15 +104,15 @@ class CGBVRAMController extends VRAMController {
     protected tileCache1 = VRAMController.makeCache();
     protected vramBank = new PaddedSubRegister(0b1111_1110);
 
-    protected spyRegister: Addressable = {
-        read: (p) => {
-            console.log(`read at ${p.toString(16)}`);
-            return 0xff;
-        },
-        write: (p, v) => {
-            console.log(`write ${v.toString(16)} at ${p.toString(16)}`);
-        },
-    };
+    protected dmaInProgress: "HBLANK" | "GENERAL" | "NONE" = "NONE";
+    protected dmaIndex: number = 0;
+    protected dmaToTransfer: number = 0;
+
+    protected hdma1 = new SubRegister();
+    protected hdma2 = new SubRegister();
+    protected hdma3 = new SubRegister();
+    protected hdma4 = new SubRegister();
+    protected hdma5 = new SubRegister();
 
     protected get currentBank() {
         return this.vramBank.get() & 0b1 ? this.vram1 : this.vram0;
@@ -109,13 +123,68 @@ class CGBVRAMController extends VRAMController {
 
     protected readonly addresses: Record<number, Addressable> = {
         0xff4f: this.vramBank,
-
-        0xff51: this.spyRegister,
-        0xff52: this.spyRegister,
-        0xff53: this.spyRegister,
-        0xff54: this.spyRegister,
-        0xff55: this.spyRegister,
+        0xff51: this.hdma1,
+        0xff52: this.hdma2,
+        0xff53: this.hdma3,
+        0xff54: this.hdma4,
+        0xff55: this.hdma5,
     };
+
+    override tick(system: System, isInHblank: boolean): boolean {
+        if (
+            (this.dmaInProgress === "HBLANK" && isInHblank) ||
+            this.dmaInProgress === "GENERAL"
+        ) {
+            const source = ((this.hdma1.get() << 8) | this.hdma2.get()) & 0xfff0;
+            const dest = ((this.hdma3.get() << 8) | this.hdma4.get()) & 0x1ff0;
+
+            const byte1 = system.read(source + this.dmaIndex);
+            const byte2 = system.read(source + this.dmaIndex + 1);
+            this.write(0x8000 + dest + this.dmaIndex, byte1);
+            this.write(0x8000 + dest + this.dmaIndex + 1, byte2);
+
+            this.dmaIndex += 2;
+            this.dmaToTransfer -= 2;
+            this.hdma5.set((this.dmaToTransfer >> 4) & HDMA5_LENGTH);
+
+            if (this.dmaToTransfer === 0) {
+                this.dmaInProgress = "NONE";
+            }
+
+            return true;
+        }
+        return false;
+    }
+
+    override write(address: number, value: number): void {
+        super.write(address, value);
+
+        if (address === 0xff55) {
+            // Interrupts the transfer
+            if (this.dmaInProgress !== "NONE") {
+                if (value & HDMA5_MODE) {
+                    this.dmaInProgress = "NONE";
+                }
+            }
+
+            // Starts the transfer
+            else {
+                const length = ((value & HDMA5_LENGTH) + 1) << 4;
+                this.dmaInProgress = value & HDMA5_MODE ? "HBLANK" : "GENERAL";
+                this.dmaToTransfer = length;
+                this.dmaIndex = 0;
+            }
+        }
+    }
+
+    override read(pos: number): number {
+        if (pos === 0xff55) {
+            const hdma5 = this.hdma5.get();
+            return (hdma5 & HDMA5_LENGTH) | (this.dmaInProgress === "NONE" ? HDMA5_MODE : 0);
+        }
+
+        return super.read(pos);
+    }
 
     readBank0(pos: number): number {
         return this.vram0.read(pos);
