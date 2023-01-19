@@ -82,6 +82,10 @@ class CGBColorControl extends ColorController {
         0xff69: this.bgPaletteData,
         0xff6a: this.objPaletteOptions,
         0xff6b: this.objPaletteData,
+
+        0xff47: new SubRegister(), // Unused
+        0xff48: new SubRegister(), // Unused
+        0xff49: new SubRegister(), // Unused
     };
 
     override read(pos: number): number {

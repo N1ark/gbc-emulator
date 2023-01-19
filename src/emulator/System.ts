@@ -19,6 +19,7 @@ import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
 import { Int4, rangeObject } from "./util";
 import BootROM from "./BootROM";
+import { DMGWRAM, GBCWRAM } from "./WRAM";
 
 type IntMasterEnableStateType = "DISABLED" | "WILL_ENABLE" | "WILL_ENABLE2" | "ENABLED";
 
@@ -47,7 +48,7 @@ class System implements Addressable {
     protected bootRom: Addressable;
     protected rom: ROM;
     protected ppu: PPU;
-    protected wram: RAM = new CircularRAM(WRAM_SIZE, 0xc000);
+    protected wram: Addressable;
     protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
 
     // System registers
@@ -87,6 +88,7 @@ class System implements Addressable {
         this.bootRomBoundary = mode === "DMG" ? 0x100 : 0x900;
         this.rom = new ROM(rom);
         this.ppu = new PPU(mode);
+        this.wram = mode === "DMG" ? new DMGWRAM() : new GBCWRAM();
         this.joypad = new JoypadInput(input);
         this.apu = new APU(output);
         this.serialOut = output.serialOut;
@@ -111,6 +113,7 @@ class System implements Addressable {
             0x4f: this.ppu, // ppu vram bank register
             0x50: this.bootRomRegister, // boot rom register
             ...rangeObject(0x68, 0x6b, this.ppu), // ppu palette registers (CGB only)
+            0x70: this.wram, // wram bank register
             ...rangeObject(0x80, 0xfe, this.hram), // hram
             0xff: this.intEnable, // IE
         };
