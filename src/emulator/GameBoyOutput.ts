@@ -10,7 +10,7 @@ interface GameBoyOutput {
     debugBackground?(data: Uint32Array): void;
 
     /**
-     * Optional method that receives an image with the current tileset in 128x192.
+     * Optional method that receives an image with the current tileset in 256x192.
      */
     debugTileset?(data: Uint32Array): void;
 

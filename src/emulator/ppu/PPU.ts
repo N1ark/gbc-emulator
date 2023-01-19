@@ -504,7 +504,7 @@ class PPU implements Addressable {
     }
 
     debugTileset() {
-        const width = 128; // 16 * 8;
+        const width = 256; // 16 * 8 * 2;
         const height = 192; // 24 * 8;
         if (this.tilesetVideoBuffer === undefined)
             this.tilesetVideoBuffer = new Uint32Array(width * height);
@@ -522,14 +522,19 @@ class PPU implements Addressable {
             // Tile positions (0 <= n < 32)
             const posX = i % 16; // 20 tiles on width
             const posY = Math.floor(i / 16);
-            // Get tile data
-            const tileData = this.vramControl.getTile(tileAddress, 0);
+
+            // Get tile data (VRAM 0 and 1)
+            const tileData1 = this.vramControl.getTile(tileAddress, 0);
+            const tileData2 = this.vramControl.getTile(tileAddress, 1);
             // Draw the 8 lines of the tile
             for (let tileX = 0; tileX < 8; tileX++) {
                 for (let tileY = 0; tileY < 8; tileY++) {
-                    const colorId = tileData[tileX][tileY];
+                    const colorId1 = tileData1[tileX][tileY];
+                    const colorId2 = tileData2[tileX][tileY];
+
                     const index = posX * 8 + posY * width * 8 + tileX + tileY * width;
-                    this.tilesetVideoBuffer[index] = palette[colorId];
+                    this.tilesetVideoBuffer[index] = palette[colorId1];
+                    this.tilesetVideoBuffer[index + width / 2] = palette[colorId2];
                 }
             }
         }

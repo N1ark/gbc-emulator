@@ -277,7 +277,7 @@ const App: FunctionalComponent = () => {
                                 <>
                                     <Screen width={256} height={256} inputRef={bgDebugger} />
                                     <Screen
-                                        width={128}
+                                        width={256}
                                         height={192}
                                         inputRef={tilesetDebugger}
                                     />
