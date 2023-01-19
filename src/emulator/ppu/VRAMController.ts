@@ -90,6 +90,16 @@ class CGBVRAMController extends VRAMController {
     protected tileCache1 = VRAMController.makeCache();
     protected vramBank = new PaddedSubRegister(0b1111_1110);
 
+    protected spyRegister: Addressable = {
+        read: (p) => {
+            console.log(`read at ${p.toString(16)}`);
+            return 0xff;
+        },
+        write: (p, v) => {
+            console.log(`write ${v.toString(16)} at ${p.toString(16)}`);
+        },
+    };
+
     protected get currentBank() {
         return this.vramBank.get() & 0b1 ? this.vram1 : this.vram0;
     }
@@ -99,6 +109,12 @@ class CGBVRAMController extends VRAMController {
 
     protected readonly addresses: Record<number, Addressable> = {
         0xff4f: this.vramBank,
+
+        0xff51: this.spyRegister,
+        0xff52: this.spyRegister,
+        0xff53: this.spyRegister,
+        0xff54: this.spyRegister,
+        0xff55: this.spyRegister,
     };
 
     readBank0(pos: number): number {

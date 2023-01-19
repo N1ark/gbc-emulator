@@ -178,16 +178,21 @@ class PPU implements Addressable {
             0xff44: this.lcdY,
             0xff45: this.lcdYCompare,
             0xff46: this.oam,
-            0xff47: this.colorControl,
-            0xff48: this.colorControl,
-            0xff49: this.colorControl,
+            0xff47: this.colorControl, // DMG Palettes
+            0xff48: this.colorControl, // |
+            0xff49: this.colorControl, // |
             0xff4a: this.windowY,
             0xff4b: this.windowX,
-            0xff4f: this.vramControl,
-            0xff68: this.colorControl,
-            0xff69: this.colorControl,
-            0xff6a: this.colorControl,
-            0xff6b: this.colorControl,
+            0xff4f: this.vramControl, // VRAM Bank
+            0xff51: this.vramControl, // CGB VRAM DMA
+            0xff52: this.vramControl, // |
+            0xff53: this.vramControl, // |
+            0xff54: this.vramControl, // |
+            0xff55: this.vramControl, // |
+            0xff68: this.colorControl, // CGB Palettes
+            0xff69: this.colorControl, // |
+            0xff6a: this.colorControl, // |
+            0xff6b: this.colorControl, // |
             0xff6c: this.objPriorityMode,
         };
     }

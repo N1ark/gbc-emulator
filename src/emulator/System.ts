@@ -112,6 +112,7 @@ class System implements Addressable {
             ...rangeObject(0x40, 0x4b, this.ppu), // ppu registers
             0x4f: this.ppu, // ppu vram bank register
             0x50: this.bootRomRegister, // boot rom register
+            ...rangeObject(0x51, 0x55, this.ppu), // ppu vram dma registers
             ...rangeObject(0x68, 0x6b, this.ppu), // ppu palette registers (CGB only)
             0x70: this.wram, // wram bank register
             ...rangeObject(0x80, 0xfe, this.hram), // hram
