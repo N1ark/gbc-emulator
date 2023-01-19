@@ -60,57 +60,60 @@ class MBC5 extends MBC {
      */
     read(pos: number): number {
         const addressMask = this.size - 1; // works for powers of 2
-        if (0x0000 <= pos && pos <= 0x3fff) {
-            // bank 0
-            return this.data[pos & addressMask];
-        }
-        if (0x4000 <= pos && pos <= 0x7fff) {
-            // bank 00-1ff
-            const address =
-                (pos & ((1 << 14) - 1)) |
-                (this.romBankLower8.get() << 14) |
-                (this.romBankUpper1.get() << 22);
-            return this.data[address & addressMask];
-        }
-        if (0xa000 <= pos && pos <= 0xbfff) {
-            // RAM disabled
-            if (this.ramEnable.get() !== RAM_ENABLED) return 0xff;
-            const address = this.resolveERAMAddress(pos);
-            return this.ram.read(address);
+        switch (pos >> 12) {
+            case 0x0: // ROM bank 0
+            case 0x1:
+            case 0x2:
+            case 0x3: {
+                return this.data[pos & addressMask];
+            }
+            case 0x4: // ROM bank 1-ff
+            case 0x5:
+            case 0x6:
+            case 0x7: {
+                const address =
+                    (pos & ((1 << 14) - 1)) |
+                    (this.romBankLower8.get() << 14) |
+                    (this.romBankUpper1.get() << 22);
+                return this.data[address & addressMask];
+            }
+            case 0xa: // ERAM
+            case 0xb: {
+                if (this.ramEnable.get() !== RAM_ENABLED) return 0xff;
+                const address = this.resolveERAMAddress(pos);
+                return this.ram.read(address);
+            }
         }
 
         throw new Error(`Invalid address to read from MBC5: ${pos.toString(16)}`);
     }
 
     write(pos: number, data: number): void {
-        // Ram enable
-        if (0x0000 <= pos && pos <= 0x1fff) {
-            return this.ramEnable.set(data & 0b1111); // 4 bit register
-        }
-        // ROM Bank Number (lower 8 bits)
-        if (0x2000 <= pos && pos <= 0x2fff) {
-            return this.romBankLower8.set(data);
-        }
-        // ROM Bank Number (upper 1 bit)
-        if (0x3000 <= pos && pos <= 0x3fff) {
-            return this.romBankUpper1.set(data & 0b1); // 1 bit register
-        }
-        // RAM Bank Number
-        if (0x4000 <= pos && pos <= 0x5fff) {
-            return this.ramBank.set(data & 0b11); // 2bit register
-        }
-        // Nothing here
-        if (0x6000 <= pos && pos <= 0x7fff) {
-            return;
-        }
-        // ERAM Write
-        if (0xa000 <= pos && pos <= 0xbfff) {
-            if (this.ramEnable.get() !== RAM_ENABLED) return; // RAM disabled
+        switch (pos >> 12) {
+            case 0x0: // RAM enable
+            case 0x1:
+                return this.ramEnable.set(data & 0b1111); // 4 bit register
 
-            const address = this.resolveERAMAddress(pos);
-            return this.ram.write(address, data);
-        }
+            case 0x2: // ROM Bank Number (lower 8 bits)
+                return this.romBankLower8.set(data);
 
+            case 0x3: // ROM Bank Number (upper 1 bit)
+                return this.romBankUpper1.set(data & 0b1); // 1 bit register
+
+            case 0x4: // RAM Bank Number
+            case 0x5:
+                return this.ramBank.set(data & 0b11); // 2bit register
+
+            case 0x6: // Nothing here
+            case 0x7:
+                return;
+
+            case 0xa: // ERAM Write
+            case 0xb:
+                if (this.ramEnable.get() !== RAM_ENABLED) return; // RAM disabled
+                const address = this.resolveERAMAddress(pos);
+                return this.ram.write(address, data);
+        }
         throw new Error(`Invalid address to write to MBC5: ${pos.toString(16)}`);
     }
 }

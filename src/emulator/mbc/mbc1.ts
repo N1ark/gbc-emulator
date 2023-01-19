@@ -61,54 +61,63 @@ class MBC1 extends MBC {
     read(pos: number): number {
         const mode = this.bankingModeSelect.get() as 0 | 1;
         const addressMask = this.size - 1; // works for powers of 2
-        if (0x0000 <= pos && pos <= 0x3fff) {
-            const address = mode === 0 ? pos : (this.ramBank.get() << 19) | pos;
-            return this.data[address & addressMask];
+        switch (pos >> 12) {
+            case 0x0:
+            case 0x1:
+            case 0x2:
+            case 0x3: {
+                const address = mode === 0 ? pos : (this.ramBank.get() << 19) | pos;
+                return this.data[address & addressMask];
+            }
+            case 0x4:
+            case 0x5:
+            case 0x6:
+            case 0x7: {
+                const address =
+                    (pos & ((1 << 14) - 1)) |
+                    (this.romBank.get() << 14) |
+                    (this.ramBank.get() << 19);
+                return this.data[address & addressMask];
+            }
+            case 0xa:
+            case 0xb: {
+                // RAM disabled
+                if (this.ramEnable.get() !== RAM_ENABLED) return 0xff;
+                const address = this.resolveERAMAddress(pos);
+                return this.ram.read(address);
+            }
         }
-        if (0x4000 <= pos && pos <= 0x7fff) {
-            const address =
-                (pos & ((1 << 14) - 1)) |
-                (this.romBank.get() << 14) |
-                (this.ramBank.get() << 19);
-            return this.data[address & addressMask];
-        }
-        if (0xa000 <= pos && pos <= 0xbfff) {
-            // RAM disabled
-            if (this.ramEnable.get() !== RAM_ENABLED) return 0xff;
-            const address = this.resolveERAMAddress(pos);
-            return this.ram.read(address);
-        }
-
         throw new Error(`Invalid address to read from MBC1: ${pos.toString(16)}`);
     }
 
     write(pos: number, data: number): void {
-        // Ram enable
-        if (0x0000 <= pos && pos <= 0x1fff) {
-            return this.ramEnable.set(data & 0b1111); // 4 bit register
-        }
-        // ROM Bank Number
-        if (0x2000 <= pos && pos <= 0x3fff) {
-            const bits5 = data & 0b11111; // 5bit register
-            // Can't set ROM bank to 0
-            // In reality what happens is that a value of 0 is *interpreted* as 1. However
-            // simply overriding the write produces the same effect and is simpler.
-            return this.romBank.set(bits5 === 0 ? 1 : bits5);
-        }
-        // RAM Bank Number
-        if (0x4000 <= pos && pos <= 0x5fff) {
-            return this.ramBank.set(data & 0b11); // 2bit register
-        }
-        // Banking Mode Select
-        if (0x6000 <= pos && pos <= 0x7fff) {
-            return this.bankingModeSelect.set(data & 0b1); // 1bit register
-        }
-        // ERAM Write
-        if (0xa000 <= pos && pos <= 0xbfff) {
-            if (this.ramEnable.get() !== RAM_ENABLED) return; // RAM disabled
+        switch (pos >> 12) {
+            case 0x0: // RAM enable
+            case 0x1:
+                return this.ramEnable.set(data & 0b1111); // 4 bit register
 
-            const address = this.resolveERAMAddress(pos);
-            return this.ram.write(address, data);
+            case 0x2: // ROM Bank Number
+            case 0x3:
+                const bits5 = data & 0b11111; // 5bit register
+                // Can't set ROM bank to 0
+                // In reality what happens is that a value of 0 is *interpreted* as 1. However
+                // simply overriding the write produces the same effect and is simpler.
+                return this.romBank.set(bits5 === 0 ? 1 : bits5);
+
+            case 0x4: // RAM Bank Number
+            case 0x5:
+                return this.ramBank.set(data & 0b11); // 2bit register
+
+            case 0x6: // Banking Mode Select
+            case 0x7:
+                return this.bankingModeSelect.set(data & 0b1); // 1bit register
+
+            case 0xa: // ERAM Write
+            case 0xb:
+                if (this.ramEnable.get() !== RAM_ENABLED) return; // RAM disabled
+
+                const address = this.resolveERAMAddress(pos);
+                return this.ram.write(address, data);
         }
 
         throw new Error(`Invalid address to write to MBC1: ${pos.toString(16)}`);
