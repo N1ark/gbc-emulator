@@ -4,6 +4,7 @@
  * @link https://github.com/denislins/gameboy/blob/master/emulator/apu/Player.js
  */
 class AudioPlayer {
+    protected volume: { value: number };
     protected context: AudioContext | undefined;
     protected lastPlayEnd: number | undefined;
     protected enqued: number = 0;
@@ -11,7 +12,8 @@ class AudioPlayer {
     protected windowBlurListener: () => void;
     protected windowFocusListener: () => void;
 
-    constructor() {
+    constructor(volume: { value: number } = { value: 1 }) {
+        this.volume = volume;
         this.context = new AudioContext();
         this.context.resume();
         this.windowBlurListener = () => this.context?.suspend();
@@ -45,7 +47,8 @@ class AudioPlayer {
         // Create the buffer
         const buffer = this.context.createBuffer(1, sample.length, 44100);
         const bufferContent = buffer.getChannelData(0);
-        bufferContent.set(sample);
+        for (let i = 0; i < sample.length; i++)
+            bufferContent[i] = sample[i] * this.volume.value;
 
         const source = this.context.createBufferSource();
         source.buffer = buffer;

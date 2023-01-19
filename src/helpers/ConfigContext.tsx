@@ -9,6 +9,7 @@ export type Configuration = {
     frameBlending: boolean;
     bootRom: "none" | "real";
     console: "dmg" | "cgb";
+    volume: number;
 };
 
 const IdentitySave = { to: (v: any) => v, from: (v: any) => v };
@@ -28,6 +29,7 @@ const configLoaders: {
     frameBlending: IdentitySave,
     bootRom: IdentitySave,
     console: IdentitySave,
+    volume: IdentitySave,
 };
 
 const defaultConfig: Configuration = {
@@ -37,6 +39,7 @@ const defaultConfig: Configuration = {
     frameBlending: true,
     bootRom: "none",
     console: "dmg",
+    volume: 0.5,
 };
 
 const configToString = (config: Configuration): string =>

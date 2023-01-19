@@ -36,6 +36,10 @@ const App: FunctionalComponent = () => {
     const emulatorRunning = useSignal(true);
     const canStep = useSignal(true);
     const [config, setConfig] = useConfig();
+    const volume = useSignal(config.volume);
+    useEffect(() => {
+        volume.value = config.volume;
+    }, [config.volume]);
     const soundOutput = useSignal<AudioPlayer | undefined>(undefined);
 
     // DOM Refs
@@ -57,7 +61,7 @@ const App: FunctionalComponent = () => {
         const audioEnabled = !config.audioEnabled;
         setConfig({ audioEnabled });
         if (audioEnabled) {
-            soundOutput.value = new AudioPlayer();
+            soundOutput.value = new AudioPlayer(volume);
         } else {
             soundOutput.value?.delete();
             delete soundOutput.value;

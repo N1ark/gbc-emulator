@@ -15,7 +15,6 @@ import {
     Palette,
 } from "lucide-preact";
 import { FunctionalComponent } from "preact";
-import { useEffect } from "preact/hooks";
 import Grid2x from "./Grid2x";
 
 const availableFilters = [
@@ -36,9 +35,11 @@ const availableFilters = [
     },
 ];
 
-const GraphicsDrawer: FunctionalComponent = () => {
-    const [{ filter: currentFilter, frameBlending, scale, bootRom, console }, setConfig] =
-        useConfig();
+const SettingsDrawer: FunctionalComponent = () => {
+    const [
+        { filter: currentFilter, frameBlending, scale, bootRom, console, volume },
+        setConfig,
+    ] = useConfig();
 
     return (
         <div>
@@ -102,6 +103,19 @@ const GraphicsDrawer: FunctionalComponent = () => {
             </div>
 
             <div className="drawer-section-title">
+                <div>Volume:</div>
+
+                <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.02"
+                    value={volume}
+                    onChange={(e) => setConfig({ volume: +e.currentTarget.value })}
+                />
+            </div>
+
+            <div className="drawer-section-title">
                 <div>Boot Rom:</div>
                 <IconButton
                     title="Boot ROM"
@@ -113,4 +127,4 @@ const GraphicsDrawer: FunctionalComponent = () => {
     );
 };
 
-export default GraphicsDrawer;
+export default SettingsDrawer;

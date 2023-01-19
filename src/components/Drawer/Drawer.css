@@ -13,7 +13,7 @@
 
 .drawer-section {
     border-bottom: solid gray 1px;
-    padding: 16px 0;
+    padding: 2px 0;
 }
 
 .drawer-title {
@@ -31,14 +31,15 @@
     margin: 0;
 }
 
-.drawer-section > div:nth-child(2) {
+.drawer-section > .drawer-content {
     overflow: hidden;
 }
 
-.drawer-section > div:nth-child(2) > div {
+.drawer-section > .drawer-content > div {
     background-color: #242424;
     border-radius: 8px;
     padding: 4px;
+    margin-bottom: 2px;
 }
 
 .drawer-section-title {

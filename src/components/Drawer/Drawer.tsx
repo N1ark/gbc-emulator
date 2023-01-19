@@ -1,9 +1,8 @@
-import { ImageFilter } from "@/helpers/ImageFilter";
 import { FunctionalComponent } from "preact";
 import "./Drawer.css";
 import DrawerSection from "./DrawerSection";
 import ExpressionDrawer from "./ExpressionDrawer";
-import GraphicsDrawer from "./GraphicsDrawer";
+import SettingsDrawer from "./SettingsDrawer";
 import TestDrawer from "./TestDrawer";
 
 type DrawerProps = {
@@ -12,8 +11,8 @@ type DrawerProps = {
 
 const Drawer: FunctionalComponent<DrawerProps> = ({ loadRom }) => (
     <div id="drawer">
-        <DrawerSection title="graphics">
-            <GraphicsDrawer />
+        <DrawerSection title="settings">
+            <SettingsDrawer />
         </DrawerSection>
         <DrawerSection title="watch expressions">
             <ExpressionDrawer />
