@@ -76,6 +76,14 @@ class CGBColorControl extends ColorController {
     // Object palettes
     protected objPaletteOptions = new PaddedSubRegister(0b0100_0000);
     protected objPaletteData = new RAM(64);
+    // Palette cache
+    protected paletteCache: (ColorPalette & { valid: boolean })[] = [...Array(16)].map(() => ({
+        0: 0,
+        1: 0,
+        2: 0,
+        3: 0,
+        valid: false,
+    }));
 
     protected addresses = {
         0xff68: this.bgPaletteOptions,
@@ -103,6 +111,7 @@ class CGBColorControl extends ColorController {
             const bgPaletteOptions = this.bgPaletteOptions.get();
             const index = bgPaletteOptions & PALETTE_INDEX;
             this.bgPaletteData.write(index, value);
+            this.paletteCache[index >> 3].valid = false;
             if (bgPaletteOptions & PALETTE_AUTO_INCREMENT)
                 this.bgPaletteOptions.set(
                     (bgPaletteOptions & ~PALETTE_INDEX) | ((index + 1) & PALETTE_INDEX)
@@ -111,6 +120,7 @@ class CGBColorControl extends ColorController {
             const objPaletteOptions = this.objPaletteOptions.get();
             const index = objPaletteOptions & PALETTE_INDEX;
             this.objPaletteData.write(index, value);
+            this.paletteCache[(index >> 3) + 8].valid = false;
             if (objPaletteOptions & PALETTE_AUTO_INCREMENT)
                 this.objPaletteOptions.set(
                     (objPaletteOptions & ~PALETTE_INDEX) | ((index + 1) & PALETTE_INDEX)
@@ -120,8 +130,10 @@ class CGBColorControl extends ColorController {
         }
     }
 
-    protected decodePalette(data: RAM, id: number, offset: number) {
-        const palette: ColorPalette = new Uint32Array(4) as any as ColorPalette;
+    protected decodePalette(data: RAM, id: Int3, offset: 0 | 1, cacheOffset: 0 | 8) {
+        const palette = this.paletteCache[id + cacheOffset];
+        if (palette.valid) return palette;
+
         for (let colorIdx = offset; colorIdx < 4; colorIdx++) {
             const colorLow = data.read(id * 8 + colorIdx * 2);
             const colorHigh = data.read(id * 8 + colorIdx * 2 + 1);
@@ -137,15 +149,17 @@ class CGBColorControl extends ColorController {
 
             palette[colorIdx as Int2] = (0xff << 24) | (blue8 << 16) | (green8 << 8) | red8;
         }
+        palette.valid = true;
+
         return palette;
     }
 
     getBgPalette(id: Int3): ColorPalette {
-        return this.decodePalette(this.bgPaletteData, id, 0);
+        return this.decodePalette(this.bgPaletteData, id, 0, 0);
     }
 
     getObjPalette(sprite: Sprite): ColorPalette {
-        return this.decodePalette(this.objPaletteData, sprite.cgbPaletteNumber, 1);
+        return this.decodePalette(this.objPaletteData, sprite.cgbPaletteNumber, 1, 8);
     }
 }
 
