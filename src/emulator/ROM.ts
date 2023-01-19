@@ -1,6 +1,7 @@
 import MBC from "./mbc/abstract";
 import MBC1 from "./mbc/mbc1";
 import MBC3 from "./mbc/mbc3";
+import MBC5 from "./mbc/mbc5";
 import NoMBC from "./mbc/nombc";
 import { Addressable } from "./Memory";
 
@@ -39,6 +40,13 @@ class ROM implements Addressable {
             0x11: () => new MBC3(data, { hasTimer: false, hasRam: false }),
             0x12: () => new MBC3(data, { hasTimer: false, hasRam: true }),
             0x13: () => new MBC3(data, { hasTimer: false, hasRam: true }),
+            // MBC5
+            0x19: () => new MBC5(data, { hasRam: false, hasRumble: false }),
+            0x1a: () => new MBC5(data, { hasRam: true, hasRumble: false }),
+            0x1b: () => new MBC5(data, { hasRam: true, hasRumble: false }),
+            0x1c: () => new MBC5(data, { hasRam: false, hasRumble: true }),
+            0x1d: () => new MBC5(data, { hasRam: true, hasRumble: true }),
+            0x1e: () => new MBC5(data, { hasRam: true, hasRumble: true }),
         }[mbcType];
         if (mbcInstance === undefined)
             throw new Error(`[ROM] Invalid cartridge type: ${mbcType?.toString(16)}`);
