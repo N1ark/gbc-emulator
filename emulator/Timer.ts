@@ -2,7 +2,7 @@ import { IFLAG_TIMER } from "./constants";
 import { Addressable } from "./Memory";
 import { PaddedSubRegister, Register, SubRegister } from "./Register";
 import System from "./System";
-import { Int2, wrap16 } from "./util";
+import { Int16Map, Int2, wrap16 } from "./util";
 
 /**
  * Represents the division applied to the clock speed depending on the value of the
@@ -87,7 +87,7 @@ class Timer implements Addressable {
         this.previousDivider = newDivider;
     }
 
-    protected addresses: Record<number, SubRegister> = {
+    protected addresses: Int16Map<SubRegister> = {
         0xff04: this.divider.h, // we only ever read the upper 8 bits of the divider
         0xff05: this.timerCounter,
         0xff06: this.timerModulo,

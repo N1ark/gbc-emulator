@@ -17,13 +17,13 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
 
-    "baseUrl": "src",
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
+      "@/*": ["src/*"],
       "@emulator/*": ["emulator/*"],
-      "@components/*": ["components/*"]
+      "@components/*": ["src/components/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "emulator"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

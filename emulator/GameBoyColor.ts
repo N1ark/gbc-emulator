@@ -3,6 +3,7 @@ import CPU from "./CPU";
 import GameBoyInput from "./GameBoyInput";
 import System from "./System";
 import GameBoyOutput from "./GameBoyOutput";
+import { Partial } from "./util";
 
 export type GameBoyColorOptions = {
     bootRom: "none" | "real";
@@ -23,12 +24,12 @@ class GameBoyColor {
     protected cycles: number = 0;
 
     protected output: GameBoyOutput;
-    protected breakpoints: (number | ((c: CPU) => boolean))[] = [];
+    protected breakpoints: (u16 | ((c: CPU) => boolean))[] = [];
     protected cycleChrono: { count: number; time: number } = { count: 0, time: Date.now() };
 
     constructor(
         mode: ConsoleType,
-        rom: Uint8Array,
+        rom: StaticArray<u8>,
         input: GameBoyInput,
         output: GameBoyOutput,
         options?: Partial<GameBoyColorOptions>
@@ -77,7 +78,7 @@ class GameBoyColor {
     drawFrame(frames: number = 1, isDebugging: boolean = false): boolean {
         const cycleTarget = CYCLES_PER_FRAME * frames;
 
-        const frameDrawStart = window.performance.now();
+        const frameDrawStart = Date.now();
         while (this.cycles < cycleTarget) {
             // one CPU step, convert M-cycles to CPU cycles
             let cpuIsDone: boolean;
@@ -92,12 +93,14 @@ class GameBoyColor {
             if (cpuIsDone) {
                 if (isDebugging) return true; // going step by step?
 
-                const foundBreakpoint = this.breakpoints.find(
-                    (breakpoint) =>
-                        (typeof breakpoint === "number" && breakpoint === this.cpu.getPC()) ||
-                        (typeof breakpoint === "function" && breakpoint(this.cpu))
-                );
-                if (foundBreakpoint) return true; // breakpoint hit?
+                for (let i = 0; i < this.breakpoints.length; i++) {
+                    const breakpoint = this.breakpoints[i];
+                    if (typeof breakpoint === "number" && breakpoint === this.cpu.getPC()) {
+                        return true;
+                    } else if (typeof breakpoint === "function" && breakpoint(this.cpu)) {
+                        return true;
+                    }
+                }
             }
         }
         this.cycles %= cycleTarget; // keep leftover cycles
@@ -110,7 +113,7 @@ class GameBoyColor {
 
         // Debug output
         this.output.frameDrawDuration &&
-            this.output.frameDrawDuration(window.performance.now() - frameDrawStart);
+            this.output.frameDrawDuration(Date.now() - frameDrawStart);
         this.output.stepCount && this.output.stepCount(this.cpu.getStepCounts());
         if (this.output.cyclesPerSec && Date.now() - this.cycleChrono.time >= 1000) {
             const count = this.cycleChrono.count;

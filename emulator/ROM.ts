@@ -20,7 +20,7 @@ class ROM implements Addressable {
     protected mbc: MBC;
     protected title: string;
 
-    constructor(data: Uint8Array) {
+    constructor(data: StaticArray<u8>) {
         this.title = [...new Array(TITLE_END - TITLE_START)]
             .map((_, i) => String.fromCharCode(data[TITLE_START + i]))
             .reduce((prev, x) => prev + x, "")
@@ -51,7 +51,7 @@ class ROM implements Addressable {
         if (mbcInstance === undefined)
             throw new Error(`[ROM] Invalid cartridge type: ${mbcType?.toString(16)}`);
         this.mbc = mbcInstance();
-        console.debug(`(ROM) Saved data for game "${this.title}": `, data);
+        console.debug(`(ROM) Saved data for game "${this.title}": ${data}`);
     }
 
     write(pos: number, data: number): void {

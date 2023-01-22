@@ -103,7 +103,7 @@ class OAM implements Addressable {
         valid: false,
     }));
 
-    getSprites(): Readonly<Sprite>[] {
+    getSprites(): Sprite[] {
         this.spriteCache.forEach((sprite, index) => {
             if (!sprite.valid) {
                 const address = index << 2;

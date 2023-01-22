@@ -1,13 +1,13 @@
 import { CircularRAM, Addressable } from "../Memory";
 import { PaddedSubRegister, SubRegister } from "../Register";
-import { Int2, Int4, rangeObject } from "../util";
+import { Int16Map, Int2, Int4, rangeObject } from "../util";
 import SoundChannel, { NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX0_DAC_FLAG = 1 << 7;
 const NRX2_OUTPUT_LEVEL = 0b0110_0000;
 
 /** How much to shift the sound to the right */
-const VOLUME_LEVELS: Record<Int2, number> = {
+const VOLUME_LEVELS: { [k in Int2]: u8 } = {
     0b00: 4, // = muted
     0b01: 0, // = full volume
     0b10: 1, // = 50%
@@ -28,7 +28,7 @@ class SoundChannel3 extends SoundChannel {
     protected nrX4 = new PaddedSubRegister(0b0011_1000, 0xbf);
     protected waveData = new CircularRAM(16, 0xff30);
 
-    protected addresses: Record<number, Addressable> = {
+    protected addresses: Int16Map<Addressable> = {
         0xff1a: this.nrX0,
         0xff1b: this.nrX1,
         0xff1c: this.nrX2,

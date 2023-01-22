@@ -17,7 +17,7 @@ import { PaddedSubRegister, Register00, RegisterFF, SubRegister } from "./Regist
 import ROM from "./ROM";
 import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
-import { Int4, rangeObject } from "./util";
+import { Int4, Int8Map, rangeObject } from "./util";
 import BootROM from "./BootROM";
 import { DMGWRAM, GBCWRAM } from "./WRAM";
 
@@ -28,14 +28,14 @@ type IntMasterEnableStateType = "DISABLED" | "WILL_ENABLE" | "WILL_ENABLE2" | "E
  * We need two transition states, because the system ticks right after the CPU, so if we go
  * straight from WILL_ENABLE to ENABLED the CPU will never tick during a non-enabled state.
  */
-const IntMasterEnableState: Record<IntMasterEnableStateType, IntMasterEnableStateType> = {
+const IntMasterEnableState: { [k in IntMasterEnableStateType]: IntMasterEnableStateType } = {
     DISABLED: "DISABLED",
     WILL_ENABLE: "WILL_ENABLE2",
     WILL_ENABLE2: "ENABLED",
     ENABLED: "ENABLED",
 };
 
-const INTERRUPT_CALLS: [number, number][] = [
+const INTERRUPT_CALLS: [i8, i16][] = [
     [IFLAG_VBLANK, 0x0040],
     [IFLAG_LCDC, 0x0048],
     [IFLAG_TIMER, 0x0050],
@@ -63,7 +63,7 @@ class System implements Addressable {
     protected speedModeRegister: Addressable = {
         read: () => 0xff,
         write: (pos, value) => {
-            console.log("wrote to speed mode register: ", value);
+            console.log(`wrote to speed mode register: ${value}`);
         },
     };
 
@@ -87,7 +87,7 @@ class System implements Addressable {
     protected serialOut: undefined | ((data: number) => void);
 
     constructor(
-        rom: Uint8Array,
+        rom: StaticArray<u8>,
         input: GameBoyInput,
         output: GameBoyOutput,
         mode: ConsoleType
@@ -152,13 +152,13 @@ class System implements Addressable {
      * Mapping of addressables dependending on the last (most significant) nibble of an address
      * e.g. 0x0 to 0x7 maps to ROM, etc.
      */
-    protected addressesLastNibble: Partial<Record<Int4, Addressable>>;
+    protected addressesLastNibble: Int8Map<Addressable | undefined>;
     /**
      * Mapping of addressables depending on the first (most significant) byte of an address -
      * this is only applicable to the 0xff00 to 0xffff range.
      * e.g. 0x00 maps to joypad, 0x01 maps to serial,0x04 to 0x07 maps to timer, etc.
      */
-    protected addressesRegisters: Partial<Record<number, Addressable>>;
+    protected addressesRegisters: Int8Map<Addressable | undefined>;
 
     /**
      * Responsible for following the memory map.
@@ -278,7 +278,9 @@ class System implements Addressable {
      * clears the interrupt flag.
      */
     handleNextInterrupt(): number {
-        for (const [flag, address] of INTERRUPT_CALLS) {
+        for (let i: u8 = 0; i < INTERRUPT_CALLS.length; i++) {
+            const flag = INTERRUPT_CALLS[i][0];
+            const address = INTERRUPT_CALLS[i][1];
             if (this.intEnable.flag(flag) && this.intFlag.flag(flag)) {
                 this.intFlag.sflag(flag, false);
                 this.disableInterrupts();

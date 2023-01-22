@@ -10,36 +10,36 @@ import { wrap16 } from "./util";
  * ignoring the position too.
  */
 class SubRegister implements Addressable {
-    protected value: number;
+    protected value: u8;
 
     /** Initialises a subregister with either 0 or a value */
-    constructor(value: number = 0) {
+    constructor(value: u8 = 0) {
         this.value = value;
     }
 
     /** Sets this register byte to the given value */
-    set(value: number) {
+    set(value: u8) {
         this.value = value;
     }
     /** The value of this register byte */
-    get() {
+    get(): u8 {
         return this.value;
     }
     /** Sets the given flag to 0/1 according to the boolean */
-    sflag(flag: number, state: boolean) {
+    sflag(flag: u8, state: boolean) {
         this.set(state ? this.value | flag : this.value & ~flag);
     }
     /** Returns if the given flag is set */
-    flag(flag: number) {
+    flag(flag: u8): boolean {
         return (this.get() & flag) === flag;
     }
 
     /** Read this subregister. */
-    read(): number {
+    read(): u8 {
         return this.get();
     }
     /** Write to this subregister. Position's ignored. */
-    write(_: number, data: number): void {
+    write(_: u16, data: u8): void {
         this.set(data);
     }
 }
@@ -50,7 +50,7 @@ class SubRegister implements Addressable {
  * e.g. writing 0x02 to a PaddedSubRegister that has a 10000001 mask will actually write 0x83
  */
 class PaddedSubRegister extends SubRegister {
-    protected mask: number;
+    protected mask: u8;
 
     /**
      * Constructs a PaddedSubRegister, using only the given number of bits
@@ -58,13 +58,13 @@ class PaddedSubRegister extends SubRegister {
      * padded) or an array containing the mask of the subregister.
      * @param value The initial value of the register
      */
-    constructor(mask: number, value: number = 0) {
+    constructor(mask: u8, value: u8 = 0) {
         mask &= 0xff;
         super(value | mask);
         this.mask = mask;
     }
 
-    override set(value: number): void {
+    override set(value: u8): void {
         super.set(value | this.mask);
     }
 }
@@ -79,9 +79,9 @@ class Register {
     public l = new SubRegister();
 
     /** Builds the register from either one 16-bit value or two 8-bit values */
-    constructor(high: number = 0, low?: number) {
+    constructor(high: u16 = 0, low?: u8) {
         if (low !== undefined) {
-            this.h.set(high);
+            this.h.set(high as u8);
             this.l.set(low);
         } else {
             this.set(high);
@@ -89,25 +89,25 @@ class Register {
     }
 
     /** Sets this register to the given 16bit value. */
-    set(value: number) {
-        this.h.set((value >> 8) & 0xff);
-        this.l.set(value & 0xff);
+    set(value: u16) {
+        this.h.set(((value >> 8) & 0xff) as u8);
+        this.l.set((value & 0xff) as u8);
     }
 
     /** Returns the 16bit value in this register */
-    get() {
+    get(): u16 {
         return (this.h.get() << 8) | this.l.get();
     }
 
     /** Increments this register's value and returns the previous value (equivalent to r++) */
-    inc() {
+    inc(): u16 {
         const temp = this.get();
         this.set(wrap16(temp + 1));
         return temp;
     }
 
     /** Decrements this register's value and returns the previous value (equivalent to r--) */
-    dec() {
+    dec(): u16 {
         const temp = this.get();
         this.set(wrap16(temp - 1));
         return temp;

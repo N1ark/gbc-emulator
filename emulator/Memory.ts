@@ -10,19 +10,19 @@ interface Addressable {
  * Simple abstract memory object.
  */
 class AbstractMemory implements Addressable {
-    size: number;
-    protected data: Uint8Array;
+    size: u16;
+    protected data: StaticArray<u8>;
 
-    constructor(size: number, data?: Uint8Array) {
+    constructor(size: u16, data?: StaticArray<u8>) {
         this.size = size;
-        this.data = data ?? new Uint8Array(size);
+        this.data = data ?? new StaticArray<u8>(size);
     }
 
-    read(pos: number) {
+    read(pos: u16) {
         return this.data[pos];
     }
 
-    write(pos: number, data: number): void {
+    write(pos: u16, data: u8): void {
         throw new Error("write is not implemented for this object.");
     }
 }
@@ -31,7 +31,7 @@ class AbstractMemory implements Addressable {
  * Live memory, that can be read from and written to.
  */
 class RAM extends AbstractMemory {
-    write(pos: number, data: number) {
+    write(pos: u16, data: u8): void {
         this.data[pos] = data;
     }
 }
@@ -42,18 +42,18 @@ class RAM extends AbstractMemory {
  * offset, and X the accessed address. This means out of bound exeptions cannot happen.
  */
 class CircularRAM extends RAM {
-    protected offset: number;
+    protected offset: u16;
 
-    constructor(size: number, offset: number, data?: Uint8Array) {
+    constructor(size: u16, offset: u16, data?: StaticArray<u8>) {
         super(size, data);
         this.offset = offset;
     }
 
-    override read(pos: number): number {
+    override read(pos: u16): number {
         return super.read((pos - this.offset) % this.size);
     }
 
-    override write(pos: number, data: number): void {
+    override write(pos: u16, data: u8): void {
         super.write((pos - this.offset) % this.size, data);
     }
 }

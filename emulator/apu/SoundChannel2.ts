@@ -1,10 +1,10 @@
 import { Addressable } from "../Memory";
 import { RegisterFF, SubRegister } from "../Register";
-import { clamp, Int2, Int4 } from "../util";
+import { clamp, Int16Map, Int2, Int3, Int4 } from "../util";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX2_STOP_DAC = 0b1111_1000;
-const wavePatterns: Record<Int2, (0 | 1)[]> = {
+const wavePatterns: { [k in Int2]: (0 | 1)[] } = {
     0b00: [1, 1, 1, 1, 1, 1, 1, 0],
     0b01: [0, 1, 1, 1, 1, 1, 1, 0],
     0b10: [0, 1, 1, 1, 1, 0, 0, 0],
@@ -23,7 +23,7 @@ class SoundChannel2 extends SoundChannel {
     protected nrX3 = new SubRegister(0xff);
     protected nrX4 = new SubRegister(0xbf);
 
-    protected addresses: Record<number, Addressable> = {
+    protected addresses: Int16Map<Addressable> = {
         0xff15: RegisterFF,
         0xff16: this.nrX1,
         0xff17: this.nrX2,
@@ -33,7 +33,7 @@ class SoundChannel2 extends SoundChannel {
 
     // For output
     protected ticksPerWaveStep: number = 0;
-    protected waveStep: number = 0;
+    protected waveStep: Int3 = 0;
     protected waveStepSubsteps: number = 0;
 
     // NRx2 needs retriggering when changed
@@ -46,7 +46,7 @@ class SoundChannel2 extends SoundChannel {
     protected override doTick(divChanged: boolean): void {
         if (this.waveStepSubsteps++ >= this.ticksPerWaveStep) {
             this.waveStepSubsteps = 0;
-            this.waveStep = (this.waveStep + 1) % 8;
+            this.waveStep = ((this.waveStep + 1) % 8) as Int3;
         }
 
         if (divChanged && this.envelopeVolumeSteps-- <= 0 && (this.cachedNRX2 & 0b111) !== 0) {

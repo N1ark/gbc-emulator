@@ -8,7 +8,7 @@ import {
 import { CircularRAM, Addressable, RAM } from "../Memory";
 import { PaddedSubRegister, Register00, RegisterFF, SubRegister } from "../Register";
 import System from "../System";
-import { asSignedInt8, Int2, Int3, wrap8 } from "../util";
+import { asSignedInt8, Int16Map, Int2, Int3, Partial, wrap8 } from "../util";
 import GameBoyOutput from "../GameBoyOutput";
 import OAM, { Sprite } from "../OAM";
 import { CGBColorControl, ColorController, DMGColorControl } from "./ColorController";
@@ -156,7 +156,7 @@ class PPU implements Addressable {
 
     // General use
     consoleMode: ConsoleType;
-    protected registerAddresses: Record<number, Addressable>;
+    protected registerAddresses: Int16Map<Addressable | undefined>;
 
     constructor(mode: ConsoleType) {
         if (mode === "CGB") {
@@ -336,14 +336,17 @@ class PPU implements Addressable {
                 .map((sprite, index) => [sprite, index] as [Sprite, number])
                 // sort by x then index
                 .sort(
-                    ([spriteA, indexA], [spriteB, indexB]) =>
+                    (
+                        spriteA,
+                        spriteB // spriteX = [spriteX, indexX]
+                    ) =>
                         objPriorityMode === "coordinate"
-                            ? spriteA.x === spriteB.x // first by coordinate then by index
-                                ? indexA - indexB
-                                : spriteA.x - spriteB.x
-                            : indexA - indexB // only by index
+                            ? spriteA[0].x === spriteB[0].x // first by coordinate then by index
+                                ? spriteA[1] - spriteB[1]
+                                : spriteA[0].x - spriteB[0].x
+                            : spriteA[1] - spriteB[1] // only by index
                 )
-                .map(([sprite]) => sprite);
+                .map((spriteData) => spriteData[0]);
         }
     }
 
@@ -371,7 +374,8 @@ class PPU implements Addressable {
                 let extraSpriteTCycles = 0;
                 let lastPenaltyX = NaN;
                 let lastPenaltyPaid = false;
-                for (let sprite of this.readSprites) {
+                for (let i = 0; i < this.readSprites.length; i++) {
+                    const sprite = this.readSprites[i];
                     if (lastPenaltyX !== sprite.x || !lastPenaltyPaid) {
                         lastPenaltyX = sprite.x;
                         lastPenaltyPaid = true;
@@ -422,7 +426,11 @@ class PPU implements Addressable {
      * transition and the passed in System isn't null (ie. pass null to disable interrupts).
      */
     updateInterrupt(system: System | null, data: Partial<typeof this.interruptLineState>) {
-        Object.assign(this.interruptLineState, data);
+        for (const key in data) {
+            const k = key as keyof typeof this.interruptLineState;
+            const value = data[k];
+            if (value !== undefined) this.interruptLineState[k] = value;
+        }
         const interruptState =
             (this.lcdStatus.flag(STAT_LYC_LY_EQ_INT) && this.interruptLineState.lycLyMatch) ||
             (this.lcdStatus.flag(MODE_HBLANK.interrupt) &&
@@ -443,7 +451,7 @@ class PPU implements Addressable {
 
     /** Updates the current scanline, by rendering the background, window and then objects. */
     updateScanline(system: System) {
-        const bgPriorities = [...new Array(SCREEN_WIDTH)].fill(false);
+        const bgPriorities = new Array<bool>(SCREEN_WIDTH).fill(false);
         // The BG/WIN priority flag acts as a toggle only in DMG
         if (this.consoleMode === "CGB" || this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
             this.drawBackground(bgPriorities);
@@ -565,7 +573,7 @@ class PPU implements Addressable {
         }
     }
 
-    drawBackground(priorities: boolean[]) {
+    drawBackground(priorities: bool[]) {
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
 
@@ -632,7 +640,7 @@ class PPU implements Addressable {
         }
     }
 
-    drawWindow(priorities: boolean[]) {
+    drawWindow(priorities: bool[]) {
         // The top-left corner of the 160x144 view area
         const windowX = this.windowX.get() - 7;
         const windowY = this.windowY.get();
@@ -698,12 +706,13 @@ class PPU implements Addressable {
         }
     }
 
-    drawObjects(priorities: boolean[]) {
+    drawObjects(priorities: bool[]) {
         const y = this.lcdY.get();
         const doubleObjects = this.lcdControl.flag(LCDC_OBJ_SIZE);
         const sprites = this.readSprites;
 
-        for (const sprite of sprites.reverse()) {
+        for (let i = sprites.length - 1; i >= 0; i--) {
+            const sprite = sprites[i];
             // Get tile id (to get the actual data pointer)
             let tileId = sprite.tileIndex;
             if (doubleObjects) {

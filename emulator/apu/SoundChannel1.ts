@@ -1,6 +1,6 @@
 import { Addressable } from "../Memory";
 import { PaddedSubRegister, SubRegister } from "../Register";
-import System from "../System";
+import { Int16Map } from "../util";
 import { FREQUENCY_SWEEP_PACE } from "./SoundChannel";
 import SoundChannel2 from "./SoundChannel2";
 
@@ -18,7 +18,7 @@ class SoundChannel1 extends SoundChannel2 {
     protected nrX3 = new SubRegister(0xff);
     protected nrX4 = new SubRegister(0xbf);
 
-    protected override addresses: Record<number, Addressable> = {
+    protected override addresses: Int16Map<Addressable> = {
         0xff10: this.nrX0,
         0xff11: this.nrX1,
         0xff12: this.nrX2,

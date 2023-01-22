@@ -1,6 +1,6 @@
 import { Addressable } from "../Memory";
 import { PaddedSubRegister, RegisterFF, SubRegister } from "../Register";
-import { clamp, Int4 } from "../util";
+import { clamp, Int16Map, Int4 } from "../util";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX2_STOP_DAC = 0b1111_1000;
@@ -20,7 +20,7 @@ class SoundChannel4 extends SoundChannel {
     protected nrX3 = new SubRegister(0x00);
     protected nrX4 = new PaddedSubRegister(0b0011_1111, 0xbf);
 
-    protected addresses: Record<number, Addressable> = {
+    protected addresses: Int16Map<Addressable> = {
         0xff1f: RegisterFF,
         0xff20: this.nrX1,
         0xff21: this.nrX2,

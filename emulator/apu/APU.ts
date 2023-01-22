@@ -2,7 +2,7 @@ import { Addressable } from "../Memory";
 import { CLOCK_SPEED, FRAME_RATE } from "../constants";
 import GameBoyOutput from "../GameBoyOutput";
 import { PaddedSubRegister, SubRegister } from "../Register";
-import { Int4, rangeObject } from "../util";
+import { Int16Map, Int4, rangeObject } from "../util";
 import SoundChannel1 from "./SoundChannel1";
 import SoundChannel2 from "./SoundChannel2";
 import SoundChannel3 from "./SoundChannel3";
@@ -125,7 +125,7 @@ export class APU implements Addressable {
         }
     }
 
-    protected addresses: Record<number, Addressable> = {
+    protected addresses: Int16Map<Addressable> = {
         ...rangeObject(0xff10, 0xff14, this.channel1),
         ...rangeObject(0xff15, 0xff19, this.channel2),
         ...rangeObject(0xff1a, 0xff1e, this.channel3),

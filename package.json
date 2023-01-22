@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "asbuild:debug": "asc emulator/GameBoyColor.ts --target debug",
+    "asbuild:release": "asc emulator/GameBoyColor.ts --target release",
+    "asbuild": "npm run asbuild:debug && npm run asbuild:release",
+    "test": "node tests",
+    "start": "npx serve ."
   },
   "dependencies": {
     "@preact/signals": "^1.1.2",
@@ -17,7 +22,14 @@
   "devDependencies": {
     "@preact/preset-vite": "^2.4.0",
     "@types/node": "^18.11.18",
+    "assemblyscript": "^0.26.5",
     "typescript": "^4.6.4",
     "vite": "^3.2.3"
+  },
+  "exports": {
+    ".": {
+      "import": "./build/release.js",
+      "types": "./build/release.d.ts"
+    }
   }
 }

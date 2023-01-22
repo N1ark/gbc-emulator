@@ -1,6 +1,6 @@
 import { Register, SubRegister } from "./Register";
 import System from "./System";
-import { asSignedInt8, combine, high, low, wrap16, wrap8 } from "./util";
+import { asSignedInt8, combine, high, Int8Map, low, Partial, wrap16, wrap8 } from "./util";
 
 const FLAG_ZERO = 1 << 7;
 const FLAG_SUBSTRACTION = 1 << 6;
@@ -49,9 +49,6 @@ class CPU {
 
     // for debug purposes
     protected stepCounter: number = 0;
-    protected logOffset: number = 0;
-    protected logLimit: number = 0;
-    protected logOutput: string[] | undefined = [];
 
     // Returns the next opcode
     protected nextOpCode(system: System): number {
@@ -138,7 +135,7 @@ class CPU {
                 this.currentOpcode = null;
                 this.regPC.dec(); // undo the read done at the end of the previous instruction
                 if (verbose)
-                    console.log("[CPU] interrupt execute, goto", execNext.toString(16));
+                    console.log(`[CPU] interrupt execute, goto ${execNext.toString(16)}`);
                 return nextStep;
             }
         }
@@ -165,68 +162,14 @@ class CPU {
 
         const instruction = this.instructionSet[opcode];
         if (instruction === undefined) {
-            throw Error(
+            throw new Error(
                 `Unrecognized opcode ${opcode?.toString(16)} at address ${(
                     this.regPC.get() - 1
                 ).toString(16)}`
             );
         }
 
-        this.logDebug(system, opcode);
         return instruction;
-    }
-
-    /**
-     * Debug function that logs the gameboy state to a log string that is then saved as a file.
-     */
-    protected logDebug(system: System, opcode: number) {
-        if (
-            this.logOffset < this.stepCounter &&
-            this.stepCounter < this.logOffset + this.logLimit
-        ) {
-            const loggedMemory = {
-                IF: 0xff0f,
-                IE: 0xffff,
-                // DIV: 0xff04,
-                TIMA: 0xff05,
-                TMA: 0xff06,
-                TAC: 0xff07,
-                LCCON: 0xff40,
-                STAT: 0xff41,
-                LY: 0xff44,
-                LYC: 0xff45,
-            };
-            this.logOutput?.push(
-                `op:${opcode.toString(16)}/` +
-                    Object.entries(loggedMemory)
-                        .map(([n, a]) => `${n}:${system.read(a).toString(16)}/`)
-                        .join("") +
-                    `a:${this.srA.get().toString(16)}/` +
-                    `f:${this.regAF.l.get().toString(16)}/` +
-                    `b:${this.srB.get().toString(16)}/` +
-                    `c:${this.srC.get().toString(16)}/` +
-                    `d:${this.srD.get().toString(16)}/` +
-                    `e:${this.srE.get().toString(16)}/` +
-                    `h:${this.srH.get().toString(16)}/` +
-                    `l:${this.srL.get().toString(16)}/` +
-                    `pc:${(this.regPC.get() - 1).toString(16)}/` +
-                    `sp:${this.regSP.get().toString(16)}\n`
-            );
-        } else if (this.stepCounter === this.logLimit + this.logOffset && this.logLimit) {
-            console.log("exporting logs for emulator 1");
-            let filename = "log_em1.txt";
-            let blob = new Blob(this.logOutput ?? [], { type: "text/plain" });
-            delete this.logOutput;
-            let link = document.createElement("a");
-            link.download = filename;
-            link.href = window.URL.createObjectURL(blob);
-            document.body.appendChild(link);
-            link.click();
-            setTimeout(() => {
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(link.href);
-            }, 100);
-        }
     }
 
     /**
@@ -235,14 +178,14 @@ class CPU {
      * instruction took.
      * @link https://meganesulli.com/generate-gb-opcodes/
      * */
-    protected instructionSet: Partial<Record<number, InstructionMethod>> = {
+    protected instructionSet: Int8Map<InstructionMethod | undefined> = {
         // NOP
         0x00: () => null,
         // extended instructions
         0xcb: this.nextByte((opcode) => (system) => {
             const instruction = this.extendedInstructionSet[opcode];
             if (instruction === undefined) {
-                throw Error(
+                throw new Error(
                     `Unrecognized extended opcode ${opcode.toString(16)} at address ${(
                         this.regPC.get() - 1
                     ).toString(16)}`
@@ -470,9 +413,11 @@ class CPU {
                 0x7d: [this.srA, this.srL],
                 0x7f: [this.srA, this.srA],
             },
-            ([to, from]) =>
+            (
+                    targets // targets = [to, from]
+                ) =>
                 () => {
-                    to.set(from.get());
+                    targets[0].set(targets[1].get());
                     return null;
                 }
         ),
@@ -648,9 +593,11 @@ class CPU {
                 0xb5: [this.srL, "|"],
                 0xb7: [this.srA, "|"],
             },
-            ([r, op]) =>
+            (
+                    regAndOp // regAndOp = [register, operation]
+                ) =>
                 () => {
-                    this.boolNToA(r.get(), op);
+                    this.boolNToA(regAndOp[0].get(), regAndOp[1]);
                     return null;
                 }
         ),
@@ -961,7 +908,7 @@ class CPU {
     /**
      * A list of all 16-bit opcodes. Works the same as instructionSet.
      */
-    protected extendedInstructionSet: Partial<Record<number, InstructionMethod>> = {
+    protected extendedInstructionSet: Int8Map<InstructionMethod | undefined> = {
         // RLC ...
         ...this.generateExtendedOperation(0x00, ({ get, set }) =>
             get((value) => set(this.rotateL(value, false, true)))
@@ -1036,7 +983,7 @@ class CPU {
                     })
                 ),
             }),
-            {} as Partial<Record<number, InstructionMethod>>
+            {} as Int8Map<InstructionMethod | undefined>
         ),
         // RES 0/1/2/.../7, ...
         ...[...new Array(8)].reduce(
@@ -1049,7 +996,7 @@ class CPU {
                     })
                 ),
             }),
-            {} as Partial<Record<number, InstructionMethod>>
+            {} as Int8Map<InstructionMethod | undefined>
         ),
         // SET 0/1/2/.../7, ...
         ...[...new Array(8)].reduce(
@@ -1062,7 +1009,7 @@ class CPU {
                     })
                 ),
             }),
-            {} as Partial<Record<number, InstructionMethod>>
+            {} as Int8Map<InstructionMethod | undefined>
         ),
     };
 
@@ -1283,12 +1230,13 @@ class CPU {
         items: { [key in K]: T },
         execute: (r: T) => InstructionMethod
     ): { [key in K]: InstructionMethod } {
-        return Object.fromEntries(
-            (Object.entries(items) as unknown as [K, T][]).map(([opcode, item]) => [
-                opcode,
-                execute(item),
-            ])
-        ) as Record<K, InstructionMethod>;
+        const result: { [key in K]?: InstructionMethod } = {};
+        for (const key in items) {
+            const opcode = key as any as K;
+            const item = items[opcode];
+            result[opcode] = execute(item);
+        }
+        return result as { [key in K]: InstructionMethod };
     }
 
     /**
@@ -1303,7 +1251,7 @@ class CPU {
             get: (r: (value: number) => InstructionReturn) => InstructionReturn;
             set: (x: number) => InstructionReturn;
         }) => InstructionReturn
-    ): Partial<Record<number, InstructionMethod>> {
+    ): Int8Map<InstructionMethod | undefined> {
         const make = (sr: SubRegister) => ({
             get: (r: (value: number) => InstructionReturn) => {
                 const value = sr.get();

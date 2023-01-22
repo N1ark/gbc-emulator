@@ -1,8 +1,5 @@
-import { CLOCK_SPEED } from "../constants";
 import { Addressable } from "../Memory";
 import { SubRegister } from "../Register";
-import System from "../System";
-import Timer from "../Timer";
 import { Int4 } from "../util";
 
 const FREQUENCY_SWEEP_PACE = 4;

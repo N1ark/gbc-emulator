@@ -1,16 +1,16 @@
 import { Addressable, RAM } from "../Memory";
 import { Sprite } from "../OAM";
 import { SubRegister, PaddedSubRegister } from "../Register";
-import { Int2, Int3 } from "../util";
+import { Int16Map, Int2, Int3 } from "../util";
 
-export type ColorPalette = Record<Int2, number>;
+export type ColorPalette = { [k in Int2]: number };
 
 // Palette flags
 const PALETTE_AUTO_INCREMENT = 1 << 7;
 const PALETTE_INDEX = 0b0011_1111;
 
 abstract class ColorController implements Addressable {
-    protected abstract readonly addresses: Record<number, Addressable>;
+    protected abstract readonly addresses: Int16Map<Addressable | undefined>;
     abstract getBgPalette(id: Int3): ColorPalette;
     abstract getObjPalette(sprite: Sprite): ColorPalette;
 
@@ -28,7 +28,7 @@ abstract class ColorController implements Addressable {
 }
 
 class DMGColorControl extends ColorController {
-    static readonly colorOptions: Record<Int2, number> = {
+    static readonly colorOptions: { [k in Int2]: number } = {
         0b00: 0xffffffff, // white
         0b01: 0xffaaaaaa, // light gray
         0b10: 0xff555555, // dark gray
