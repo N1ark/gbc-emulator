@@ -1,100 +1,98 @@
 import { Addressable, RAM } from "../Memory";
 import { Sprite } from "../OAM";
 import { SubRegister, PaddedSubRegister } from "../Register";
-import { Int16Map, Int2, Int3 } from "../util";
+import { combine, Int16Map, u1, u2, u3 } from "../util";
 
-export type ColorPalette = { [k in Int2]: number };
+export type ColorPalette = StaticArray<u32>;
+
+class ColorPaletteCacheEntry {
+    constructor(public palette: ColorPalette, public valid: boolean) {}
+}
 
 // Palette flags
-const PALETTE_AUTO_INCREMENT = 1 << 7;
-const PALETTE_INDEX = 0b0011_1111;
+const PALETTE_AUTO_INCREMENT: u8 = 1 << 7;
+const PALETTE_INDEX: u8 = 0b0011_1111;
 
 abstract class ColorController implements Addressable {
-    protected abstract readonly addresses: Int16Map<Addressable | undefined>;
-    abstract getBgPalette(id: Int3): ColorPalette;
+    protected addresses: Int16Map<Addressable> = new Map<u16, Addressable>();
+    abstract getBgPalette(id: u3): ColorPalette;
     abstract getObjPalette(sprite: Sprite): ColorPalette;
 
-    read(pos: number): number {
-        const component = this.addresses[pos];
+    read(pos: u16): u8 {
+        const component = this.addresses.get(pos);
         if (!component) return 0xff;
         return component.read(pos);
     }
 
-    write(pos: number, value: number): void {
-        const component = this.addresses[pos];
+    write(pos: u16, value: u8): void {
+        const component = this.addresses.get(pos);
         if (!component) return;
         component.write(pos, value);
     }
 }
 
+const DMGColorOptions: StaticArray<u32> = new StaticArray<u32>(4);
+DMGColorOptions[0] = 0xffffffff; // white
+DMGColorOptions[1] = 0xffaaaaaa; // light gray
+DMGColorOptions[2] = 0xff555555; // dark gray
+DMGColorOptions[3] = 0xff000000; // black
+
 class DMGColorControl extends ColorController {
-    static readonly colorOptions: { [k in Int2]: number } = {
-        0b00: 0xffffffff, // white
-        0b01: 0xffaaaaaa, // light gray
-        0b10: 0xff555555, // dark gray
-        0b11: 0xff000000, // black
-    };
-
     // Background palette
-    protected bgPalette = new SubRegister(0x00);
+    protected bgPalette: SubRegister = new SubRegister(0x00);
     // Object palettes
-    protected objPalette0 = new SubRegister(0x00);
-    protected objPalette1 = new SubRegister(0x00);
+    protected objPalette0: SubRegister = new SubRegister(0x00);
+    protected objPalette1: SubRegister = new SubRegister(0x00);
 
-    protected addresses = {
-        0xff47: this.bgPalette,
-        0xff48: this.objPalette0,
-        0xff49: this.objPalette1,
-    };
+    constructor() {
+        super();
+        this.addresses.set(0xff47, this.bgPalette);
+        this.addresses.set(0xff48, this.objPalette0);
+        this.addresses.set(0xff49, this.objPalette1);
+    }
 
     getBgPalette(): ColorPalette {
         const palette = this.bgPalette.get();
-        return {
-            0b00: DMGColorControl.colorOptions[((palette >> 0) & 0b11) as Int2],
-            0b01: DMGColorControl.colorOptions[((palette >> 2) & 0b11) as Int2],
-            0b10: DMGColorControl.colorOptions[((palette >> 4) & 0b11) as Int2],
-            0b11: DMGColorControl.colorOptions[((palette >> 6) & 0b11) as Int2],
-        };
+        const paletteArray = new StaticArray<u32>(4);
+        paletteArray[0] = DMGColorOptions[(palette >> 0) & 0b11];
+        paletteArray[1] = DMGColorOptions[(palette >> 2) & 0b11];
+        paletteArray[2] = DMGColorOptions[(palette >> 4) & 0b11];
+        paletteArray[3] = DMGColorOptions[(palette >> 6) & 0b11];
+        return paletteArray;
     }
 
     getObjPalette(sprite: Sprite): ColorPalette {
         const palette =
             sprite.dmgPaletteNumber === 0 ? this.objPalette0.get() : this.objPalette1.get();
-        return {
-            0b00: 0x00000000, // unused, color 0b00 is transparent
-            0b01: DMGColorControl.colorOptions[((palette >> 2) & 0b11) as Int2],
-            0b10: DMGColorControl.colorOptions[((palette >> 4) & 0b11) as Int2],
-            0b11: DMGColorControl.colorOptions[((palette >> 6) & 0b11) as Int2],
-        };
+        const paletteArray = new StaticArray<u32>(4);
+        paletteArray[0] = 0x00000000; // transparent
+        paletteArray[1] = DMGColorOptions[(palette >> 2) & 0b11];
+        paletteArray[2] = DMGColorOptions[(palette >> 4) & 0b11];
+        paletteArray[3] = DMGColorOptions[(palette >> 6) & 0b11];
+        return paletteArray;
     }
 }
 
 class CGBColorControl extends ColorController {
     // Background palette
-    protected bgPaletteOptions = new PaddedSubRegister(0b0100_0000);
-    protected bgPaletteData = new RAM(64);
+    protected bgPaletteOptions: SubRegister = new PaddedSubRegister(0b0100_0000);
+    protected bgPaletteData: RAM = new RAM(64);
     // Object palettes
-    protected objPaletteOptions = new PaddedSubRegister(0b0100_0000);
-    protected objPaletteData = new RAM(64);
+    protected objPaletteOptions: SubRegister = new PaddedSubRegister(0b0100_0000);
+    protected objPaletteData: RAM = new RAM(64);
     // Palette cache
-    protected paletteCache: (ColorPalette & { valid: boolean })[] = [...Array(16)].map(() => ({
-        0: 0,
-        1: 0,
-        2: 0,
-        3: 0,
-        valid: false,
-    }));
+    protected paletteCache: StaticArray<ColorPaletteCacheEntry> = new StaticArray(16);
 
-    protected addresses = {
-        0xff68: this.bgPaletteOptions,
-        0xff69: this.bgPaletteData,
-        0xff6a: this.objPaletteOptions,
-        0xff6b: this.objPaletteData,
-
-        0xff47: new SubRegister(), // Unused
-        0xff48: new SubRegister(), // Unused
-        0xff49: new SubRegister(), // Unused
-    };
+    constructor() {
+        super();
+        this.addresses.set(0xff47, new SubRegister());
+        this.addresses.set(0xff48, new SubRegister());
+        this.addresses.set(0xff49, new SubRegister());
+        this.addresses.set(0xff68, this.bgPaletteOptions);
+        this.addresses.set(0xff69, this.bgPaletteData);
+        this.addresses.set(0xff6a, this.objPaletteOptions);
+        this.addresses.set(0xff6b, this.objPaletteData);
+    }
 
     override read(pos: number): number {
         if (pos === 0xff69)
@@ -130,31 +128,32 @@ class CGBColorControl extends ColorController {
         }
     }
 
-    protected decodePalette(data: RAM, id: Int3, offset: 0 | 1, cacheOffset: 0 | 8) {
+    protected decodePalette(data: RAM, id: u3, offset: u1, cacheOffset: u8): ColorPalette {
         const palette = this.paletteCache[id + cacheOffset];
-        if (palette.valid) return palette;
+        if (palette.valid) return palette.palette;
 
         for (let colorIdx = offset; colorIdx < 4; colorIdx++) {
-            const colorLow = data.read(id * 8 + colorIdx * 2);
-            const colorHigh = data.read(id * 8 + colorIdx * 2 + 1);
-            const fullColor = (colorHigh << 8) | colorLow;
+            const colorLow: u8 = data.read(id * 8 + colorIdx * 2);
+            const colorHigh: u8 = data.read(id * 8 + colorIdx * 2 + 1);
+            const fullColor: u16 = combine(colorHigh, colorLow);
 
-            const red5 = (fullColor >> 0) & 0b0001_1111;
-            const green5 = (fullColor >> 5) & 0b0001_1111;
-            const blue5 = (fullColor >> 10) & 0b0001_1111;
+            const red5: u16 = (fullColor >> 0) & 0b0001_1111;
+            const green5: u16 = (fullColor >> 5) & 0b0001_1111;
+            const blue5: u16 = (fullColor >> 10) & 0b0001_1111;
 
-            const red8 = (red5 << 3) | (red5 >> 2);
-            const green8 = (green5 << 3) | (green5 >> 2);
-            const blue8 = (blue5 << 3) | (blue5 >> 2);
+            const red8: u16 = (red5 << 3) | (red5 >> 2);
+            const green8: u16 = (green5 << 3) | (green5 >> 2);
+            const blue8: u16 = (blue5 << 3) | (blue5 >> 2);
 
-            palette[colorIdx as Int2] = (0xff << 24) | (blue8 << 16) | (green8 << 8) | red8;
+            palette.palette[colorIdx] =
+                ((<u32>0xff) << 24) | ((<u32>blue8) << 16) | ((<u32>green8) << 8) | (<u32>red8);
         }
         palette.valid = true;
 
-        return palette;
+        return palette.palette;
     }
 
-    getBgPalette(id: Int3): ColorPalette {
+    getBgPalette(id: u3): ColorPalette {
         return this.decodePalette(this.bgPaletteData, id, 0, 0);
     }
 
