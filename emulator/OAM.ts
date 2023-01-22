@@ -1,33 +1,37 @@
 import { Addressable, RAM } from "./Memory";
 import { SubRegister } from "./Register";
-import System from "./System";
-import { Int1, Int3 } from "./util";
+import { u1, u3 } from "./util";
 
-export type Sprite = {
-    x: number;
-    y: number;
-    tileIndex: number;
-    // From attributes:
-    xFlip: boolean;
-    yFlip: boolean;
-    bgAndWinOverObj: boolean;
-    // DMG only
-    dmgPaletteNumber: Int1;
-    // CGB only
-    cgbPaletteNumber: Int3;
-    cgbVramBank: Int1;
-};
+export class Sprite {
+    constructor(
+        public x: u8 = 0,
+        public y: u8 = 0,
+        public tileIndex: u8 = 0,
+        // From attributes:
+        public xFlip: bool = 0,
+        public yFlip: bool = 0,
+        public bgAndWinOverObj: bool = 0,
+        // DMG only
+        public dmgPaletteNumber: u1 = 0,
+        // CGB only
+        public cgbPaletteNumber: u3 = 0,
+        public cgbVramBank: u1 = 0,
 
-const ATTRIB_DMG_PALETTE_NUM_IDX = 4;
-const ATTRIB_CGB_PALETTE_NUM = 0b111;
-const ATTRIB_CGB_VRAM_BANK_IDX = 3;
-const ATTRIB_X_FLIP = 1 << 5;
-const ATTRIB_Y_FLIP = 1 << 6;
-const ATTRIB_BG_AND_WIN_OVER_OBJ = 1 << 7;
+        // emulator use only
+        public valid: boolean = false
+    ) {}
+}
 
-const NOT_TRANSFERRING = -3;
-const SHOULD_TRANSFER = -2;
-const TRANSFER_END = 160;
+const ATTRIB_DMG_PALETTE_NUM_IDX: u8 = 4;
+const ATTRIB_CGB_PALETTE_NUM: u8 = 0b111;
+const ATTRIB_CGB_VRAM_BANK_IDX: u8 = 3;
+const ATTRIB_X_FLIP: u8 = 1 << 5;
+const ATTRIB_Y_FLIP: u8 = 1 << 6;
+const ATTRIB_BG_AND_WIN_OVER_OBJ: u8 = 1 << 7;
+
+const NOT_TRANSFERRING: i16 = -3;
+const SHOULD_TRANSFER: i16 = -2;
+const TRANSFER_END: i16 = 160;
 
 /**
  * The OAM (Object Attribute Memory) used to store sprite data. It is the same as RAM, but has
@@ -42,12 +46,14 @@ class OAM implements Addressable {
      * -1 = transfer starts in 1 cycle
      * 0-159 = next byte to transfer
      */
-    protected transferStep: number = NOT_TRANSFERRING;
-    protected transferStart = new SubRegister(0xff);
-    protected data = new RAM(160);
+    protected transferStep: i16 = NOT_TRANSFERRING;
+    protected transferStart: SubRegister = new SubRegister(0xff);
+    protected data: RAM = new RAM(160);
+
+    protected spriteCache: StaticArray<Sprite> = new StaticArray<Sprite>(40);
 
     /** @link https://gbdev.io/pandocs/OAM_DMA_Transfer.html */
-    tick(system: System) {
+    tick(system: Addressable): void {
         // If we're transferring...
         if (this.transferStep >= 0) {
             const baseAddress = this.transferStart.get() << 8;
@@ -68,7 +74,7 @@ class OAM implements Addressable {
         }
     }
 
-    read(pos: number): number {
+    read(pos: u16): u8 {
         if (pos === 0xff46) return this.transferStart.get();
         if (0xfe00 <= pos && pos <= 0xfe9f) {
             if (this.transferStep >= 0) return 0xff; // read disabled
@@ -77,7 +83,7 @@ class OAM implements Addressable {
         throw new Error(`Invalid address for OAM: 0x${pos.toString(16)}`);
     }
 
-    write(pos: number, data: number): void {
+    write(pos: u16, data: u8): void {
         if (pos === 0xff46) {
             this.transferStart.set(data);
             if (this.transferStep === NOT_TRANSFERRING || this.transferStep > 0)
@@ -90,36 +96,24 @@ class OAM implements Addressable {
         }
     }
 
-    protected spriteCache: (Sprite & { valid: boolean })[] = [...new Array(40)].map(() => ({
-        y: 0,
-        x: 0,
-        tileIndex: 0,
-        xFlip: false,
-        yFlip: false,
-        bgAndWinOverObj: false,
-        dmgPaletteNumber: 0,
-        cgbPaletteNumber: 0,
-        cgbVramBank: 0,
-        valid: false,
-    }));
+    getSprites(): StaticArray<Sprite> {
+        for (let i: u16 = 0; i < this.spriteCache.length; i++) {
+            const sprite = this.spriteCache[i];
+            if (sprite.valid) continue;
 
-    getSprites(): Sprite[] {
-        this.spriteCache.forEach((sprite, index) => {
-            if (!sprite.valid) {
-                const address = index << 2;
-                const attribs = this.data.read(address + 3);
-                sprite.y = this.data.read(address + 0) - 16;
-                sprite.x = this.data.read(address + 1) - 8;
-                sprite.tileIndex = this.data.read(address + 2);
-                sprite.xFlip = (attribs & ATTRIB_X_FLIP) !== 0;
-                sprite.yFlip = (attribs & ATTRIB_Y_FLIP) !== 0;
-                sprite.bgAndWinOverObj = (attribs & ATTRIB_BG_AND_WIN_OVER_OBJ) !== 0;
-                sprite.dmgPaletteNumber = ((attribs >> ATTRIB_DMG_PALETTE_NUM_IDX) & 1) as Int1;
-                sprite.cgbPaletteNumber = (attribs & ATTRIB_CGB_PALETTE_NUM) as Int3;
-                sprite.cgbVramBank = ((attribs >> ATTRIB_CGB_VRAM_BANK_IDX) & 1) as Int1;
-                sprite.valid = true;
-            }
-        });
+            const address: u16 = i << 2;
+            const attribs: u8 = this.data.read(address + 3);
+            sprite.y = this.data.read(address + 0) - 16;
+            sprite.x = this.data.read(address + 1) - 8;
+            sprite.tileIndex = this.data.read(address + 2);
+            sprite.xFlip = (attribs & ATTRIB_X_FLIP) !== 0;
+            sprite.yFlip = (attribs & ATTRIB_Y_FLIP) !== 0;
+            sprite.bgAndWinOverObj = (attribs & ATTRIB_BG_AND_WIN_OVER_OBJ) !== 0;
+            sprite.dmgPaletteNumber = (attribs >> ATTRIB_DMG_PALETTE_NUM_IDX) & 1;
+            sprite.cgbPaletteNumber = attribs & ATTRIB_CGB_PALETTE_NUM;
+            sprite.cgbVramBank = (attribs >> ATTRIB_CGB_VRAM_BANK_IDX) & 1;
+            sprite.valid = true;
+        }
         return this.spriteCache;
     }
 }

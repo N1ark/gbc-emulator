@@ -20,6 +20,7 @@ export function filledMap<K, V>(keys: K[], values: V[]): Map<K, V> {
     return map;
 }
 
+export type u1 = u8;
 export type u2 = u8;
 export type u3 = u8;
 export type u4 = u8;
