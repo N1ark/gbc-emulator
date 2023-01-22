@@ -1,53 +1,59 @@
 import { IFLAG_TIMER } from "./constants";
+import Interrupts from "./Interrupts";
 import { Addressable } from "./Memory";
 import { PaddedSubRegister, Register, SubRegister } from "./Register";
-import System from "./System";
-import { Int16Map, Int2, wrap16 } from "./util";
+import { Int16Map, u2 } from "./util";
 
 /**
  * Represents the division applied to the clock speed depending on the value of the
  * first two bits of the TAC.
  * @link https://gbdev.io/pandocs/Timer_and_Divider_Registers.html#ff07--tac-timer-control
  */
-const TIMER_CONTROLS = {
-    0b00: 9,
-    0b01: 3,
-    0b10: 5,
-    0b11: 7,
-};
+const TIMER_CONTROLS: StaticArray<u8> = new StaticArray<u8>(4);
+TIMER_CONTROLS[0b00] = 9;
+TIMER_CONTROLS[0b01] = 3;
+TIMER_CONTROLS[0b10] = 5;
+TIMER_CONTROLS[0b11] = 7;
 
-/**
- * The TIMA counter only runs if this flag is true in the TAC.
- */
-const TIMER_ENABLE_FLAG = 1 << 2;
+/** The TIMA counter only runs if this flag is true in the TAC. */
+const TIMER_ENABLE_FLAG: u8 = 1 << 2;
 
 class Timer implements Addressable {
     // DIV - divider register
-    protected divider = new Register(0xab00);
+    protected divider: Register = new Register(0xab00);
     // TIMA - timer counter
-    protected timerCounter = new SubRegister(0x00);
+    protected timerCounter: SubRegister = new SubRegister(0x00);
     // TMA - timer modulo
-    protected timerModulo = new SubRegister(0x00);
+    protected timerModulo: SubRegister = new SubRegister(0x00);
     // TAC - timer control
-    protected timerControl = new PaddedSubRegister(0b1111_1000);
+    protected timerControl: SubRegister = new PaddedSubRegister(0b1111_1000);
 
-    protected previousDivider = this.divider.get();
-    protected previousTimerControl = this.timerControl.get();
+    protected previousDivider: u16 = this.divider.get();
+    protected previousTimerControl: u8 = this.timerControl.get();
     protected timerOverflowed: boolean = false;
     protected previousTimerOverflowed: boolean = false;
+
+    protected addresses: Int16Map<SubRegister> = new Map<u16, SubRegister>();
+
+    constructor() {
+        this.addresses.set(0xff04, this.divider.h); // we only ever read the upper 8 bits of the divider
+        this.addresses.set(0xff05, this.timerCounter);
+        this.addresses.set(0xff06, this.timerModulo);
+        this.addresses.set(0xff07, this.timerControl);
+    }
 
     /**
      * Ticks the timer system in M-cycles
      * @link https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
      */
-    tick(system: System) {
+    tick(interrupts: Interrupts): void {
         // Store bit for TIMA edge-detection
-        const speedMode = (this.timerControl.get() & 0b11) as Int2;
-        const checkedBit = TIMER_CONTROLS[speedMode];
-        const bitStateBefore = (this.previousDivider >> checkedBit) & 1;
+        const speedMode: u2 = this.timerControl.get() & 0b11;
+        const checkedBit: u8 = TIMER_CONTROLS[speedMode];
+        const bitStateBefore: bool = (this.previousDivider >> checkedBit) & 1;
 
         // Increase internal counter, update DIV
-        const newDivider = wrap16(this.divider.get() + 4);
+        const newDivider: u16 = this.divider.get() + 4;
         this.divider.set(newDivider);
 
         // Check overflow + interrupt
@@ -55,7 +61,7 @@ class Timer implements Addressable {
         if (this.timerOverflowed) {
             const modulo = this.timerModulo.get();
             this.timerCounter.set(modulo);
-            system.requestInterrupt(IFLAG_TIMER);
+            interrupts.requestInterrupt(IFLAG_TIMER);
             this.timerOverflowed = false;
             this.previousTimerOverflowed = true;
         }
@@ -87,28 +93,21 @@ class Timer implements Addressable {
         this.previousDivider = newDivider;
     }
 
-    protected addresses: Int16Map<SubRegister> = {
-        0xff04: this.divider.h, // we only ever read the upper 8 bits of the divider
-        0xff05: this.timerCounter,
-        0xff06: this.timerModulo,
-        0xff07: this.timerControl,
-    };
-
-    read(pos: number): number {
-        return this.addresses[pos].get();
+    read(pos: u16): u8 {
+        return this.addresses.get(pos).get();
     }
 
-    write(pos: number, data: number): void {
+    write(pos: u16, data: u8): void {
         // Trying to write anything to DIV clears it.
-        const register = this.addresses[pos];
+        const register = this.addresses.get(pos);
         if (register === this.divider.h) {
-            this.divider.set(0);
+            data = 0;
         } else if (register === this.timerCounter) {
             // If overflow (reload) occurred, writes are ignored
             if (this.previousTimerOverflowed) return;
             this.timerOverflowed = false;
-            register.set(data);
-        } else register.set(data);
+        }
+        register.set(data);
 
         // If an overflow (reload) just happened, we update the value to the new modulo
         if (register === this.timerModulo && this.previousTimerOverflowed) {

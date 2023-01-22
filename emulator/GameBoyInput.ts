@@ -1,14 +1,14 @@
 export class GameBoyInputRead {
     constructor(
-        up: boolean,
-        down: boolean,
-        left: boolean,
-        right: boolean,
+        public up: boolean,
+        public down: boolean,
+        public left: boolean,
+        public right: boolean,
 
-        a: boolean,
-        b: boolean,
-        start: boolean,
-        select: boolean
+        public a: boolean,
+        public b: boolean,
+        public start: boolean,
+        public select: boolean
     ) {}
 }
 

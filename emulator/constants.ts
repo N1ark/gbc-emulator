@@ -11,16 +11,6 @@ export const SCREEN_HEIGHT = 144;
 export const HRAM_SIZE = 352;
 export const WRAM_SIZE = 8 * 1024;
 
-// Inputs
-export const BUTTON_A: u8 = 1 << 0;
-export const BUTTON_B: u8 = 1 << 1;
-export const BUTTON_SELECT: u8 = 1 << 2;
-export const BUTTON_START: u8 = 1 << 3;
-export const ARROW_RIGHT: u8 = 1 << 0;
-export const ARROW_LEFT: u8 = 1 << 1;
-export const ARROW_UP: u8 = 1 << 2;
-export const ARROW_DOWN: u8 = 1 << 3;
-
 // Interrupt flags
 export const IFLAG_VBLANK: u8 = 1 << 0;
 export const IFLAG_LCDC: u8 = 1 << 1;

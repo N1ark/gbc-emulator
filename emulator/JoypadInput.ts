@@ -1,19 +1,25 @@
-import {
-    ARROW_DOWN,
-    ARROW_LEFT,
-    ARROW_RIGHT,
-    ARROW_UP,
-    BUTTON_A,
-    BUTTON_B,
-    BUTTON_SELECT,
-    BUTTON_START,
-} from "./constants";
 import GameBoyInput from "./GameBoyInput";
 import { Addressable } from "./Memory";
+import { SubRegister } from "./Register";
 
-const READ_ARROWS_BIT = 1 << 4;
-const READ_BUTTON_BIT = 1 << 5;
-const CONTROL_BITS = READ_ARROWS_BIT & READ_BUTTON_BIT;
+const READ_ARROWS_BIT: u8 = 1 << 4;
+const READ_BUTTON_BIT: u8 = 1 << 5;
+const CONTROL_BITS: u8 = READ_ARROWS_BIT & READ_BUTTON_BIT;
+
+// Inputs
+const BUTTON_A: u8 = 1 << 0;
+const BUTTON_B: u8 = 1 << 1;
+const BUTTON_SELECT: u8 = 1 << 2;
+const BUTTON_START: u8 = 1 << 3;
+const ARROW_RIGHT: u8 = 1 << 0;
+const ARROW_LEFT: u8 = 1 << 1;
+const ARROW_UP: u8 = 1 << 2;
+const ARROW_DOWN: u8 = 1 << 3;
+
+enum JoypadMode {
+    BUTTONS,
+    ARROWS,
+}
 
 /**
  * The joypad input, that takes care of receiving inputs for the buttons and directional arrows.
@@ -25,12 +31,12 @@ class JoypadInput implements Addressable {
     // bits 0-3 are state (button or arrow)
     // bit 4 is to read arrow data
     // bit 5 is to read button data
-    protected register: number = 0;
+    protected register: SubRegister = new SubRegister();
 
-    protected buttonData: number = 0;
-    protected arrowsData: number = 0;
+    protected buttonData: u8 = 0;
+    protected arrowsData: u8 = 0;
 
-    protected currentlyReading: "buttons" | "arrows" = "buttons";
+    protected currentlyReading: JoypadMode = JoypadMode.BUTTONS;
 
     constructor(input: GameBoyInput) {
         this.input = input;
@@ -50,17 +56,18 @@ class JoypadInput implements Addressable {
             (data.right ? 0 : ARROW_RIGHT);
     }
 
-    read(): number {
-        const data = this.currentlyReading === "buttons" ? this.buttonData : this.arrowsData;
-        return (CONTROL_BITS & this.register) | (~CONTROL_BITS & data);
+    read(): u8 {
+        const data: u8 =
+            this.currentlyReading === JoypadMode.BUTTONS ? this.buttonData : this.arrowsData;
+        return (CONTROL_BITS & this.register.get()) | data;
     }
 
-    write(_: number, data: number): void {
-        this.register = data;
+    write(_: u16, data: u8): void {
+        this.register.set(data);
 
         // the switch is done when the bit moves to a LOW state.
-        if ((this.register & READ_ARROWS_BIT) === 0) this.currentlyReading = "arrows";
-        if ((this.register & READ_BUTTON_BIT) === 0) this.currentlyReading = "buttons";
+        if ((data & READ_ARROWS_BIT) === 0) this.currentlyReading = JoypadMode.ARROWS;
+        if ((data & READ_BUTTON_BIT) === 0) this.currentlyReading = JoypadMode.BUTTONS;
     }
 }
 
