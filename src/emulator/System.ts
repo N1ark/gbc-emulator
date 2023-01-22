@@ -60,6 +60,12 @@ class System implements Addressable {
         read: () => (this.bootRomLocked ? 0xff : 0xfe),
         write: (pos, value) => (this.bootRomLocked ||= (value & 1) === 1),
     };
+    protected speedModeRegister: Addressable = {
+        read: () => 0xff,
+        write: (pos, value) => {
+            console.log("wrote to speed mode register: ", value);
+        },
+    };
 
     // Interrupts
     protected intMasterEnable: IntMasterEnableStateType = "DISABLED"; // IME - master enable flag
@@ -112,6 +118,7 @@ class System implements Addressable {
             ...rangeObject(0x10, 0x26, this.apu), // actual apu registers
             ...rangeObject(0x30, 0x3f, this.apu), // wave ram
             ...rangeObject(0x40, 0x4b, this.ppu), // ppu registers
+            0x4d: mode === "CGB" ? this.speedModeRegister : undefined,
             0x4f: this.ppu, // ppu vram bank register
             0x50: this.bootRomRegister, // boot rom register
             ...rangeObject(0x51, 0x55, this.ppu), // ppu vram dma registers

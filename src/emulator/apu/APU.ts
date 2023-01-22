@@ -114,7 +114,7 @@ export class APU implements Addressable {
             const monoAudio = (rightAudio * rightVolume + leftAudio * leftVolume) / 16;
 
             // Do some balancing so the level is correct
-            this.audioBuffer[this.sampleIndex] = monoAudio / 32;
+            this.audioBuffer[this.sampleIndex] = monoAudio / 16;
 
             if (++this.sampleIndex === SAMPLE_SIZE) {
                 this.sampleIndex = 0;

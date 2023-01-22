@@ -140,3 +140,13 @@
     white-space: pre-wrap;
     word-break: break-word;
 }
+
+/* Memory drawer */
+
+.memory-output {
+    font-family: "Fira Code", monospace;
+    font-size: 10px;
+    white-space: pre-wrap;
+    text-align: start;
+    line-height: 110%;
+}

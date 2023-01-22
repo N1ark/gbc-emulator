@@ -507,7 +507,9 @@ class PPU implements Addressable {
             // Draw the 8 lines of the tile
             for (let tileY = 0; tileY < 8; tileY++) {
                 for (let tileX = 0; tileX < 8; tileX++) {
-                    const colorId = tileData[tileX][tileY];
+                    const arrayX = flipX ? 7 - tileX : tileX;
+                    const arrayY = flipY ? 7 - tileY : tileY;
+                    const colorId = tileData[arrayX][arrayY];
                     const index = posX * 8 + posY * width * 8 + tileX + tileY * width;
                     this.backgroundVideoBuffer[index] = palette[colorId];
                 }

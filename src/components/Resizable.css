@@ -1,0 +1,11 @@
+.resizer {
+    position: absolute;
+    width: 10px;
+    height: 100%;
+    top: 0;
+    right: 0;
+    transform: translateX(50%);
+    z-index: 1;
+    touch-action: none;
+    cursor: ew-resize;
+}
