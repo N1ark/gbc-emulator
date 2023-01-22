@@ -5,28 +5,32 @@ import {
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
 } from "../constants";
-import { CircularRAM, Addressable, RAM } from "../Memory";
-import { PaddedSubRegister, Register00, RegisterFF, SubRegister } from "../Register";
-import System from "../System";
-import { asSignedInt8, Int16Map, Int2, Int3, Partial, wrap8 } from "../util";
+import { Addressable } from "../Memory";
+import { PaddedSubRegister, RegisterFF, SubRegister } from "../Register";
+import { Int16Map } from "../util";
 import GameBoyOutput from "../GameBoyOutput";
-import OAM, { Sprite } from "../OAM";
+import { OAM, Sprite } from "../OAM";
 import { CGBColorControl, ColorController, DMGColorControl } from "./ColorController";
 import { VRAMController, CGBVRAMController, DMGVRAMController } from "./VRAMController";
+import Interrupts from "../Interrupts";
 
-type KeyForType<T, V> = NonNullable<
-    {
-        [k in keyof T]: T[k] extends V ? k : never;
-    }[keyof T]
->;
+class PPUMode {
+    constructor(public flag: u8, public cycles: u8, public interrupt: u8) {}
+}
 
-type PPUMode = {
-    doTick: KeyForType<PPU, (system: System) => void>;
-    flag: number;
-    cycles: number;
-};
+/** 0 = low, 1 = high, -1 = undefined */
+class InterruptLine {
+    constructor(
+        public lycLyMatch: i8,
+        public oamActive: i8,
+        public vblankActive: i8,
+        public hblankActive: i8
+    ) {}
+}
 
-type PPUModeI = PPUMode & { interrupt: number };
+class Tuple<A, B> {
+    constructor(public a: A, public b: B) {}
+}
 
 /*
  * All modes, with:
@@ -34,35 +38,11 @@ type PPUModeI = PPUMode & { interrupt: number };
  * - cycles: cycles until completion (including previous steps)
  * - interrupt?: optional corresponding STAT interrupt flag
  */
-const MODE_HBLANK_FIRST: PPUModeI = {
-    doTick: "tickHBlankFirst",
-    flag: 0b00,
-    cycles: 18,
-    interrupt: 1 << 3,
-};
-const MODE_HBLANK: PPUModeI = {
-    doTick: "tickHBlank",
-    flag: 0b00,
-    cycles: 51,
-    interrupt: 1 << 3,
-};
-const MODE_VBLANK: PPUModeI = {
-    doTick: "tickVBlank",
-    flag: 0b01,
-    cycles: 114,
-    interrupt: 1 << 4,
-};
-const MODE_SEARCHING_OAM: PPUModeI = {
-    doTick: "tickSearchingOam",
-    flag: 0b10,
-    cycles: 20,
-    interrupt: 1 << 5,
-};
-const MODE_TRANSFERRING: PPUMode = {
-    doTick: "tickTransferring",
-    flag: 0b11,
-    cycles: 43,
-};
+const MODE_HBLANK_FIRST: PPUMode = new PPUMode(0b00, 18, 1 << 3);
+const MODE_HBLANK: PPUMode = new PPUMode(0b00, 51, 1 << 3);
+const MODE_VBLANK: PPUMode = new PPUMode(0b01, 114, 1 << 4);
+const MODE_SEARCHING_OAM: PPUMode = new PPUMode(0b10, 20, 1 << 5);
+const MODE_TRANSFERRING: PPUMode = new PPUMode(0b11, 43, 0);
 
 // Helpful constants
 const SCREEN_HEIGHT_WOFFSCREEN = 154;
@@ -96,26 +76,21 @@ const VRAM2_ATTR_PALETTE = 0b111;
  */
 class PPU implements Addressable {
     // Internal counter for cycles
-    cycleCounter: number = 0;
-    windowLineCounter: number = 0;
+    cycleCounter: u8 = 0;
+    windowLineCounter: u8 = 0;
     mode: PPUMode = MODE_VBLANK;
 
     interruptStateBefore: boolean = false;
-    interruptLineState = {
-        lycLyMatch: false,
-        oamActive: false,
-        vblankActive: false,
-        hblankActive: false,
-    };
-    nextInterruptLineUpdate: Partial<typeof this.interruptLineState> | null = null;
+    interruptLineState: InterruptLine = new InterruptLine(0, 0, 0, 0);
+    nextInterruptLineUpdate: InterruptLine = new InterruptLine(-1, -1, -1, -1);
 
     // OAM
-    oam = new OAM();
+    oam: OAM = new OAM();
     canReadOam: boolean = true;
     canWriteOam: boolean = true;
 
     // Variable extra cycles during pixel transfer
-    transferExtraCycles: number = 0;
+    transferExtraCycles: u8 = 0;
 
     // Read sprites
     readSprites: Sprite[] = [];
@@ -126,40 +101,40 @@ class PPU implements Addressable {
     canWriteVram: boolean = true;
 
     // Temporary buffer when drawing line by line
-    videoBuffer = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH).fill(0xffffffff);
+    videoBuffer: Uint32Array = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH).fill(0xffffffff);
     // Complete buffer with the last fully drawn frame
-    lastVideoOut = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH);
+    lastVideoOut: Uint32Array = new Uint32Array(SCREEN_HEIGHT * SCREEN_WIDTH);
     // Debug video output/storage
-    backgroundVideoBuffer?: Uint32Array;
-    tilesetVideoBuffer?: Uint32Array;
+    backgroundVideoBuffer: Uint32Array = new Uint32Array(256 * 256);
+    tilesetVideoBuffer: Uint32Array = new Uint32Array(256 * 192);
 
     // General use
     /** @link https://gbdev.io/pandocs/LCDC.html */
-    lcdControl = new SubRegister(0x00);
+    lcdControl: SubRegister = new SubRegister(0x00);
     /** @link https://gbdev.io/pandocs/STAT.html */
-    lcdStatus = new PaddedSubRegister(0b1000_0000, 0x85);
+    lcdStatus: SubRegister = new PaddedSubRegister(0b1000_0000, 0x85);
     /** Only for GBC @link https://gbdev.io/pandocs/CGB_Registers.html#ff6c--opri-cgb-mode-only-object-priority-mode */
     objPriorityMode: Addressable;
 
     // Positioning
-    screenY = new SubRegister(0x00); // these two indicate position of the viewport
-    screenX = new SubRegister(0x00); // in the background map
+    screenY: SubRegister = new SubRegister(0x00); // these two indicate position of the viewport
+    screenX: SubRegister = new SubRegister(0x00); // in the background map
 
-    lcdY = new SubRegister(0x00); // indicates currently drawn horizontal line
-    lcdYCompare = new SubRegister(0x00);
+    lcdY: SubRegister = new SubRegister(0x00); // indicates currently drawn horizontal line
+    lcdYCompare: SubRegister = new SubRegister(0x00);
 
-    windowY = new SubRegister(0x00); // position of the window
-    windowX = new SubRegister(0x00);
+    windowY: SubRegister = new SubRegister(0x00); // position of the window
+    windowX: SubRegister = new SubRegister(0x00);
 
     // Color control
     colorControl: ColorController;
 
     // General use
     consoleMode: ConsoleType;
-    protected registerAddresses: Int16Map<Addressable | undefined>;
+    protected registerAddresses: Int16Map<Addressable> = new Map<u16, Addressable>();
 
     constructor(mode: ConsoleType) {
-        if (mode === "CGB") {
+        if (mode === ConsoleType.CGB) {
             this.vramControl = new CGBVRAMController();
             this.colorControl = new CGBColorControl();
             this.objPriorityMode = new PaddedSubRegister(0b1111_1110);
@@ -170,31 +145,29 @@ class PPU implements Addressable {
         }
 
         this.consoleMode = mode;
-        this.registerAddresses = {
-            0xff40: this.lcdControl,
-            0xff41: this.lcdStatus,
-            0xff42: this.screenY,
-            0xff43: this.screenX,
-            0xff44: this.lcdY,
-            0xff45: this.lcdYCompare,
-            0xff46: this.oam,
-            0xff47: this.colorControl, // DMG Palettes
-            0xff48: this.colorControl, // |
-            0xff49: this.colorControl, // |
-            0xff4a: this.windowY,
-            0xff4b: this.windowX,
-            0xff4f: this.vramControl, // VRAM Bank
-            0xff51: this.vramControl, // CGB VRAM DMA
-            0xff52: this.vramControl, // |
-            0xff53: this.vramControl, // |
-            0xff54: this.vramControl, // |
-            0xff55: this.vramControl, // |
-            0xff68: this.colorControl, // CGB Palettes
-            0xff69: this.colorControl, // |
-            0xff6a: this.colorControl, // |
-            0xff6b: this.colorControl, // |
-            0xff6c: this.objPriorityMode,
-        };
+        this.registerAddresses.set(0xff40, this.lcdControl);
+        this.registerAddresses.set(0xff41, this.lcdStatus);
+        this.registerAddresses.set(0xff42, this.screenY);
+        this.registerAddresses.set(0xff43, this.screenX);
+        this.registerAddresses.set(0xff44, this.lcdY);
+        this.registerAddresses.set(0xff45, this.lcdYCompare);
+        this.registerAddresses.set(0xff46, this.oam);
+        this.registerAddresses.set(0xff47, this.colorControl); // DMG Palettes
+        this.registerAddresses.set(0xff48, this.colorControl); // |
+        this.registerAddresses.set(0xff49, this.colorControl); // |
+        this.registerAddresses.set(0xff4a, this.windowY);
+        this.registerAddresses.set(0xff4b, this.windowX);
+        this.registerAddresses.set(0xff4f, this.vramControl); // VRAM Bank
+        this.registerAddresses.set(0xff51, this.vramControl); // CGB VRAM DMA
+        this.registerAddresses.set(0xff52, this.vramControl); // |
+        this.registerAddresses.set(0xff53, this.vramControl); // |
+        this.registerAddresses.set(0xff54, this.vramControl); // |
+        this.registerAddresses.set(0xff55, this.vramControl); // |
+        this.registerAddresses.set(0xff68, this.colorControl); // CGB Palettes
+        this.registerAddresses.set(0xff69, this.colorControl); // |
+        this.registerAddresses.set(0xff6a, this.colorControl); // |
+        this.registerAddresses.set(0xff6b, this.colorControl); // |
+        this.registerAddresses.set(0xff6c, this.objPriorityMode);
     }
 
     /**
@@ -203,7 +176,7 @@ class PPU implements Addressable {
      * @returns Whether the CPU should be halted (a GBC VRAM-DMA is in progress)
      * @link https://gbdev.io/pandocs/pixel_fifo.html
      */
-    tick(system: System): boolean {
+    tick(system: Addressable, interrupts: Interrupts): boolean {
         this.oam.tick(system);
 
         if (!this.lcdControl.flag(LCDC_LCD_ENABLE)) return false;
@@ -215,8 +188,11 @@ class PPU implements Addressable {
 
         // Update interrupt line from previous write operations?
         if (this.nextInterruptLineUpdate !== null) {
-            this.updateInterrupt(system, this.nextInterruptLineUpdate);
-            this.nextInterruptLineUpdate = null;
+            this.updateInterrupt(interrupts, this.nextInterruptLineUpdate);
+            this.nextInterruptLineUpdate.hblankActive = -1;
+            this.nextInterruptLineUpdate.vblankActive = -1;
+            this.nextInterruptLineUpdate.oamActive = -1;
+            this.nextInterruptLineUpdate.lycLyMatch = -1;
         }
 
         this.cycleCounter++;
@@ -225,21 +201,37 @@ class PPU implements Addressable {
             this.setMode(this.mode);
         }
 
-        this[this.mode.doTick](system);
+        switch (this.mode) {
+            case MODE_SEARCHING_OAM:
+                this.tickSearchingOam(interrupts);
+                break;
+            case MODE_TRANSFERRING:
+                this.tickTransferring();
+                break;
+            case MODE_HBLANK:
+                this.tickHBlank(interrupts);
+                break;
+            case MODE_HBLANK_FIRST:
+                this.tickHBlankFirst();
+                break;
+            case MODE_VBLANK:
+                this.tickVBlank(interrupts);
+                break;
+        }
 
         return haltCpu;
     }
 
-    tickHBlankFirst(system: System) {
+    tickHBlankFirst(): void {
         if (this.cycleCounter === MODE_HBLANK_FIRST.cycles) {
             this.cycleCounter = 0;
             this.mode = MODE_TRANSFERRING;
         }
     }
 
-    tickHBlank(system: System) {
+    tickHBlank(interrupts: Interrupts): void {
         if (this.cycleCounter === 1) {
-            this.updateInterrupt(system, { hblankActive: true });
+            this.updateInterrupt(interrupts, new InterruptLine(-1, -1, -1, 1));
 
             this.canReadOam = true;
 
@@ -257,10 +249,10 @@ class PPU implements Addressable {
 
         if (this.cycleCounter === MODE_HBLANK.cycles - this.transferExtraCycles) {
             this.cycleCounter = 0;
-            this.lcdY.set(wrap8(this.lcdY.get() + 1));
+            this.lcdY.set(this.lcdY.get() + 1);
 
             if (this.lcdY.get() !== this.lcdYCompare.get()) {
-                this.updateInterrupt(system, { lycLyMatch: false });
+                this.updateInterrupt(interrupts, new InterruptLine(1, -1, -1, -1));
             }
 
             if (this.lcdY.get() === SCREEN_HEIGHT) {
@@ -271,24 +263,28 @@ class PPU implements Addressable {
         }
     }
 
-    tickVBlank(system: System) {
+    tickVBlank(interrupts: Interrupts): void {
         if (this.cycleCounter === 1) {
             const isVblankStart = this.lcdY.get() === 144;
-            this.updateInterrupt(system, {
-                lycLyMatch: this.lcdY.get() === this.lcdYCompare.get(),
-                vblankActive: isVblankStart || this.interruptLineState.vblankActive,
-                oamActive: isVblankStart || this.interruptLineState.oamActive,
-            });
+            this.updateInterrupt(
+                interrupts,
+                new InterruptLine(
+                    +(this.lcdY.get() === this.lcdYCompare.get()),
+                    +(isVblankStart || this.interruptLineState.oamActive),
+                    +(isVblankStart || this.interruptLineState.vblankActive),
+                    -1
+                )
+            );
 
             if (this.lcdY.get() === 144) {
-                system.requestInterrupt(IFLAG_VBLANK);
+                interrupts.requestInterrupt(IFLAG_VBLANK);
                 this.lastVideoOut.set(this.videoBuffer);
             }
         } else if (this.cycleCounter === 20) {
-            this.updateInterrupt(system, { oamActive: false });
+            this.updateInterrupt(interrupts, new InterruptLine(-1, 0, -1, -1));
         } else if (this.cycleCounter === MODE_VBLANK.cycles) {
             this.cycleCounter = 0;
-            this.lcdY.set(wrap8(this.lcdY.get() + 1));
+            this.lcdY.set(this.lcdY.get() + 1);
             if (this.lcdY.get() === SCREEN_HEIGHT_WOFFSCREEN) {
                 this.lcdY.set(0);
                 this.windowLineCounter = 0;
@@ -297,13 +293,13 @@ class PPU implements Addressable {
         }
     }
 
-    tickSearchingOam(system: System) {
+    tickSearchingOam(interrupts: Interrupts): void {
         if (this.cycleCounter === 1) {
-            this.updateInterrupt(system, {
-                oamActive: true,
-                hblankActive: false,
-                vblankActive: false,
-                lycLyMatch: this.lcdY.get() === this.lcdYCompare.get(),
+            this.updateInterrupt(interrupts, {
+                oamActive: 1,
+                hblankActive: 0,
+                vblankActive: 0,
+                lycLyMatch: this.lcdY.get() === this.lcdYCompare.get() ? 1 : 0,
             });
             this.canReadOam = false;
         }
@@ -322,37 +318,45 @@ class PPU implements Addressable {
             const objHeight = this.lcdControl.flag(LCDC_OBJ_SIZE) ? 16 : 8;
             // This is only relevant in GBC: priority by position or by index
             const objPriorityMode = this.objPriorityMode.read(0) & 1 ? "coordinate" : "index";
+
+            const filterY = function (sprite: Sprite): boolean {
+                return sprite.y <= y && y < sprite.y + objHeight;
+            };
+
+            type SpriteIndex = Tuple<Sprite, number>;
+            const mapIndex = function (sprite: Sprite, index: number): SpriteIndex {
+                return new Tuple(sprite, index);
+            };
+
+            const sortXIndex = function (spriteA: SpriteIndex, spriteB: SpriteIndex) {
+                return objPriorityMode === "coordinate"
+                    ? spriteA.a.x === spriteB.a.x // first by coordinate then by index
+                        ? spriteA.b - spriteB.b
+                        : spriteA.a.x - spriteB.a.x
+                    : spriteA.b - spriteB.b; // only by index
+            };
+
+            const mapOmitKey = function (spriteData: SpriteIndex): Sprite {
+                return spriteData.a;
+            };
+
             // We select the sprites the following way:
             // - must be visible
             // - max 10 per line
             // - sorted, first by X position then by index
             this.readSprites = this.oam
                 .getSprites()
-                .filter(
-                    // only get selected sprites
-                    (sprite) => sprite.y <= y && y < sprite.y + objHeight
-                )
+                .filter(filterY)
                 .slice(0, 10) // only 10 sprites per scanline, lower index first
-                .map((sprite, index) => [sprite, index] as [Sprite, number])
-                // sort by x then index
-                .sort(
-                    (
-                        spriteA,
-                        spriteB // spriteX = [spriteX, indexX]
-                    ) =>
-                        objPriorityMode === "coordinate"
-                            ? spriteA[0].x === spriteB[0].x // first by coordinate then by index
-                                ? spriteA[1] - spriteB[1]
-                                : spriteA[0].x - spriteB[0].x
-                            : spriteA[1] - spriteB[1] // only by index
-                )
-                .map((spriteData) => spriteData[0]);
+                .map(mapIndex)
+                .sort(sortXIndex)
+                .map(mapOmitKey);
         }
     }
 
-    tickTransferring(system: System) {
+    tickTransferring(): void {
         if (this.cycleCounter === 1) {
-            this.updateInterrupt(null, { oamActive: false });
+            this.updateInterrupt(null, new InterruptLine(-1, -1, -1, -1));
 
             this.canReadOam = false;
             this.canReadVram = false;
@@ -388,7 +392,7 @@ class PPU implements Addressable {
                 this.transferExtraCycles += Math.floor(extraSpriteTCycles / 4);
             }
 
-            this.updateScanline(system);
+            this.updateScanline();
         }
 
         if (this.cycleCounter === 2) {
@@ -402,22 +406,18 @@ class PPU implements Addressable {
         }
     }
 
-    pushOutput(output: GameBoyOutput) {
-        if (output.receive) {
-            output.receive(this.lastVideoOut);
-        }
-        if (output.debugBackground) {
-            const backgroundImg = this.debugBackground();
-            output.debugBackground(backgroundImg);
-        }
-        if (output.debugTileset) {
-            const tilesetImg = this.debugTileset();
-            output.debugTileset(tilesetImg);
-        }
+    pushOutput(output: GameBoyOutput): void {
+        output.receive(this.lastVideoOut);
+
+        const backgroundImg = this.debugBackground();
+        output.debugBackground(backgroundImg);
+
+        const tilesetImg = this.debugTileset();
+        output.debugTileset(tilesetImg);
     }
 
     /** Sets the current mode of the PPU, updating the STAT register. */
-    setMode(mode: PPUMode) {
+    setMode(mode: PPUMode): void {
         this.lcdStatus.set((this.lcdStatus.get() & ~STAT_MODE) | mode.flag);
     }
 
@@ -425,35 +425,33 @@ class PPU implements Addressable {
      * Will update the STAT interrupt line, raise an interrupt if there is a high to low
      * transition and the passed in System isn't null (ie. pass null to disable interrupts).
      */
-    updateInterrupt(system: System | null, data: Partial<typeof this.interruptLineState>) {
-        for (const key in data) {
-            const k = key as keyof typeof this.interruptLineState;
-            const value = data[k];
-            if (value !== undefined) this.interruptLineState[k] = value;
-        }
-        const interruptState =
-            (this.lcdStatus.flag(STAT_LYC_LY_EQ_INT) && this.interruptLineState.lycLyMatch) ||
-            (this.lcdStatus.flag(MODE_HBLANK.interrupt) &&
-                this.interruptLineState.hblankActive) ||
-            (this.lcdStatus.flag(MODE_VBLANK.interrupt) &&
-                this.interruptLineState.vblankActive) ||
-            (this.lcdStatus.flag(MODE_SEARCHING_OAM.interrupt) &&
-                this.interruptLineState.oamActive);
+    updateInterrupt(system: Interrupts | null, data: InterruptLine): void {
+        if (data.lycLyMatch !== -1) this.interruptLineState.lycLyMatch = data.lycLyMatch;
+        if (data.hblankActive !== -1) this.interruptLineState.hblankActive = data.hblankActive;
+        if (data.vblankActive !== -1) this.interruptLineState.vblankActive = data.vblankActive;
+        if (data.oamActive !== -1) this.interruptLineState.oamActive = data.oamActive;
 
-        this.lcdStatus.sflag(STAT_LYC_LY_EQ_FLAG, this.interruptLineState.lycLyMatch);
+        const lcdStatus = this.lcdStatus.get();
+        const interruptState =
+            (lcdStatus & STAT_LYC_LY_EQ_INT && this.interruptLineState.lycLyMatch) ||
+            (lcdStatus & MODE_HBLANK.interrupt && this.interruptLineState.hblankActive) ||
+            (lcdStatus & MODE_VBLANK.interrupt && this.interruptLineState.vblankActive) ||
+            (lcdStatus & MODE_SEARCHING_OAM.interrupt && this.interruptLineState.oamActive);
+
+        this.lcdStatus.sflag(STAT_LYC_LY_EQ_FLAG, this.interruptLineState.lycLyMatch === 1);
 
         // LCDC Interrupt only happens on rising edges (if allowed)
         if (system && interruptState && !this.interruptStateBefore) {
             system.requestInterrupt(IFLAG_LCDC);
         }
-        this.interruptStateBefore = interruptState;
+        this.interruptStateBefore = !!interruptState;
     }
 
     /** Updates the current scanline, by rendering the background, window and then objects. */
-    updateScanline(system: System) {
-        const bgPriorities = new Array<bool>(SCREEN_WIDTH).fill(false);
+    updateScanline(): void {
+        const bgPriorities = new StaticArray<boolean>(SCREEN_WIDTH).fill(false);
         // The BG/WIN priority flag acts as a toggle only in DMG
-        if (this.consoleMode === "CGB" || this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
+        if (this.consoleMode === ConsoleType.CGB || this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
             this.drawBackground(bgPriorities);
 
             if (this.lcdControl.flag(LCDC_WIN_ENABLE)) {
@@ -469,19 +467,17 @@ class PPU implements Addressable {
     }
 
     /** Function to get access to the tile data, ie. the shades of a tile */
-    getTileAddress(n: number): number {
+    getTileAddress(n: u16): u16 {
         return this.lcdControl.flag(LCDC_BG_WIN_TILE_DATA_AREA)
             ? // Unsigned regular, 0x8000-0x8fff
               0x8000 + n * 16
             : // Signed offset, 0x9000-0x97ff for 0-127 and 0x8800-0x8fff for 128-255
-              0x9000 + asSignedInt8(n) * 16;
+              0x9000 + <i8>n * 16;
     }
 
-    debugBackground() {
+    debugBackground(): Uint32Array {
         const width = 256;
         const height = 256;
-        if (this.backgroundVideoBuffer === undefined)
-            this.backgroundVideoBuffer = new Uint32Array(width * height);
 
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
@@ -500,7 +496,7 @@ class PPU implements Addressable {
             const flipX = (tileAttributes & VRAM2_ATTR_H_FLIP) !== 0;
             const flipY = (tileAttributes & VRAM2_ATTR_V_FLIP) !== 0;
             const vramBank = (tileAttributes & VRAM2_ATTR_VRAM_BANK) !== 0 ? 1 : 0;
-            const tilePalette = (tileAttributes & VRAM2_ATTR_PALETTE) as Int3;
+            const tilePalette = tileAttributes & VRAM2_ATTR_PALETTE;
 
             // Map of colors for each shade
             const palette = this.colorControl.getBgPalette(tilePalette);
@@ -527,19 +523,15 @@ class PPU implements Addressable {
         return this.backgroundVideoBuffer;
     }
 
-    debugTileset() {
+    debugTileset(): Uint32Array {
         const width = 256; // 16 * 8 * 2;
         const height = 192; // 24 * 8;
-        if (this.tilesetVideoBuffer === undefined)
-            this.tilesetVideoBuffer = new Uint32Array(width * height);
-
         // The colors used
-        const palette = {
-            0b00: 0xffffffff,
-            0b01: 0xffaaaaaa,
-            0b10: 0xff555555,
-            0b11: 0xff000000,
-        };
+        const palette = new StaticArray<u32>(4);
+        palette[0] = 0xffffffff;
+        palette[1] = 0xffaaaaaa;
+        palette[2] = 0xff555555;
+        palette[3] = 0xff000000;
 
         for (let i = 0; i < 0x180; i++) {
             const tileAddress = 0x8000 + i * 16;
@@ -565,7 +557,7 @@ class PPU implements Addressable {
         return this.tilesetVideoBuffer;
     }
 
-    fillWhite() {
+    fillWhite(): void {
         const y = this.lcdY.get();
         const white = 0xffffffff;
         for (let x = 0; x < SCREEN_WIDTH; x++) {
@@ -573,7 +565,7 @@ class PPU implements Addressable {
         }
     }
 
-    drawBackground(priorities: bool[]) {
+    drawBackground(priorities: StaticArray<boolean>): void {
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
 
@@ -582,7 +574,7 @@ class PPU implements Addressable {
         const viewY = this.screenY.get();
 
         // The currently read Y pixel of the bg map
-        const y = wrap8(viewY + this.lcdY.get());
+        const y = viewY + this.lcdY.get();
         // The currently read Y position of the corresponding tile (one tile is 8 pixels long)
         const tileY = Math.floor(y / 8);
         // The currently read Y position *inside* the tile
@@ -595,7 +587,7 @@ class PPU implements Addressable {
 
         for (let i = 0; i < SCREEN_WIDTH + scrollOffsetX; i += 8) {
             // The currently read X pixel of the bg map
-            const x = wrap8(viewX + i);
+            const x = viewX + i;
             // The currently read X position of the corresponding tile
             // this determines the tile of the next 8 pixels
             const tileX = Math.floor(x / 8);
@@ -611,7 +603,7 @@ class PPU implements Addressable {
             const flipX = (tileAttributes & VRAM2_ATTR_H_FLIP) !== 0;
             const flipY = (tileAttributes & VRAM2_ATTR_V_FLIP) !== 0;
             const vramBank = (tileAttributes & VRAM2_ATTR_VRAM_BANK) !== 0 ? 1 : 0;
-            const tilePalette = (tileAttributes & VRAM2_ATTR_PALETTE) as Int3;
+            const tilePalette = tileAttributes & VRAM2_ATTR_PALETTE;
 
             // Map of colors for each shade
             const palette = this.colorControl.getBgPalette(tilePalette);
@@ -633,14 +625,14 @@ class PPU implements Addressable {
                 // Get the RGBA color, and draw it!
                 const colorId = tileData[arrayX][arrayY];
                 this.videoBuffer[bufferStart + posX] = palette[colorId];
-                if ((this.consoleMode === "CGB" && bgToOamPrio) || colorId > 0) {
+                if ((this.consoleMode === ConsoleType.CGB && bgToOamPrio) || colorId > 0) {
                     priorities[posX] = true;
                 }
             }
         }
     }
 
-    drawWindow(priorities: bool[]) {
+    drawWindow(priorities: StaticArray<boolean>): void {
         // The top-left corner of the 160x144 view area
         const windowX = this.windowX.get() - 7;
         const windowY = this.windowY.get();
@@ -677,7 +669,7 @@ class PPU implements Addressable {
             const flipX = (tileAttributes & VRAM2_ATTR_H_FLIP) !== 0;
             const flipY = (tileAttributes & VRAM2_ATTR_V_FLIP) !== 0;
             const vramBank = (tileAttributes & VRAM2_ATTR_VRAM_BANK) !== 0 ? 1 : 0;
-            const tilePalette = (tileAttributes & VRAM2_ATTR_PALETTE) as Int3;
+            const tilePalette = tileAttributes & VRAM2_ATTR_PALETTE;
 
             // Map of colors for each shade
             const palette = this.colorControl.getBgPalette(tilePalette);
@@ -699,14 +691,14 @@ class PPU implements Addressable {
 
                 const colorId = tileData[arrayX][arrayY];
                 this.videoBuffer[bufferStart + posX] = palette[colorId];
-                if ((this.consoleMode === "CGB" && bgToOamPrio) || colorId > 0) {
+                if ((this.consoleMode === ConsoleType.CGB && bgToOamPrio) || colorId > 0) {
                     priorities[posX] = true;
                 }
             }
         }
     }
 
-    drawObjects(priorities: bool[]) {
+    drawObjects(priorities: StaticArray<boolean>): void {
         const y = this.lcdY.get();
         const doubleObjects = this.lcdControl.flag(LCDC_OBJ_SIZE);
         const sprites = this.readSprites;
@@ -749,26 +741,26 @@ class PPU implements Addressable {
         }
     }
 
-    protected address(pos: number): Addressable {
+    protected address(pos: u16): Addressable {
         // VRAM
         if (0x8000 <= pos && pos <= 0x9fff) return this.vramControl;
         // OAM
         if (0xfe00 <= pos && pos <= 0xfe9f) return this.oam;
         // Registers
-        const register = this.registerAddresses[pos];
+        const register = this.registerAddresses.get(pos);
         if (register) return register;
 
         throw new Error(`Invalid address given to PPU: ${pos.toString(16)}`);
     }
 
-    read(address: number): number {
+    read(address: u16): u8 {
         const component = this.address(address);
         if (component === this.oam && !this.canReadOam) return 0xff;
         if (component === this.vramControl && !this.canReadVram) return 0xff;
         return component.read(address);
     }
 
-    write(address: number, data: number): void {
+    write(address: u16, data: u8): void {
         const component = this.address(address);
 
         if (component === this.oam && !this.canWriteOam) return;
@@ -793,15 +785,15 @@ class PPU implements Addressable {
                 this.cycleCounter = 0;
 
                 this.nextInterruptLineUpdate = {
-                    lycLyMatch: this.lcdY.get() === this.lcdYCompare.get(),
-                    vblankActive: false,
-                    hblankActive: false,
-                    oamActive: false,
+                    lycLyMatch: +(this.lcdY.get() === this.lcdYCompare.get()),
+                    vblankActive: 0,
+                    hblankActive: 0,
+                    oamActive: 0,
                 };
             }
         }
         if (component === this.lcdStatus) {
-            this.nextInterruptLineUpdate = {};
+            this.nextInterruptLineUpdate = new InterruptLine(-1, -1, -1, -1);
             // 3 first bits are read-only
             data = (data & 0b1111_1000) | (this.lcdStatus.get() & 0b0000_0111);
         }
@@ -810,9 +802,12 @@ class PPU implements Addressable {
 
         // Writing to LYC updates interrupt line if screen is on only
         if (component === this.lcdYCompare && this.lcdControl.flag(LCDC_LCD_ENABLE)) {
-            this.nextInterruptLineUpdate = {
-                lycLyMatch: this.lcdYCompare.get() === this.lcdY.get(),
-            };
+            this.nextInterruptLineUpdate = new InterruptLine(
+                +(this.lcdYCompare.get() === this.lcdY.get()),
+                -1,
+                -1,
+                -1
+            );
         }
     }
 }
@@ -832,19 +827,19 @@ class PPUExported implements Addressable {
         this.ppu = new PPU(mode);
     }
 
-    tick(system: System): boolean {
-        return this.ppu.tick(system);
+    tick(system: Addressable, interrupts: Interrupts): boolean {
+        return this.ppu.tick(system, interrupts);
     }
 
     pushOutput(output: GameBoyOutput): void {
         this.ppu.pushOutput(output);
     }
 
-    read(pos: number): number {
+    read(pos: u16): u8 {
         return this.ppu.read(pos);
     }
 
-    write(pos: number, data: number): void {
+    write(pos: u16, data: u8): void {
         return this.ppu.write(pos, data);
     }
 }

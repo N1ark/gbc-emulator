@@ -38,7 +38,7 @@ const TRANSFER_END: i16 = 160;
  * an extra method to more easily retrieve sprite data, and to do OAM DMA transfers.
  * @link https://gbdev.io/pandocs/OAM.html
  */
-class OAM implements Addressable {
+export class OAM implements Addressable {
     /**
      * There is a 2-cycle delay before any transfer.
      * -3 = not transferring
@@ -117,5 +117,3 @@ class OAM implements Addressable {
         return this.spriteCache;
     }
 }
-
-export default OAM;
