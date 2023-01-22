@@ -12,6 +12,13 @@ export function rangeObject<T>(from: u16, to: u16, obj: T): Int16Map<T> {
     for (let i: u16 = from; i <= to; i++) res.set(i, obj);
     return res;
 }
+export function filledMap<K, V>(keys: K[], values: V[]): Map<K, V> {
+    const map = new Map<K, V>();
+    for (let i: i32 = 0; i < keys.length; i++) {
+        map.set(keys[i], values[i]);
+    }
+    return map;
+}
 
 export type u2 = u8;
 export type u3 = u8;

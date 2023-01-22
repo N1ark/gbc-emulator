@@ -20,6 +20,51 @@ class ROM implements Addressable {
     protected mbc: MBC;
     protected title: string;
 
+    protected static mbcFromType(type: u8, data: StaticArray<u8>): MBC {
+        switch (type) {
+            // No MBC
+            case 0x00:
+                return new NoMBC(data);
+
+            // MBC1
+            case 0x01:
+                return new MBC1(data, false);
+            case 0x02:
+                return new MBC1(data, true);
+            case 0x03:
+                return new MBC1(data, true);
+
+            // MBC3
+            case 0x0f:
+                return new MBC3(data, true, false);
+            case 0x10:
+                return new MBC3(data, true, true);
+            case 0x11:
+                return new MBC3(data, false, false);
+            case 0x12:
+                return new MBC3(data, false, true);
+            case 0x13:
+                return new MBC3(data, false, true);
+
+            // MBC5
+            case 0x19:
+                return new MBC5(data, false, false);
+            case 0x1a:
+                return new MBC5(data, true, false);
+            case 0x1b:
+                return new MBC5(data, true, false);
+            case 0x1c:
+                return new MBC5(data, false, true);
+            case 0x1d:
+                return new MBC5(data, true, true);
+            case 0x1e:
+                return new MBC5(data, true, true);
+
+            default:
+                throw new Error(`[ROM] Invalid cartridge type: ${type.toString(16)}`);
+        }
+    }
+
     constructor(data: StaticArray<u8>) {
         this.title = [...new Array(TITLE_END - TITLE_START)]
             .map((_, i) => String.fromCharCode(data[TITLE_START + i]))
@@ -27,30 +72,7 @@ class ROM implements Addressable {
             .replaceAll("\u0000", "");
 
         const mbcType = data[CARTRIDGE_TYPE];
-        const mbcInstance = {
-            // No MBC
-            0x00: () => new NoMBC(data),
-            // MBC1
-            0x01: () => new MBC1(data, { hasRam: false }),
-            0x02: () => new MBC1(data, { hasRam: true }),
-            0x03: () => new MBC1(data, { hasRam: true }),
-            // MBC3
-            0x0f: () => new MBC3(data, { hasTimer: true, hasRam: false }),
-            0x10: () => new MBC3(data, { hasTimer: true, hasRam: true }),
-            0x11: () => new MBC3(data, { hasTimer: false, hasRam: false }),
-            0x12: () => new MBC3(data, { hasTimer: false, hasRam: true }),
-            0x13: () => new MBC3(data, { hasTimer: false, hasRam: true }),
-            // MBC5
-            0x19: () => new MBC5(data, { hasRam: false, hasRumble: false }),
-            0x1a: () => new MBC5(data, { hasRam: true, hasRumble: false }),
-            0x1b: () => new MBC5(data, { hasRam: true, hasRumble: false }),
-            0x1c: () => new MBC5(data, { hasRam: false, hasRumble: true }),
-            0x1d: () => new MBC5(data, { hasRam: true, hasRumble: true }),
-            0x1e: () => new MBC5(data, { hasRam: true, hasRumble: true }),
-        }[mbcType];
-        if (mbcInstance === undefined)
-            throw new Error(`[ROM] Invalid cartridge type: ${mbcType?.toString(16)}`);
-        this.mbc = mbcInstance();
+        this.mbc = ROM.mbcFromType(mbcType, data);
         console.debug(`(ROM) Saved data for game "${this.title}": ${data}`);
     }
 

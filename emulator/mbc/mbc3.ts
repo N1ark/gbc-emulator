@@ -1,14 +1,9 @@
 import { RAM } from "../Memory";
 import { SubRegister } from "../Register";
-import { Int8Map } from "../util";
+import { filledMap, Int8Map } from "../util";
 import MBC from "./abstract";
 
-const RAM_ENABLED = 0x0a;
-
-type MBC3Params = {
-    hasRam: boolean;
-    hasTimer: boolean;
-};
+const RAM_ENABLED: u8 = 0x0a;
 
 /**
  * Implementation of MBC3.
@@ -16,11 +11,11 @@ type MBC3Params = {
  */
 class MBC3 extends MBC {
     /** @link https://gbdev.io/pandocs/MBC3.html#0000-1fff---ram-and-timer-enable-write-only */
-    protected ramEnable = new SubRegister(0x00);
+    protected ramEnable: SubRegister = new SubRegister(0x00);
     /** @link https://gbdev.io/pandocs/MBC3.html#2000-3fff---rom-bank-number-write-only */
-    protected romBank = new SubRegister(0x01);
+    protected romBank: SubRegister = new SubRegister(0x01);
     /** @link https://gbdev.io/pandocs/MBC3.html#4000-5fff---ram-bank-number---or---rtc-register-select-write-only */
-    protected ramBank = new SubRegister(0x00);
+    protected ramBank: SubRegister = new SubRegister(0x00);
     /** The RAM contained in the ROM (ERAM). */
     protected ram: RAM;
 
@@ -28,26 +23,23 @@ class MBC3 extends MBC {
      * RTC registers
      * @link https://gbdev.io/pandocs/MBC3.html#the-clock-counter-registers
      */
-    protected rtcS = new SubRegister(0x00);
-    protected rtcM = new SubRegister(0x00);
-    protected rtcH = new SubRegister(0x00);
-    protected rtcDL = new SubRegister(0x00);
-    protected rtcDH = new SubRegister(0x00);
+    protected rtcS: SubRegister = new SubRegister(0x00);
+    protected rtcM: SubRegister = new SubRegister(0x00);
+    protected rtcH: SubRegister = new SubRegister(0x00);
+    protected rtcDL: SubRegister = new SubRegister(0x00);
+    protected rtcDH: SubRegister = new SubRegister(0x00);
 
-    protected rtcRegisters: Int8Map<SubRegister | undefined> = {
-        0x08: this.rtcS,
-        0x09: this.rtcM,
-        0x0a: this.rtcH,
-        0x0b: this.rtcDL,
-        0x0c: this.rtcDH,
-    };
+    protected rtcRegisters: Int8Map<SubRegister> = filledMap<u16, SubRegister>(
+        [0x08, 0x09, 0x0a, 0x0b, 0x0c],
+        [this.rtcS, this.rtcM, this.rtcH, this.rtcDL, this.rtcDH]
+    );
 
-    constructor(data: StaticArray<u8>, { hasRam, hasTimer }: MBC3Params) {
+    constructor(data: StaticArray<u8>, hasRam: boolean, hasTimer: boolean) {
         super(data);
 
         // Indicated in header https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size
         const ramSizeCode = this.data[0x0149];
-        const ramSize = MBC.ramSizes[ramSizeCode];
+        const ramSize = MBC.ramSizes.get(ramSizeCode);
         if (ramSize === undefined)
             throw new Error(`Invalid RAM size header value: ${ramSizeCode.toString(16)}`);
         this.ram = new RAM(ramSize);
@@ -92,7 +84,7 @@ class MBC3 extends MBC {
 
                 const ramBank = this.ramBank.get();
                 if (ramBank > 0x03) {
-                    return this.rtcRegisters[ramBank]!.get();
+                    return this.rtcRegisters.get(ramBank).get();
                 }
 
                 const eramAddress = this.resolveERAMAddress(pos);

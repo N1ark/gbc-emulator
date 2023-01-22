@@ -5,32 +5,28 @@ import MBC from "./abstract";
 
 const RAM_ENABLED = 0x0a;
 
-type MBC1Params = {
-    hasRam: boolean;
-};
-
 /**
  * Implementation of MBC1.
  * @link https://gbdev.io/pandocs/MBC1.html
  */
 class MBC1 extends MBC {
     /** @link https://gbdev.io/pandocs/MBC1.html#00001fff--ram-enable-write-only */
-    protected ramEnable = new SubRegister(0x00);
+    protected ramEnable: SubRegister = new SubRegister(0x00);
     /** @link https://gbdev.io/pandocs/MBC1.html#20003fff--rom-bank-number-write-only */
-    protected romBank = new SubRegister(0x01);
+    protected romBank: SubRegister = new SubRegister(0x01);
     /** @link https://gbdev.io/pandocs/MBC1.html#40005fff--ram-bank-number--or--upper-bits-of-rom-bank-number-write-only */
-    protected ramBank = new SubRegister(0x00);
+    protected ramBank: SubRegister = new SubRegister(0x00);
     /** @link https://gbdev.io/pandocs/MBC1.html#60007fff--banking-mode-select-write-only */
-    protected bankingModeSelect = new SubRegister(0x00);
+    protected bankingModeSelect: SubRegister = new SubRegister(0x00);
     /** The RAM contained in the ROM (ERAM). */
     protected ram: RAM;
 
-    constructor(data: StaticArray<u8>, { hasRam }: MBC1Params) {
+    constructor(data: StaticArray<u8>, hasRam: boolean) {
         super(data);
 
         // Indicated in header https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size
         const ramSizeCode = this.data[0x0149];
-        const ramSize = MBC.ramSizes[ramSizeCode];
+        const ramSize = MBC.ramSizes.get(ramSizeCode);
         if (ramSize === undefined)
             throw new Error(`Invalid RAM size header value: ${ramSizeCode.toString(16)}`);
         this.ram = new RAM(ramSize);
@@ -41,7 +37,7 @@ class MBC1 extends MBC {
      * the current RAM bank to determine the address.
      */
     protected resolveERAMAddress(pos: number): number {
-        const mode = this.bankingModeSelect.get() as 0 | 1;
+        const mode = this.bankingModeSelect.get() as bool;
         const pos12bits = pos & ((1 << 13) - 1);
         const ramAddressMask = this.ram.size - 1; // works for powers of 2
         const address = pos12bits | (mode === 0 ? 0 : this.ramBank.get() << 13);
@@ -52,15 +48,15 @@ class MBC1 extends MBC {
      * Reads from the ROM, taking into account banking and the control ROMs.
      * @link https://gbdev.io/pandocs/MBC1.html#addressing-diagrams
      */
-    read(pos: number): number {
-        const mode = this.bankingModeSelect.get() as 0 | 1;
+    read(pos: u16): u8 {
+        const mode = this.bankingModeSelect.get() as bool;
         const addressMask = this.size - 1; // works for powers of 2
         switch (pos >> 12) {
             case 0x0:
             case 0x1:
             case 0x2:
             case 0x3: {
-                const address = mode === 0 ? pos : (this.ramBank.get() << 19) | pos;
+                const address = mode ? (this.ramBank.get() << 19) | pos : pos;
                 return this.data[address & addressMask];
             }
             case 0x4:
@@ -84,7 +80,7 @@ class MBC1 extends MBC {
         throw new Error(`Invalid address to read from MBC1: ${pos.toString(16)}`);
     }
 
-    write(pos: number, data: number): void {
+    write(pos: u16, data: u8): void {
         switch (pos >> 12) {
             case 0x0: // RAM enable
             case 0x1:

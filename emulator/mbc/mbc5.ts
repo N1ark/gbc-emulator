@@ -2,12 +2,7 @@ import { RAM } from "../Memory";
 import { SubRegister } from "../Register";
 import MBC from "./abstract";
 
-const RAM_ENABLED = 0x0a;
-
-type MBC5Params = {
-    hasRam: boolean;
-    hasRumble: boolean;
-};
+const RAM_ENABLED: u8 = 0x0a;
 
 /**
  * Implementation of MBC5.
@@ -15,22 +10,22 @@ type MBC5Params = {
  */
 class MBC5 extends MBC {
     /** @link https://gbdev.io/pandocs/MBC5.html#0000-1fff---ram-enable-write-only */
-    protected ramEnable = new SubRegister(0x00);
+    protected ramEnable: SubRegister = new SubRegister(0x00);
     /** @link https://gbdev.io/pandocs/MBC5.html#2000-2fff---8-least-significant-bits-of-rom-bank-number-write-only */
-    protected romBankLower8 = new SubRegister(0x01);
+    protected romBankLower8: SubRegister = new SubRegister(0x01);
     /** @link https://gbdev.io/pandocs/MBC5.html#3000-3fff---9th-bit-of-rom-bank-number-write-only */
-    protected romBankUpper1 = new SubRegister(0x00);
+    protected romBankUpper1: SubRegister = new SubRegister(0x00);
     /** @link https://gbdev.io/pandocs/MBC5.html#4000-5fff---ram-bank-number-write-only */
-    protected ramBank = new SubRegister(0x00);
+    protected ramBank: SubRegister = new SubRegister(0x00);
     /** The RAM contained in the ROM (ERAM). */
     protected ram: RAM;
 
-    constructor(data: StaticArray<u8>, { hasRam, hasRumble }: MBC5Params) {
+    constructor(data: StaticArray<u8>, hasRam: boolean, hasRumble: boolean) {
         super(data);
 
         // Indicated in header https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size
         const ramSizeCode = this.data[0x0149];
-        const ramSize = MBC.ramSizes[ramSizeCode];
+        const ramSize = MBC.ramSizes.get(ramSizeCode);
         if (ramSize === undefined)
             throw new Error(`Invalid RAM size header value: ${ramSizeCode.toString(16)}`);
         this.ram = new RAM(ramSize);
@@ -40,10 +35,10 @@ class MBC5 extends MBC {
      * Resolves a GameBoy address to an address in the ERAM. This uses the current RAM bank to
      * determine the address.
      */
-    protected resolveERAMAddress(pos: number): number {
+    protected resolveERAMAddress(pos: u16): u16 {
         const pos12bits = pos & ((1 << 13) - 1);
         const ramAddressMask = this.ram.size - 1; // works for powers of 2
-        const address = pos12bits | (this.ramBank.get() << 13);
+        const address = pos12bits | ((this.ramBank.get() as u16) << 13);
         return address & ramAddressMask;
     }
 
