@@ -2,8 +2,8 @@
  * A basic interface for all addressable objects.
  */
 interface Addressable {
-    read(pos: number): number;
-    write(pos: number, data: number): void;
+    read(pos: u16): u8;
+    write(pos: u16, data: u8): void;
 }
 
 /**
@@ -13,12 +13,12 @@ class AbstractMemory implements Addressable {
     size: u16;
     protected data: StaticArray<u8>;
 
-    constructor(size: u16, data?: StaticArray<u8>) {
+    constructor(size: u16, data: StaticArray<u8> | null = null) {
         this.size = size;
-        this.data = data ?? new StaticArray<u8>(size);
+        this.data = data || new StaticArray<u8>(size);
     }
 
-    read(pos: u16) {
+    read(pos: u16): u8 {
         return this.data[pos];
     }
 
@@ -58,5 +58,4 @@ class CircularRAM extends RAM {
     }
 }
 
-export type { Addressable };
-export { AbstractMemory, RAM, CircularRAM };
+export { Addressable, AbstractMemory, RAM, CircularRAM };

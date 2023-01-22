@@ -1,5 +1,4 @@
 import { Addressable } from "./Memory";
-import { wrap16 } from "./util";
 
 /**
  * Half of a register, containing an 8bit value.
@@ -18,7 +17,7 @@ class SubRegister implements Addressable {
     }
 
     /** Sets this register byte to the given value */
-    set(value: u8) {
+    set(value: u8): void {
         this.value = value;
     }
     /** The value of this register byte */
@@ -26,7 +25,7 @@ class SubRegister implements Addressable {
         return this.value;
     }
     /** Sets the given flag to 0/1 according to the boolean */
-    sflag(flag: u8, state: boolean) {
+    sflag(flag: u8, state: boolean): void {
         this.set(state ? this.value | flag : this.value & ~flag);
     }
     /** Returns if the given flag is set */
@@ -74,9 +73,9 @@ class PaddedSubRegister extends SubRegister {
  */
 class Register {
     // Most significant byte (0xFF00)
-    public h = new SubRegister();
+    public h: SubRegister = new SubRegister();
     // Least significant byte (0x00FF)
-    public l = new SubRegister();
+    public l: SubRegister = new SubRegister();
 
     /** Builds the register from either one 16-bit value or two 8-bit values */
     constructor(high: u16 = 0, low?: u8) {
@@ -89,7 +88,7 @@ class Register {
     }
 
     /** Sets this register to the given 16bit value. */
-    set(value: u16) {
+    set(value: u16): void {
         this.h.set(((value >> 8) & 0xff) as u8);
         this.l.set((value & 0xff) as u8);
     }
@@ -102,19 +101,28 @@ class Register {
     /** Increments this register's value and returns the previous value (equivalent to r++) */
     inc(): u16 {
         const temp = this.get();
-        this.set(wrap16(temp + 1));
+        this.set(temp + 1);
         return temp;
     }
 
     /** Decrements this register's value and returns the previous value (equivalent to r--) */
     dec(): u16 {
         const temp = this.get();
-        this.set(wrap16(temp - 1));
+        this.set(temp - 1);
         return temp;
     }
 }
 
-const Register00: Addressable = { read: () => 0x00, write: () => {} };
-const RegisterFF: Addressable = { read: () => 0xff, write: () => {} };
+class FixedRegister extends SubRegister {
+    constructor(value: u8) {
+        super(value);
+    }
+
+    override set(_: u16): void {}
+    override sflag(flag: number, state: boolean): void {}
+}
+
+const Register00: FixedRegister = new FixedRegister(0x00);
+const RegisterFF: FixedRegister = new FixedRegister(0xff);
 
 export { Register, SubRegister, PaddedSubRegister, Register00, RegisterFF };
