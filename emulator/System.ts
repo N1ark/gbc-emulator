@@ -1,14 +1,5 @@
 import APU from "./apu/APU";
-import {
-    ConsoleType,
-    HRAM_SIZE,
-    IFLAG_JOYPAD,
-    IFLAG_LCDC,
-    IFLAG_SERIAL,
-    IFLAG_TIMER,
-    IFLAG_VBLANK,
-    WRAM_SIZE,
-} from "./constants";
+import { ConsoleType, HRAM_SIZE } from "./constants";
 import GameBoyInput from "./GameBoyInput";
 import PPU from "./ppu/PPU";
 import JoypadInput from "./JoypadInput";
@@ -17,48 +8,33 @@ import { PaddedSubRegister, Register00, RegisterFF, SubRegister } from "./Regist
 import ROM from "./ROM";
 import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
-import { Int4, Int8Map, rangeObject } from "./util";
+import { fillMap, Int8Map, low } from "./util";
 import BootROM from "./BootROM";
 import { DMGWRAM, GBCWRAM } from "./WRAM";
-
-type IntMasterEnableStateType = "DISABLED" | "WILL_ENABLE" | "WILL_ENABLE2" | "ENABLED";
-
-/**
- * The state of the IME.
- * We need two transition states, because the system ticks right after the CPU, so if we go
- * straight from WILL_ENABLE to ENABLED the CPU will never tick during a non-enabled state.
- */
-const IntMasterEnableState: { [k in IntMasterEnableStateType]: IntMasterEnableStateType } = {
-    DISABLED: "DISABLED",
-    WILL_ENABLE: "WILL_ENABLE2",
-    WILL_ENABLE2: "ENABLED",
-    ENABLED: "ENABLED",
-};
-
-const INTERRUPT_CALLS: [i8, i16][] = [
-    [IFLAG_VBLANK, 0x0040],
-    [IFLAG_LCDC, 0x0048],
-    [IFLAG_TIMER, 0x0050],
-    [IFLAG_SERIAL, 0x0058],
-    [IFLAG_JOYPAD, 0x0060],
-];
+import Interrupts from "./Interrupts";
 
 class System implements Addressable {
     // General use
     protected mode: ConsoleType;
 
     // Core components / memory
+    protected ppu: PPU;
+    protected interrupts: Interrupts = new Interrupts();
+    protected timer: Timer = new Timer();
+    protected apu: APU;
+    protected joypad: JoypadInput;
+
+    // Memory
     protected bootRom: Addressable;
     protected rom: ROM;
-    protected ppu: PPU;
     protected wram: Addressable;
     protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
 
     // System registers
-    protected bootRomLocked = false;
+    protected bootRomLocked: boolean = false;
     protected bootRomRegister: Addressable = {
         read: () => (this.bootRomLocked ? 0xff : 0xfe),
-        write: (pos, value) => (this.bootRomLocked ||= (value & 1) === 1),
+        write: (pos, value) => (this.bootRomLocked = this.bootRomLocked || (value & 1) === 1),
     };
     protected speedModeRegister: Addressable = {
         read: () => 0xff,
@@ -67,24 +43,26 @@ class System implements Addressable {
         },
     };
 
-    // Interrupts
-    protected intMasterEnable: IntMasterEnableStateType = "DISABLED"; // IME - master enable flag
-    protected intEnable = new SubRegister(0x00); // IE - interrupt enable (handler)
-    protected intFlag = new PaddedSubRegister(0b1110_0000, 0xe1); // IF - interrupt flag (requests)
-
-    // Devices
-    protected timer = new Timer();
-    protected apu: APU;
-    protected joypad: JoypadInput;
-
     // Registers + Utility Registers
     protected registerSerial: Addressable = {
         read: () => 0xff,
         write: (pos, value) => this.serialOut && this.serialOut(value),
     };
 
+    /**
+     * Mapping of addressables dependending on the last (most significant) nibble of an address
+     * e.g. 0x0 to 0x7 maps to ROM, etc.
+     */
+    protected addressesLastNibble: Int8Map<Addressable> = new Map<u8, Addressable>();
+    /**
+     * Mapping of addressables depending on the first (most significant) byte of an address -
+     * this is only applicable to the 0xff00 to 0xffff range.
+     * e.g. 0x00 maps to joypad, 0x01 maps to serial,0x04 to 0x07 maps to timer, etc.
+     */
+    protected addressesRegisters: Int8Map<Addressable> = new Map<u8, Addressable>();
+
     // Debug
-    protected serialOut: undefined | ((data: number) => void);
+    protected serialOut: (data: number) => void;
 
     constructor(
         rom: StaticArray<u8>,
@@ -96,41 +74,44 @@ class System implements Addressable {
         this.bootRom = BootROM(mode);
         this.rom = new ROM(rom);
         this.ppu = new PPU(mode);
-        this.wram = mode === "DMG" ? new DMGWRAM() : new GBCWRAM();
+        this.wram = mode === ConsoleType.DMG ? new DMGWRAM() : new GBCWRAM();
         this.joypad = new JoypadInput(input);
         this.apu = new APU(output);
         this.serialOut = output.serialOut;
 
-        this.addressesLastNibble = {
-            ...rangeObject(0x0, 0x7, this.rom),
-            ...rangeObject(0x8, 0x9, this.ppu),
-            ...rangeObject(0xa, 0xb, this.rom),
-            ...rangeObject(0xc, 0xe, this.wram), // wram and echo
-            0xf: undefined, // handled separately
-        };
+        // most significant nibble (0x?000)
+        fillMap(0x0, 0x7, this.addressesLastNibble, this.rom);
+        fillMap(0x8, 0x9, this.addressesLastNibble, this.ppu);
+        fillMap(0xa, 0xb, this.addressesLastNibble, this.rom);
+        fillMap(0xc, 0xe, this.addressesLastNibble, this.wram); // wram and echo
 
-        this.addressesRegisters = {
-            0x00: this.joypad, // joypad
-            0x01: this.registerSerial, // SB - serial data
-            0x02: Register00, // CB - serial control
-            ...rangeObject(0x04, 0x07, this.timer), // timer registers
-            0x0f: this.intFlag, // IF
-            ...rangeObject(0x10, 0x26, this.apu), // actual apu registers
-            ...rangeObject(0x30, 0x3f, this.apu), // wave ram
-            ...rangeObject(0x40, 0x4b, this.ppu), // ppu registers
-            0x4d: mode === "CGB" ? this.speedModeRegister : undefined,
-            0x4f: this.ppu, // ppu vram bank register
-            0x50: this.bootRomRegister, // boot rom register
-            ...rangeObject(0x51, 0x55, this.ppu), // ppu vram dma registers
-            ...rangeObject(0x68, 0x6b, this.ppu), // ppu palette registers (CGB only)
-            0x70: this.wram, // wram bank register
-            0x72: mode === "CGB" ? new SubRegister() : undefined, // undocumented register
-            0x73: mode === "CGB" ? new SubRegister() : undefined, // undocumented register
-            0x74: mode === "CGB" ? new SubRegister() : undefined, // undocumented register
-            0x75: mode === "CGB" ? new PaddedSubRegister(0b1000_1111) : undefined, // undocumented register
-            ...rangeObject(0x80, 0xfe, this.hram), // hram
-            0xff: this.intEnable, // IE
-        };
+        // least significant byte (0xff00 to 0xffff)
+        this.addressesRegisters.set(0x00, this.joypad); // joypad
+        this.addressesRegisters.set(0x01, this.registerSerial); // SB - serial data
+        this.addressesRegisters.set(0x02, Register00); // CB - serial control
+        fillMap(0x04, 0x07, this.addressesRegisters, this.timer); // timer registers
+        this.addressesRegisters.set(0x0f, this.interrupts); // IF
+        fillMap(0x10, 0x26, this.addressesRegisters, this.apu); // actual apu registers
+        fillMap(0x30, 0x3f, this.addressesRegisters, this.apu); // wave ram
+        fillMap(0x40, 0x4b, this.addressesRegisters, this.ppu); // ppu registers
+        if (mode === ConsoleType.CGB) {
+            // speed mode register
+            this.addressesRegisters.set(0x4d, this.speedModeRegister);
+        }
+        this.addressesRegisters.set(0x4f, this.ppu); // ppu vram bank register
+        this.addressesRegisters.set(0x50, this.bootRomRegister); // boot rom register
+        fillMap(0x51, 0x55, this.addressesRegisters, this.ppu); // ppu vram dma registers
+        fillMap(0x68, 0x6b, this.addressesRegisters, this.ppu); // ppu palette registers (CGB only)
+        this.addressesRegisters.set(0x70, this.wram); // wram bank register
+        if (mode === ConsoleType.CGB) {
+            // undocumented registers
+            this.addressesRegisters.set(0x72, new SubRegister());
+            this.addressesRegisters.set(0x73, new SubRegister());
+            this.addressesRegisters.set(0x74, new SubRegister());
+            this.addressesRegisters.set(0x75, new PaddedSubRegister(0b1000_1111));
+        }
+        fillMap(0x80, 0xfe, this.addressesRegisters, this.hram); // hram
+        this.addressesRegisters.set(0xff, this.interrupts); // IE
     }
 
     /**
@@ -138,27 +119,13 @@ class System implements Addressable {
      * @returns if the CPU should be halted (because a VRAM-DMA is in progress).
      */
     tick(): boolean {
-        const haltCpu = this.ppu.tick(this);
-        this.timer.tick(this);
+        const haltCpu = this.ppu.tick(this, this.interrupts);
+        this.timer.tick(this.interrupts);
         this.apu.tick(this.timer);
-
-        // Tick IME
-        this.intMasterEnable = IntMasterEnableState[this.intMasterEnable];
+        this.interrupts.tick();
 
         return haltCpu;
     }
-
-    /**
-     * Mapping of addressables dependending on the last (most significant) nibble of an address
-     * e.g. 0x0 to 0x7 maps to ROM, etc.
-     */
-    protected addressesLastNibble: Int8Map<Addressable | undefined>;
-    /**
-     * Mapping of addressables depending on the first (most significant) byte of an address -
-     * this is only applicable to the 0xff00 to 0xffff range.
-     * e.g. 0x00 maps to joypad, 0x01 maps to serial,0x04 to 0x07 maps to timer, etc.
-     */
-    protected addressesRegisters: Int8Map<Addressable | undefined>;
 
     /**
      * Responsible for following the memory map.
@@ -171,11 +138,11 @@ class System implements Addressable {
         // Boot ROM
         if (!this.bootRomLocked && pos < 0x100) return this.bootRom;
         // (the CGB's boot rom extends to 0x900, but leaves a gap for the header)
-        if (!this.bootRomLocked && this.mode === "CGB" && 0x200 <= pos && pos < 0x900)
+        if (!this.bootRomLocked && this.mode === ConsoleType.CGB && 0x200 <= pos && pos < 0x900)
             return this.bootRom;
 
         // Checking last nibble
-        let addressable = this.addressesLastNibble[(pos >> 12) as Int4];
+        let addressable = this.addressesLastNibble.get(<u8>(pos >> 12));
         if (addressable) return addressable;
 
         // Echo RAM
@@ -186,7 +153,7 @@ class System implements Addressable {
         if (pos <= 0xfeff) return Register00;
 
         // Registers
-        addressable = this.addressesRegisters[pos & 0xff];
+        addressable = this.addressesRegisters.get(low(pos));
         if (addressable) return addressable;
 
         console.debug(
@@ -229,65 +196,13 @@ class System implements Addressable {
     }
 
     /** Reads user input */
-    readInput() {
+    readInput(): void {
         this.joypad.readInput();
     }
 
     /** Pushes output data if needed */
-    pushOutput(output: GameBoyOutput) {
+    pushOutput(output: GameBoyOutput): void {
         this.ppu.pushOutput(output);
-    }
-
-    get interruptsEnabled(): boolean {
-        return this.intMasterEnable === "ENABLED";
-    }
-
-    /** Enables the master interrupt toggle. */
-    enableInterrupts() {
-        if (this.intMasterEnable === "DISABLED") this.intMasterEnable = "WILL_ENABLE";
-    }
-    /** Disables the master interrupt toggle. */
-    disableInterrupts() {
-        this.intMasterEnable = "DISABLED";
-    }
-
-    /**
-     * Forces the transition to IME = enabled (needed when halting).
-     * Returns the state of the IME: enabled (true) or disabled (false)
-     */
-    fastEnableInterrupts(): boolean {
-        // forces transition
-        if (this.intMasterEnable !== "DISABLED") {
-            this.intMasterEnable = "ENABLED";
-        }
-        return this.intMasterEnable === "ENABLED";
-    }
-
-    /** Requests an interrupt for the given flag type. */
-    requestInterrupt(flag: number) {
-        this.intFlag.sflag(flag, true);
-    }
-
-    /** Returns whether there are any interrupts to handle. (IE & IF) */
-    get hasPendingInterrupt(): boolean {
-        return !!(this.intEnable.get() & this.intFlag.get() & 0b11111);
-    }
-
-    /**
-     * Returns the address for the current interrupt handler. This also disables interrupts, and
-     * clears the interrupt flag.
-     */
-    handleNextInterrupt(): number {
-        for (let i: u8 = 0; i < INTERRUPT_CALLS.length; i++) {
-            const flag = INTERRUPT_CALLS[i][0];
-            const address = INTERRUPT_CALLS[i][1];
-            if (this.intEnable.flag(flag) && this.intFlag.flag(flag)) {
-                this.intFlag.sflag(flag, false);
-                this.disableInterrupts();
-                return address;
-            }
-        }
-        throw new Error("Cleared interrupt but nothing was called");
     }
 }
 

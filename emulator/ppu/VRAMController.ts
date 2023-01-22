@@ -21,10 +21,17 @@ abstract class VRAMController implements Addressable {
     protected static makeCache(): TileCache {
         const cache = new StaticArray<TileCacheEntry>(0x180);
         for (let i: u16 = 0; i < 0x180; i++) {
-            const cacheData = new StaticArray<StaticArray<u2>>(8);
-            for (let j: u8 = 0; j < 8; j++) {
-                cacheData[j] = new StaticArray<u2>(8);
-            }
+            // 8x8 array
+            const cacheData: StaticArray<StaticArray<u2>> = [
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+            ];
             cache[i] = new TileCacheEntry(false, cacheData);
         }
         return cache;

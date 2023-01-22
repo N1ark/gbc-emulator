@@ -4,11 +4,12 @@ import { clamp8, Int16Map, u1, u2, u3, u4 } from "../util";
 import { SoundChannel, FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX2_STOP_DAC: u8 = 0b1111_1000;
-const wavePatterns: StaticArray<Array<u1>> = new StaticArray(4);
-wavePatterns[0] = [1, 1, 1, 1, 1, 1, 1, 0];
-wavePatterns[1] = [0, 1, 1, 1, 1, 1, 1, 0];
-wavePatterns[2] = [0, 1, 1, 1, 1, 0, 0, 0];
-wavePatterns[3] = [1, 0, 0, 0, 0, 0, 0, 1];
+const wavePatterns: StaticArray<StaticArray<u1>> = [
+    [1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 0, 0, 0],
+    [1, 0, 0, 0, 0, 0, 0, 1],
+];
 
 /**
  * Sound channel 2 is identical to channel 1, except that it doesn't have a wavelength sweep.
@@ -61,7 +62,7 @@ class SoundChannel2 extends SoundChannel {
 
     protected override getSample(): u4 {
         const dutyCycleType: u2 = (this.nrX1.get() >> 6) & 0b11;
-        const wavePattern: Array<u1> = wavePatterns[dutyCycleType];
+        const wavePattern: StaticArray<u1> = wavePatterns[dutyCycleType];
         return (wavePattern[this.waveStep] * this.envelopeVolume) as u4;
     }
 

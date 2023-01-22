@@ -9,11 +9,7 @@ import { Int16Map, u2 } from "./util";
  * first two bits of the TAC.
  * @link https://gbdev.io/pandocs/Timer_and_Divider_Registers.html#ff07--tac-timer-control
  */
-const TIMER_CONTROLS: StaticArray<u8> = new StaticArray<u8>(4);
-TIMER_CONTROLS[0b00] = 9;
-TIMER_CONTROLS[0b01] = 3;
-TIMER_CONTROLS[0b10] = 5;
-TIMER_CONTROLS[0b11] = 7;
+const TIMER_CONTROLS: StaticArray<u8> = [9, 3, 5, 7];
 
 /** The TIMA counter only runs if this flag is true in the TAC. */
 const TIMER_ENABLE_FLAG: u8 = 1 << 2;

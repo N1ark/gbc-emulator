@@ -31,11 +31,12 @@ abstract class ColorController implements Addressable {
     }
 }
 
-const DMGColorOptions: StaticArray<u32> = new StaticArray<u32>(4);
-DMGColorOptions[0] = 0xffffffff; // white
-DMGColorOptions[1] = 0xffaaaaaa; // light gray
-DMGColorOptions[2] = 0xff555555; // dark gray
-DMGColorOptions[3] = 0xff000000; // black
+const DMGColorOptions: StaticArray<u32> = [
+    0xffffffff, // white
+    0xffaaaaaa, // light gray
+    0xff555555, // dark gray
+    0xff000000, // black
+];
 
 class DMGColorControl extends ColorController {
     // Background palette
@@ -53,22 +54,24 @@ class DMGColorControl extends ColorController {
 
     getBgPalette(): ColorPalette {
         const palette = this.bgPalette.get();
-        const paletteArray = new StaticArray<u32>(4);
-        paletteArray[0] = DMGColorOptions[(palette >> 0) & 0b11];
-        paletteArray[1] = DMGColorOptions[(palette >> 2) & 0b11];
-        paletteArray[2] = DMGColorOptions[(palette >> 4) & 0b11];
-        paletteArray[3] = DMGColorOptions[(palette >> 6) & 0b11];
+        const paletteArray: StaticArray<u32> = [
+            DMGColorOptions[(palette >> 0) & 0b11],
+            DMGColorOptions[(palette >> 2) & 0b11],
+            DMGColorOptions[(palette >> 4) & 0b11],
+            DMGColorOptions[(palette >> 6) & 0b11],
+        ];
         return paletteArray;
     }
 
     getObjPalette(sprite: Sprite): ColorPalette {
         const palette =
             sprite.dmgPaletteNumber === 0 ? this.objPalette0.get() : this.objPalette1.get();
-        const paletteArray = new StaticArray<u32>(4);
-        paletteArray[0] = 0x00000000; // transparent
-        paletteArray[1] = DMGColorOptions[(palette >> 2) & 0b11];
-        paletteArray[2] = DMGColorOptions[(palette >> 4) & 0b11];
-        paletteArray[3] = DMGColorOptions[(palette >> 6) & 0b11];
+        const paletteArray: StaticArray<u32> = [
+            0x00000000, // transparent
+            DMGColorOptions[(palette >> 2) & 0b11],
+            DMGColorOptions[(palette >> 4) & 0b11],
+            DMGColorOptions[(palette >> 6) & 0b11],
+        ];
         return paletteArray;
     }
 }

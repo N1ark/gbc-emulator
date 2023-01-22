@@ -527,11 +527,7 @@ class PPU implements Addressable {
         const width = 256; // 16 * 8 * 2;
         const height = 192; // 24 * 8;
         // The colors used
-        const palette = new StaticArray<u32>(4);
-        palette[0] = 0xffffffff;
-        palette[1] = 0xffaaaaaa;
-        palette[2] = 0xff555555;
-        palette[3] = 0xff000000;
+        const palette: StaticArray<u32> = [0xffffffff, 0xffaaaaaa, 0xff555555, 0xff000000];
 
         for (let i = 0; i < 0x180; i++) {
             const tileAddress = 0x8000 + i * 16;

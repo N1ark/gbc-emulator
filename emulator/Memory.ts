@@ -10,10 +10,10 @@ interface Addressable {
  * Simple abstract memory object.
  */
 class AbstractMemory implements Addressable {
-    size: u16;
+    size: i32;
     protected data: StaticArray<u8>;
 
-    constructor(size: u16, data: StaticArray<u8> | null = null) {
+    constructor(size: i32, data: StaticArray<u8> | null = null) {
         this.size = size;
         this.data = data || new StaticArray<u8>(size);
     }

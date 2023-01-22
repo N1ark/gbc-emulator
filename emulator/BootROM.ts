@@ -181,6 +181,6 @@ const bootRomDataGBC: StaticArray<u8> = [
 ];
 
 const BootROM = (model: ConsoleType): Addressable =>
-    new NoMBC(model === "DMG" ? bootRomDataDMG : bootRomDataGBC);
+    new NoMBC(model === ConsoleType.DMG ? bootRomDataDMG : bootRomDataGBC);
 
 export default BootROM;
