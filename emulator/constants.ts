@@ -32,4 +32,7 @@ export const IFLAG_JOYPAD: u8 = 1 << 4;
 export const DIV_INC_RATE = 16384;
 
 // Types
-export type ConsoleType = "DMG" | "CGB";
+export enum ConsoleType {
+    DMG,
+    CGB,
+}
