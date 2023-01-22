@@ -1,26 +1,27 @@
 import { Addressable } from "../Memory";
-import { SubRegister } from "../Register";
-import { Int4 } from "../util";
+import { RegisterFF, SubRegister } from "../Register";
+import { combine, high, low, u4 } from "../util";
 
-const FREQUENCY_SWEEP_PACE = 4;
-const FREQUENCY_ENVELOPE = 8;
-const FREQUENCY_LENGTH_TIMER = 2;
+const FREQUENCY_SWEEP_PACE: u8 = 4;
+const FREQUENCY_ENVELOPE: u8 = 8;
+const FREQUENCY_LENGTH_TIMER: u8 = 2;
 
-const NRX4_RESTART_CHANNEL = 1 << 7;
-const NRX4_LENGTH_TIMER_FLAG = 1 << 6;
+const NRX4_RESTART_CHANNEL: u8 = 1 << 7;
+const NRX4_LENGTH_TIMER_FLAG: u8 = 1 << 6;
 
-abstract class SoundChannel implements Addressable {
+export abstract class SoundChannel implements Addressable {
     // Channel-dependent
-    protected abstract readonly NRX1_LENGTH_TIMER_BITS: number;
+    protected NRX1_LENGTH_TIMER_BITS: u8 = 0;
 
     // Common registers
-    protected abstract nrX1: SubRegister;
-    protected abstract nrX2: SubRegister;
-    protected abstract nrX3: SubRegister;
-    protected abstract nrX4: SubRegister;
+    protected nrX0: SubRegister = RegisterFF;
+    protected nrX1: SubRegister = RegisterFF;
+    protected nrX2: SubRegister = RegisterFF;
+    protected nrX3: SubRegister = RegisterFF;
+    protected nrX4: SubRegister = RegisterFF;
 
     // State
-    protected enabled = false;
+    protected enabled: boolean = false;
     protected onStateChange: (state: boolean) => void;
 
     // Counters
@@ -69,33 +70,33 @@ abstract class SoundChannel implements Addressable {
      */
     protected abstract doTick(divChanged: boolean): void;
 
-    getOutput(): Int4 {
+    getOutput(): u4 {
         return this.enabled ? this.getSample() : 0;
     }
 
     /**
      * @returns The current value of the channel (value between 0-F).
      */
-    protected abstract getSample(): Int4;
+    protected abstract getSample(): u4;
 
     /**
      * @returns The channel's wavelength, using the NRX3 and NRX4 registers. Only relevant for
      * channels 1, 2 and 3.
      */
-    protected getWavelength(): number {
-        const lower8 = this.nrX3.get();
-        const higher3 = this.nrX4.get() & 0b111;
-        return (higher3 << 8) | lower8;
+    protected getWavelength(): u16 {
+        const lower8: u8 = this.nrX3.get();
+        const higher3: u8 = this.nrX4.get() & 0b111;
+        return combine(higher3, lower8);
     }
 
     /**
      * @param waveLength The new wavelength, using the NRX3 and NRX4 registers. Only relevant
      * for channels 1, 2 and 3.
      */
-    protected setWavelength(waveLength: number): void {
-        waveLength &= (1 << 11) - 1; // ensure it fits in 11bits
-        const lower8 = waveLength & 0xff;
-        const higher3 = (waveLength >> 8) & 0b111;
+    protected setWavelength(waveLength: u16): void {
+        waveLength &= 0x7ff; // ensure it fits in 11bits
+        const lower8: u8 = low(waveLength);
+        const higher3: u8 = high(waveLength);
         this.nrX3.set(lower8);
         this.nrX4.set((this.nrX4.get() & ~0b111) | higher3);
     }
@@ -122,5 +123,4 @@ abstract class SoundChannel implements Addressable {
     abstract write(pos: number, data: number): void;
 }
 
-export default SoundChannel;
 export { NRX4_RESTART_CHANNEL, FREQUENCY_SWEEP_PACE, FREQUENCY_ENVELOPE };

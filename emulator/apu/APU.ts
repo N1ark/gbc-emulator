@@ -2,12 +2,13 @@ import { Addressable } from "../Memory";
 import { CLOCK_SPEED, FRAME_RATE } from "../constants";
 import GameBoyOutput from "../GameBoyOutput";
 import { PaddedSubRegister, SubRegister } from "../Register";
-import { Int16Map, Int4, rangeObject } from "../util";
+import { fillMap, Int16Map, u4 } from "../util";
 import SoundChannel1 from "./SoundChannel1";
 import SoundChannel2 from "./SoundChannel2";
 import SoundChannel3 from "./SoundChannel3";
 import SoundChannel4 from "./SoundChannel4";
 import Timer from "../Timer";
+import { SoundChannel } from "./SoundChannel";
 
 const SAMPLE_RATE = 44100;
 
@@ -19,18 +20,18 @@ const CYCLES_PER_SAMPLE = CLOCK_SPEED / 4 / SAMPLE_RATE;
 /** Number of values in a "frame-wide" sample  */
 const SAMPLE_SIZE = Math.floor(SAMPLE_RATE / FRAME_RATE);
 
-const NR52_APU_TOGGLE = 1 << 7;
-const NR52_CHAN1_ON = 1 << 0;
-const NR52_CHAN2_ON = 1 << 1;
-const NR52_CHAN3_ON = 1 << 2;
-const NR52_CHAN4_ON = 1 << 3;
+const NR52_APU_TOGGLE: u8 = 1 << 7;
+const NR52_CHAN1_ON: u8 = 1 << 0;
+const NR52_CHAN2_ON: u8 = 1 << 1;
+const NR52_CHAN3_ON: u8 = 1 << 2;
+const NR52_CHAN4_ON: u8 = 1 << 3;
 
-const DIV_TICK_BIT = 1 << 4;
+const DIV_TICK_BIT: u8 = 1 << 4;
 
 /**
  * Converts a digital value in 0 - F into an analog value in -1 - 1 (negative slope)
  */
-function DAC(n: Int4): number {
+function DAC(n: u4): f32 {
     return (-n / 0xf) * 2 + 1;
 }
 
@@ -38,29 +39,48 @@ function DAC(n: Int4): number {
  * The APU (Audio Processing Unit) of the Gameboy - it handles producing sound.
  */
 export class APU implements Addressable {
-    protected channel1 = new SoundChannel1((s) => this.nr52.sflag(NR52_CHAN1_ON, s));
-    protected channel2 = new SoundChannel2((s) => this.nr52.sflag(NR52_CHAN2_ON, s));
-    protected channel3 = new SoundChannel3((s) => this.nr52.sflag(NR52_CHAN3_ON, s));
-    protected channel4 = new SoundChannel4((s) => this.nr52.sflag(NR52_CHAN4_ON, s));
+    protected channel1: SoundChannel = new SoundChannel1((s) =>
+        this.nr52.sflag(NR52_CHAN1_ON, s)
+    );
+    protected channel2: SoundChannel = new SoundChannel2((s) =>
+        this.nr52.sflag(NR52_CHAN2_ON, s)
+    );
+    protected channel3: SoundChannel = new SoundChannel3((s) =>
+        this.nr52.sflag(NR52_CHAN3_ON, s)
+    );
+    protected channel4: SoundChannel = new SoundChannel4((s) =>
+        this.nr52.sflag(NR52_CHAN4_ON, s)
+    );
 
     /** Master voulume and stereo mix control  */
-    protected nr50 = new SubRegister(0x77);
+    protected nr50: SubRegister = new SubRegister(0x77);
     /** Stereo mix control register */
-    protected nr51 = new SubRegister(0xf3);
+    protected nr51: SubRegister = new SubRegister(0xf3);
     /** Status and control register */
-    protected nr52 = new PaddedSubRegister(0b0111_0000, 0xf1);
+    protected nr52: SubRegister = new PaddedSubRegister(0b0111_0000, 0xf1);
+
+    protected addresses: Int16Map<Addressable> = new Map<u16, Addressable>();
 
     /** Ticking control */
-    protected oldDivBitState = false;
+    protected oldDivBitState: boolean = false;
 
     /** Audio output */
     protected cyclesForSample: number = 0;
     protected sampleIndex: number = 0;
-    protected audioBuffer = new Float32Array(SAMPLE_SIZE);
+    protected audioBuffer: Float32Array = new Float32Array(SAMPLE_SIZE);
     protected output: GameBoyOutput;
 
     constructor(output: GameBoyOutput) {
         this.output = output;
+
+        fillMap(0xff10, 0xff14, this.addresses, this.channel1);
+        fillMap(0xff15, 0xff19, this.addresses, this.channel2);
+        fillMap(0xff1a, 0xff1e, this.addresses, this.channel3);
+        fillMap(0xff1f, 0xff23, this.addresses, this.channel4);
+        this.addresses.set(0xff24, this.nr50);
+        this.addresses.set(0xff25, this.nr51);
+        this.addresses.set(0xff26, this.nr52);
+        fillMap(0xff30, 0xff3f, this.addresses, this.channel3); // wave RAM
     }
 
     /**
@@ -125,22 +145,11 @@ export class APU implements Addressable {
         }
     }
 
-    protected addresses: Int16Map<Addressable> = {
-        ...rangeObject(0xff10, 0xff14, this.channel1),
-        ...rangeObject(0xff15, 0xff19, this.channel2),
-        ...rangeObject(0xff1a, 0xff1e, this.channel3),
-        ...rangeObject(0xff1f, 0xff23, this.channel4),
-        0xff24: this.nr50,
-        0xff25: this.nr51,
-        0xff26: this.nr52,
-        ...rangeObject(0xff30, 0xff3f, this.channel3), // wave RAM
-    };
-
-    read(pos: number): number {
-        return this.addresses[pos].read(pos);
+    read(pos: u16): u8 {
+        return this.addresses.get(pos).read(pos);
     }
-    write(pos: number, data: number): void {
-        const component = this.addresses[pos];
+    write(pos: u16, data: u8): void {
+        const component = this.addresses.get(pos);
 
         // ignore writes to channel when turned off (except for NRX1 and wave RAM)
         if (

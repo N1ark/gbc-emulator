@@ -1,65 +1,68 @@
 import { Addressable } from "../Memory";
 import { RegisterFF, SubRegister } from "../Register";
-import { clamp, Int16Map, Int2, Int3, Int4 } from "../util";
-import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
+import { clamp8, Int16Map, u1, u2, u3, u4 } from "../util";
+import { SoundChannel, FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
-const NRX2_STOP_DAC = 0b1111_1000;
-const wavePatterns: { [k in Int2]: (0 | 1)[] } = {
-    0b00: [1, 1, 1, 1, 1, 1, 1, 0],
-    0b01: [0, 1, 1, 1, 1, 1, 1, 0],
-    0b10: [0, 1, 1, 1, 1, 0, 0, 0],
-    0b11: [1, 0, 0, 0, 0, 0, 0, 1],
-};
+const NRX2_STOP_DAC: u8 = 0b1111_1000;
+const wavePatterns: StaticArray<Array<u1>> = new StaticArray(4);
+wavePatterns[0] = [1, 1, 1, 1, 1, 1, 1, 0];
+wavePatterns[1] = [0, 1, 1, 1, 1, 1, 1, 0];
+wavePatterns[2] = [0, 1, 1, 1, 1, 0, 0, 0];
+wavePatterns[3] = [1, 0, 0, 0, 0, 0, 0, 1];
 
 /**
  * Sound channel 2 is identical to channel 1, except that it doesn't have a wavelength sweep.
  * @link https://gbdev.io/pandocs/Audio_Registers.html#sound-channel-2--pulse
  */
 class SoundChannel2 extends SoundChannel {
-    protected NRX1_LENGTH_TIMER_BITS = 0b0011_1111;
+    protected override NRX1_LENGTH_TIMER_BITS: u8 = 0b0011_1111;
 
-    protected nrX1 = new SubRegister(0x3f);
-    protected nrX2 = new SubRegister(0x00);
-    protected nrX3 = new SubRegister(0xff);
-    protected nrX4 = new SubRegister(0xbf);
+    protected addresses: Int16Map<Addressable> = new Map<u16, Addressable>();
 
-    protected addresses: Int16Map<Addressable> = {
-        0xff15: RegisterFF,
-        0xff16: this.nrX1,
-        0xff17: this.nrX2,
-        0xff18: this.nrX3,
-        0xff19: this.nrX4,
-    };
+    constructor(onStateChange: (state: boolean) => void) {
+        super(onStateChange);
+
+        this.nrX1 = new SubRegister(0x3f);
+        this.nrX2 = new SubRegister(0x00);
+        this.nrX3 = new SubRegister(0xff);
+        this.nrX4 = new SubRegister(0xbf);
+
+        this.addresses.set(0xff15, RegisterFF);
+        this.addresses.set(0xff16, this.nrX1);
+        this.addresses.set(0xff17, this.nrX2);
+        this.addresses.set(0xff18, this.nrX3);
+        this.addresses.set(0xff19, this.nrX4);
+    }
 
     // For output
     protected ticksPerWaveStep: number = 0;
-    protected waveStep: Int3 = 0;
+    protected waveStep: u3 = 0;
     protected waveStepSubsteps: number = 0;
 
     // NRx2 needs retriggering when changed
-    protected cachedNRX2: number = this.nrX2.get();
+    protected cachedNRX2: u8 = this.nrX2.get();
 
     // Channel envelope volume
     protected envelopeVolumeSteps: number = 0;
-    protected envelopeVolume: Int4 = 0;
+    protected envelopeVolume: u4 = 0;
 
     protected override doTick(divChanged: boolean): void {
         if (this.waveStepSubsteps++ >= this.ticksPerWaveStep) {
             this.waveStepSubsteps = 0;
-            this.waveStep = ((this.waveStep + 1) % 8) as Int3;
+            this.waveStep = ((this.waveStep + 1) & 0b111) as u3;
         }
 
         if (divChanged && this.envelopeVolumeSteps-- <= 0 && (this.cachedNRX2 & 0b111) !== 0) {
-            const direction = (this.cachedNRX2 & 0b0000_1000) === 0 ? -1 : 1;
-            this.envelopeVolume = clamp(this.envelopeVolume + direction, 0x0, 0xf) as Int4;
+            const direction: u8 = (this.cachedNRX2 & 0b0000_1000) === 0 ? -1 : 1;
+            this.envelopeVolume = clamp8(this.envelopeVolume + direction, 0x0, 0xf) as u4;
             this.envelopeVolumeSteps = FREQUENCY_ENVELOPE * (this.cachedNRX2 & 0b111);
         }
     }
 
-    protected override getSample(): Int4 {
-        const dutyCycleType = ((this.nrX1.get() >> 6) & 0b11) as Int2;
-        const wavePattern = wavePatterns[dutyCycleType];
-        return (wavePattern[this.waveStep] * this.envelopeVolume) as Int4;
+    protected override getSample(): u4 {
+        const dutyCycleType: u2 = (this.nrX1.get() >> 6) & 0b11;
+        const wavePattern: Array<u1> = wavePatterns[dutyCycleType];
+        return (wavePattern[this.waveStep] * this.envelopeVolume) as u4;
     }
 
     protected override setWavelength(waveLength: number): void {
@@ -68,7 +71,7 @@ class SoundChannel2 extends SoundChannel {
     }
 
     /* Audio control */
-    protected waveLengthUpdate() {
+    protected waveLengthUpdate(): void {
         this.ticksPerWaveStep = 2048 - this.getWavelength();
     }
 
@@ -77,12 +80,12 @@ class SoundChannel2 extends SoundChannel {
         super.start();
 
         this.cachedNRX2 = this.nrX2.get();
-        this.envelopeVolume = (this.cachedNRX2 >> 4) as Int4;
+        this.envelopeVolume = (this.cachedNRX2 >> 4) as u4;
         this.waveLengthUpdate();
     }
 
-    read(pos: number): number {
-        const component = this.addresses[pos];
+    read(pos: u16): u8 {
+        const component = this.addresses.get(pos);
 
         // bits 0-5 are write only
         if (component === this.nrX1) return component.read(pos) | 0b0011_1111;
@@ -94,8 +97,8 @@ class SoundChannel2 extends SoundChannel {
         return component.read(pos);
     }
 
-    write(pos: number, data: number): void {
-        const component = this.addresses[pos];
+    write(pos: u16, data: u8): void {
+        const component = this.addresses.get(pos);
 
         component.write(pos, data);
 

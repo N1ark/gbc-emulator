@@ -1,7 +1,7 @@
 import { Addressable } from "../Memory";
 import { PaddedSubRegister, RegisterFF, SubRegister } from "../Register";
-import { clamp, Int16Map, Int4 } from "../util";
-import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
+import { clamp8, Int16Map, u4 } from "../util";
+import { SoundChannel, FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX2_STOP_DAC = 0b1111_1000;
 const NRX3_CLOCK_SHIFT_OFFSET = 4;
@@ -13,36 +13,39 @@ const NRX3_CLOCK_DIVIDER = 0b0000_0111;
  * @link https://gbdev.io/pandocs/Audio_Registers.html#sound-channel-4--noise
  */
 class SoundChannel4 extends SoundChannel {
-    protected NRX1_LENGTH_TIMER_BITS: number = 0b0011_1111;
-
-    protected nrX1 = new SubRegister(0xff);
-    protected nrX2 = new SubRegister(0x00);
-    protected nrX3 = new SubRegister(0x00);
-    protected nrX4 = new PaddedSubRegister(0b0011_1111, 0xbf);
-
-    protected addresses: Int16Map<Addressable> = {
-        0xff1f: RegisterFF,
-        0xff20: this.nrX1,
-        0xff21: this.nrX2,
-        0xff22: this.nrX3,
-        0xff23: this.nrX4,
-    };
+    protected override NRX1_LENGTH_TIMER_BITS: u8 = 0b0011_1111;
+    protected addresses: Int16Map<Addressable> = new Map<u16, Addressable>();
 
     // NRx2 needs retriggering when changed
     protected cachedNRX2: number = this.nrX2.get();
 
     // Channel envelope volume
     protected envelopeVolumeSteps: number = 0;
-    protected envelopeVolume: Int4 = 0;
+    protected envelopeVolume: u4 = 0;
 
     // LFSR
     protected ticksForLfsr: number = 0;
-    protected lfsr: number = 0x00;
+    protected lfsr: u16 = 0x00;
 
-    protected override doTick(divChanged: boolean) {
+    constructor(onStateChange: (state: boolean) => void) {
+        super(onStateChange);
+
+        this.nrX1 = new SubRegister(0xff);
+        this.nrX2 = new SubRegister(0x00);
+        this.nrX3 = new SubRegister(0x00);
+        this.nrX4 = new PaddedSubRegister(0b0011_1111, 0xbf);
+
+        this.addresses.set(0xff1f, RegisterFF);
+        this.addresses.set(0xff20, this.nrX1);
+        this.addresses.set(0xff21, this.nrX2);
+        this.addresses.set(0xff22, this.nrX3);
+        this.addresses.set(0xff23, this.nrX4);
+    }
+
+    protected override doTick(divChanged: boolean): void {
         if (divChanged && this.envelopeVolumeSteps-- <= 0 && (this.cachedNRX2 & 0b111) !== 0) {
             const direction = (this.cachedNRX2 & 0b0000_1000) === 0 ? -1 : 1;
-            this.envelopeVolume = clamp(this.envelopeVolume + direction, 0x0, 0xf) as Int4;
+            this.envelopeVolume = clamp8(this.envelopeVolume + direction, 0x0, 0xf) as u4;
             this.envelopeVolumeSteps = FREQUENCY_ENVELOPE * (this.cachedNRX2 & 0b111);
         }
 
@@ -60,8 +63,8 @@ class SoundChannel4 extends SoundChannel {
         this.ticksForLfsr = 4 * (clockDivider * (1 << clockShift));
     }
 
-    protected override getSample(): Int4 {
-        return ((this.lfsr & 1) * this.envelopeVolume) as Int4;
+    protected override getSample(): u4 {
+        return (<u8>(this.lfsr & 1) * this.envelopeVolume) as u4;
     }
 
     override start(): void {
@@ -69,13 +72,13 @@ class SoundChannel4 extends SoundChannel {
         super.start();
 
         this.cachedNRX2 = this.nrX2.get();
-        this.envelopeVolume = (this.cachedNRX2 >> 4) as Int4;
+        this.envelopeVolume = (this.cachedNRX2 >> 4) as u4;
         this.lfsr = 0;
         this.refreshLsfrTicks();
     }
 
-    read(pos: number): number {
-        const component = this.addresses[pos];
+    read(pos: u16): u8 {
+        const component = this.addresses.get(pos);
         // register is write only
         if (component === this.nrX1) return 0xff;
         // only bit 6 is readable
@@ -83,8 +86,8 @@ class SoundChannel4 extends SoundChannel {
         return component.read(pos);
     }
 
-    write(pos: number, data: number): void {
-        const component = this.addresses[pos];
+    write(pos: u16, data: u8): void {
+        const component = this.addresses.get(pos);
 
         // Restart
         if (component === this.nrX4 && (data & NRX4_RESTART_CHANNEL) !== 0) {

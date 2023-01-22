@@ -7,10 +7,8 @@ export const range = (from: u16, to: u16): u16[] => {
     for (let i: u16 = 0; i < (out.length as u16); i++) out[i] = i + from;
     return out;
 };
-export function rangeObject<T>(from: u16, to: u16, obj: T): Int16Map<T> {
-    const res: Int16Map<T> = new Map();
-    for (let i: u16 = from; i <= to; i++) res.set(i, obj);
-    return res;
+export function fillMap<T>(from: u16, to: u16, map: Map<u16, T>, obj: T): void {
+    for (let i: u16 = from; i <= to; i++) map.set(i, obj);
 }
 export function filledMap<K, V>(keys: K[], values: V[]): Map<K, V> {
     const map = new Map<K, V>();
