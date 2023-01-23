@@ -44,7 +44,7 @@ class RAM extends AbstractMemory {
 class CircularRAM extends RAM {
     protected offset: u16;
 
-    constructor(size: u16, offset: u16, data?: StaticArray<u8>) {
+    constructor(size: i32, offset: u16, data: StaticArray<u8> | null = null) {
         super(size, data);
         this.offset = offset;
     }

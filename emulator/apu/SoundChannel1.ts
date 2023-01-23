@@ -1,6 +1,7 @@
 import { Addressable } from "../Memory";
 import { PaddedSubRegister, SubRegister } from "../Register";
 import { Int16Map } from "../util";
+import { ChannelCallback } from "./APU";
 import { FREQUENCY_SWEEP_PACE } from "./SoundChannel";
 import SoundChannel2 from "./SoundChannel2";
 
@@ -14,8 +15,8 @@ const NRX0_MULTIPlIER = 0b0000_0111;
 class SoundChannel1 extends SoundChannel2 {
     protected override addresses: Int16Map<Addressable> = new Map<u16, Addressable>();
 
-    constructor(onStateChange: (state: boolean) => void) {
-        super(onStateChange);
+    constructor(callback: ChannelCallback) {
+        super(callback);
 
         this.nrX0 = new PaddedSubRegister(0b1000_0000, 0x80);
         this.nrX1 = new SubRegister(0xbf);

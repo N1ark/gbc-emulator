@@ -1,5 +1,5 @@
 import { ConsoleType, CYCLES_PER_FRAME } from "./constants";
-// import CPU from "./CPU";
+import CPU from "./CPU";
 import GameBoyInput from "./GameBoyInput";
 import System from "./System";
 import GameBoyOutput from "./GameBoyOutput";
@@ -17,7 +17,7 @@ class GameBoyColor {
     protected options: GameBoyColorOptions;
 
     protected isRunning: boolean = false;
-    // protected cpu: CPU;
+    protected cpu: CPU;
     protected system: System;
 
     protected cpuIsHalted: boolean = false;
@@ -27,7 +27,7 @@ class GameBoyColor {
     protected breakpoints: u16[] = [];
 
     protected cycleChronoCount: usize = 0;
-    protected cycleChronoTime: usize = Date.now();
+    protected cycleChronoTime: i64 = Date.now();
 
     constructor(
         mode: ConsoleType,
@@ -36,7 +36,7 @@ class GameBoyColor {
         output: GameBoyOutput,
         options: GameBoyColorOptions
     ) {
-        // this.cpu = new CPU();
+        this.cpu = new CPU();
         this.system = new System(rom, input, output, mode);
         this.output = output;
         this.options = options;
@@ -48,23 +48,23 @@ class GameBoyColor {
         // Setup registers as if the boot ROM was executed
         if (this.options.bootRom === BootRom.None) {
             // CPU
-            // if (mode === ConsoleType.DMG) {
-            //     this.cpu["regAF"].set(0x01b0);
-            //     this.cpu["regBC"].set(0x0013);
-            //     this.cpu["regDE"].set(0x00d8);
-            //     this.cpu["regHL"].set(0x014d);
-            // } else {
-            //     this.cpu["regAF"].set(0x1180);
-            //     this.cpu["regBC"].set(0x0000);
-            //     this.cpu["regDE"].set(0xff56);
-            //     this.cpu["regHL"].set(0x000d);
-            // }
-            // this.cpu["regPC"].set(0x0100);
-            // this.cpu["regSP"].set(0xfffe);
-            // General Registers
-            this.system["bootRomLocked"] = true;
-            // PPU
-            this.system["ppu"]["ppu"]["lcdControl"].set(0x91);
+            if (mode === ConsoleType.DMG) {
+                this.cpu["regAF"].set(0x01b0);
+                this.cpu["regBC"].set(0x0013);
+                this.cpu["regDE"].set(0x00d8);
+                this.cpu["regHL"].set(0x014d);
+            } else {
+                this.cpu["regAF"].set(0x1180);
+                this.cpu["regBC"].set(0x0000);
+                this.cpu["regDE"].set(0xff56);
+                this.cpu["regHL"].set(0x000d);
+            }
+            this.cpu["regPC"].set(0x0100);
+            this.cpu["regSP"].set(0xfffe);
+            // @ts-ignore General Registers
+            this.system.bootRomRegister.set(0xff);
+            // @ts-ignore PPU
+            this.system.ppu.ppu.lcdControl.set(0x91);
         }
     }
 

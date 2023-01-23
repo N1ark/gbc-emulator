@@ -29,7 +29,7 @@ class MBC3 extends MBC {
     protected rtcDL: SubRegister = new SubRegister(0x00);
     protected rtcDH: SubRegister = new SubRegister(0x00);
 
-    protected rtcRegisters: Int8Map<SubRegister> = filledMap<u16, SubRegister>(
+    protected rtcRegisters: Int8Map<SubRegister> = filledMap<u8, SubRegister>(
         [0x08, 0x09, 0x0a, 0x0b, 0x0c],
         [this.rtcS, this.rtcM, this.rtcH, this.rtcDL, this.rtcDH]
     );
@@ -38,10 +38,8 @@ class MBC3 extends MBC {
         super(data);
 
         // Indicated in header https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size
-        const ramSizeCode = this.data[0x0149];
+        const ramSizeCode = data[0x0149];
         const ramSize = MBC.ramSizes.get(ramSizeCode);
-        if (ramSize === undefined)
-            throw new Error(`Invalid RAM size header value: ${ramSizeCode.toString(16)}`);
         this.ram = new RAM(ramSize);
     }
 

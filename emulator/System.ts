@@ -4,7 +4,14 @@ import GameBoyInput from "./GameBoyInput";
 import PPU from "./ppu/PPU";
 import JoypadInput from "./JoypadInput";
 import { CircularRAM, RAM, Addressable } from "./Memory";
-import { PaddedSubRegister, Register00, RegisterFF, SubRegister } from "./Register";
+import {
+    CustomRegister,
+    PaddedSubRegister,
+    Register00,
+    RegisterFF,
+    SpyRegister,
+    SubRegister,
+} from "./Register";
 import ROM from "./ROM";
 import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
@@ -31,23 +38,13 @@ class System implements Addressable {
     protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
 
     // System registers
-    protected bootRomLocked: boolean = false;
-    protected bootRomRegister: Addressable = {
-        read: () => (this.bootRomLocked ? 0xff : 0xfe),
-        write: (pos, value) => (this.bootRomLocked = this.bootRomLocked || (value & 1) === 1),
-    };
-    protected speedModeRegister: Addressable = {
-        read: () => 0xff,
-        write: (pos, value) => {
-            console.log(`wrote to speed mode register: ${value}`);
-        },
-    };
-
-    // Registers + Utility Registers
-    protected registerSerial: Addressable = {
-        read: () => 0xff,
-        write: (pos, value) => this.serialOut && this.serialOut(value),
-    };
+    protected bootRomRegister: SubRegister = new CustomRegister(
+        (current, value) => current | value,
+        0xfe
+    );
+    protected speedModeRegister: SubRegister = new SpyRegister((value) =>
+        console.log(`wrote to speed mode register: ${value}`)
+    );
 
     /**
      * Mapping of addressables dependending on the last (most significant) nibble of an address
@@ -80,28 +77,28 @@ class System implements Addressable {
         this.serialOut = output.serialOut;
 
         // most significant nibble (0x?000)
-        fillMap(0x0, 0x7, this.addressesLastNibble, this.rom);
-        fillMap(0x8, 0x9, this.addressesLastNibble, this.ppu);
-        fillMap(0xa, 0xb, this.addressesLastNibble, this.rom);
-        fillMap(0xc, 0xe, this.addressesLastNibble, this.wram); // wram and echo
+        fillMap(<u8>0x0, <u8>0x7, this.addressesLastNibble, this.rom);
+        fillMap(<u8>0x8, <u8>0x9, this.addressesLastNibble, this.ppu);
+        fillMap(<u8>0xa, <u8>0xb, this.addressesLastNibble, this.rom);
+        fillMap(<u8>0xc, <u8>0xe, this.addressesLastNibble, this.wram); // wram and echo
 
         // least significant byte (0xff00 to 0xffff)
         this.addressesRegisters.set(0x00, this.joypad); // joypad
-        this.addressesRegisters.set(0x01, this.registerSerial); // SB - serial data
+        this.addressesRegisters.set(0x01, new SpyRegister(this.serialOut)); // SB - serial data
         this.addressesRegisters.set(0x02, Register00); // CB - serial control
-        fillMap(0x04, 0x07, this.addressesRegisters, this.timer); // timer registers
+        fillMap(<u8>0x04, <u8>0x07, this.addressesRegisters, this.timer); // timer registers
         this.addressesRegisters.set(0x0f, this.interrupts); // IF
-        fillMap(0x10, 0x26, this.addressesRegisters, this.apu); // actual apu registers
-        fillMap(0x30, 0x3f, this.addressesRegisters, this.apu); // wave ram
-        fillMap(0x40, 0x4b, this.addressesRegisters, this.ppu); // ppu registers
+        fillMap(<u8>0x10, <u8>0x26, this.addressesRegisters, this.apu); // actual apu registers
+        fillMap(<u8>0x30, <u8>0x3f, this.addressesRegisters, this.apu); // wave ram
+        fillMap(<u8>0x40, <u8>0x4b, this.addressesRegisters, this.ppu); // ppu registers
         if (mode === ConsoleType.CGB) {
             // speed mode register
             this.addressesRegisters.set(0x4d, this.speedModeRegister);
         }
         this.addressesRegisters.set(0x4f, this.ppu); // ppu vram bank register
         this.addressesRegisters.set(0x50, this.bootRomRegister); // boot rom register
-        fillMap(0x51, 0x55, this.addressesRegisters, this.ppu); // ppu vram dma registers
-        fillMap(0x68, 0x6b, this.addressesRegisters, this.ppu); // ppu palette registers (CGB only)
+        fillMap(<u8>0x51, <u8>0x55, this.addressesRegisters, this.ppu); // ppu vram dma registers
+        fillMap(<u8>0x68, <u8>0x6b, this.addressesRegisters, this.ppu); // ppu palette registers (CGB only)
         this.addressesRegisters.set(0x70, this.wram); // wram bank register
         if (mode === ConsoleType.CGB) {
             // undocumented registers
@@ -110,7 +107,7 @@ class System implements Addressable {
             this.addressesRegisters.set(0x74, new SubRegister());
             this.addressesRegisters.set(0x75, new PaddedSubRegister(0b1000_1111));
         }
-        fillMap(0x80, 0xfe, this.addressesRegisters, this.hram); // hram
+        fillMap(<u8>0x80, <u8>0xfe, this.addressesRegisters, this.hram); // hram
         this.addressesRegisters.set(0xff, this.interrupts); // IE
     }
 
@@ -136,9 +133,14 @@ class System implements Addressable {
             throw new Error(`Invalid address to read from ${pos.toString(16)}`);
 
         // Boot ROM
-        if (!this.bootRomLocked && pos < 0x100) return this.bootRom;
+        if (!this.bootRomRegister.flag(1) && pos < 0x100) return this.bootRom;
         // (the CGB's boot rom extends to 0x900, but leaves a gap for the header)
-        if (!this.bootRomLocked && this.mode === ConsoleType.CGB && 0x200 <= pos && pos < 0x900)
+        if (
+            this.mode === ConsoleType.CGB &&
+            !this.bootRomRegister.flag(1) &&
+            0x200 <= pos &&
+            pos < 0x900
+        )
             return this.bootRom;
 
         // Checking last nibble

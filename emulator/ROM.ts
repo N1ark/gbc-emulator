@@ -66,13 +66,15 @@ class ROM implements Addressable {
     }
 
     constructor(data: StaticArray<u8>) {
-        this.title = [...new Array(TITLE_END - TITLE_START)]
-            .map((_, i) => String.fromCharCode(data[TITLE_START + i]))
-            .reduce((prev, x) => prev + x, "")
-            .replaceAll("\u0000", "");
-
         const mbcType = data[CARTRIDGE_TYPE];
         this.mbc = ROM.mbcFromType(mbcType, data);
+
+        this.title = "";
+        for (let i = TITLE_START; i < TITLE_END; i++) {
+            const char = String.fromCharCode(data[i]);
+            if (char !== "\u0000") this.title += char;
+        }
+
         console.debug(`(ROM) Saved data for game "${this.title}": ${data}`);
     }
 

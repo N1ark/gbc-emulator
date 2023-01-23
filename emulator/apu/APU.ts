@@ -10,15 +10,15 @@ import SoundChannel4 from "./SoundChannel4";
 import Timer from "../Timer";
 import { SoundChannel } from "./SoundChannel";
 
-const SAMPLE_RATE = 44100;
+const SAMPLE_RATE: i32 = 44100;
 
 /**
  * Cycles for one full sample at 44.1Hz
  * - We divide clock speed by 4 to get M-cycles
  */
-const CYCLES_PER_SAMPLE = CLOCK_SPEED / 4 / SAMPLE_RATE;
+const CYCLES_PER_SAMPLE: i32 = CLOCK_SPEED / 4 / SAMPLE_RATE;
 /** Number of values in a "frame-wide" sample  */
-const SAMPLE_SIZE = Math.floor(SAMPLE_RATE / FRAME_RATE);
+const SAMPLE_SIZE: i32 = SAMPLE_RATE / FRAME_RATE;
 
 const NR52_APU_TOGGLE: u8 = 1 << 7;
 const NR52_CHAN1_ON: u8 = 1 << 0;
@@ -35,29 +35,37 @@ function DAC(n: u4): f32 {
     return (-n / 0xf) * 2 + 1;
 }
 
+export class ChannelCallback {
+    constructor(private register: SubRegister, private flag: u8) {}
+    changed(state: boolean): void {
+        this.register.sflag(this.flag, state);
+    }
+}
+
 /**
  * The APU (Audio Processing Unit) of the Gameboy - it handles producing sound.
  */
 export class APU implements Addressable {
-    protected channel1: SoundChannel = new SoundChannel1((s) =>
-        this.nr52.sflag(NR52_CHAN1_ON, s)
-    );
-    protected channel2: SoundChannel = new SoundChannel2((s) =>
-        this.nr52.sflag(NR52_CHAN2_ON, s)
-    );
-    protected channel3: SoundChannel = new SoundChannel3((s) =>
-        this.nr52.sflag(NR52_CHAN3_ON, s)
-    );
-    protected channel4: SoundChannel = new SoundChannel4((s) =>
-        this.nr52.sflag(NR52_CHAN4_ON, s)
-    );
-
     /** Master voulume and stereo mix control  */
     protected nr50: SubRegister = new SubRegister(0x77);
     /** Stereo mix control register */
     protected nr51: SubRegister = new SubRegister(0xf3);
     /** Status and control register */
     protected nr52: SubRegister = new PaddedSubRegister(0b0111_0000, 0xf1);
+
+    /** Sound channels */
+    protected channel1: SoundChannel = new SoundChannel1(
+        new ChannelCallback(this.nr52, NR52_CHAN1_ON)
+    );
+    protected channel2: SoundChannel = new SoundChannel2(
+        new ChannelCallback(this.nr52, NR52_CHAN2_ON)
+    );
+    protected channel3: SoundChannel = new SoundChannel3(
+        new ChannelCallback(this.nr52, NR52_CHAN3_ON)
+    );
+    protected channel4: SoundChannel = new SoundChannel4(
+        new ChannelCallback(this.nr52, NR52_CHAN4_ON)
+    );
 
     protected addresses: Int16Map<Addressable> = new Map<u16, Addressable>();
 
@@ -73,14 +81,14 @@ export class APU implements Addressable {
     constructor(output: GameBoyOutput) {
         this.output = output;
 
-        fillMap(0xff10, 0xff14, this.addresses, this.channel1);
-        fillMap(0xff15, 0xff19, this.addresses, this.channel2);
-        fillMap(0xff1a, 0xff1e, this.addresses, this.channel3);
-        fillMap(0xff1f, 0xff23, this.addresses, this.channel4);
+        fillMap(<u16>0xff10, <u16>0xff14, this.addresses, this.channel1);
+        fillMap(<u16>0xff15, <u16>0xff19, this.addresses, this.channel2);
+        fillMap(<u16>0xff1a, <u16>0xff1e, this.addresses, this.channel3);
+        fillMap(<u16>0xff1f, <u16>0xff23, this.addresses, this.channel4);
         this.addresses.set(0xff24, this.nr50);
         this.addresses.set(0xff25, this.nr51);
         this.addresses.set(0xff26, this.nr52);
-        fillMap(0xff30, 0xff3f, this.addresses, this.channel3); // wave RAM
+        fillMap(<u16>0xff30, <u16>0xff3f, this.addresses, this.channel3); // wave RAM
     }
 
     /**

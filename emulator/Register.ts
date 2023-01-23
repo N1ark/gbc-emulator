@@ -78,13 +78,8 @@ class Register {
     public l: SubRegister = new SubRegister();
 
     /** Builds the register from either one 16-bit value or two 8-bit values */
-    constructor(high: u16 = 0, low?: u8) {
-        if (low !== undefined) {
-            this.h.set(high as u8);
-            this.l.set(low);
-        } else {
-            this.set(high);
-        }
+    constructor(value: u16 = 0) {
+        this.set(value);
     }
 
     /** Sets this register to the given 16bit value. */
@@ -113,16 +108,50 @@ class Register {
     }
 }
 
+class SpyRegister extends SubRegister {
+    protected out: (data: number) => void;
+
+    constructor(out: (data: number) => void) {
+        super(0xff);
+        this.out = out;
+    }
+
+    write(pos: u16, value: u8): void {
+        this.out(value);
+    }
+}
+
+class CustomRegister extends SubRegister {
+    protected setter: (current: u8, value: u8) => u8;
+
+    constructor(setter: (current: u8, value: u8) => u8, value: u8 = 0) {
+        super(value);
+        this.setter = setter;
+    }
+
+    set(value: u8): void {
+        super.set(this.setter(this.value, value));
+    }
+}
+
 class FixedRegister extends SubRegister {
     constructor(value: u8) {
         super(value);
     }
 
-    override set(_: u16): void {}
-    override sflag(flag: number, state: boolean): void {}
+    override set(_: u8): void {}
+    override sflag(flag: u8, state: boolean): void {}
 }
 
 const Register00: FixedRegister = new FixedRegister(0x00);
 const RegisterFF: FixedRegister = new FixedRegister(0xff);
 
-export { Register, SubRegister, PaddedSubRegister, Register00, RegisterFF };
+export {
+    Register,
+    SubRegister,
+    PaddedSubRegister,
+    SpyRegister,
+    CustomRegister,
+    Register00,
+    RegisterFF,
+};

@@ -7,8 +7,8 @@ export const range = (from: u16, to: u16): u16[] => {
     for (let i: u16 = 0; i < (out.length as u16); i++) out[i] = i + from;
     return out;
 };
-export function fillMap<T>(from: u16, to: u16, map: Map<u16, T>, obj: T): void {
-    for (let i: u16 = from; i <= to; i++) map.set(i, obj);
+export function fillMap<N extends number, T>(from: N, to: N, map: Map<N, T>, obj: T): void {
+    for (let i: N = from; i <= to; i++) map.set(i, obj);
 }
 export function filledMap<K, V>(keys: K[], values: V[]): Map<K, V> {
     const map = new Map<K, V>();

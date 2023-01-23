@@ -1,6 +1,7 @@
 import { Addressable } from "../Memory";
 import { RegisterFF, SubRegister } from "../Register";
 import { combine, high, low, u4 } from "../util";
+import { ChannelCallback } from "./APU";
 
 const FREQUENCY_SWEEP_PACE: u8 = 4;
 const FREQUENCY_ENVELOPE: u8 = 8;
@@ -22,13 +23,13 @@ export abstract class SoundChannel implements Addressable {
 
     // State
     protected enabled: boolean = false;
-    protected onStateChange: (state: boolean) => void;
+    protected callback: ChannelCallback;
 
     // Counters
     protected lengthTimerCounter: number = 0;
 
-    constructor(onStateChange: (state: boolean) => void) {
-        this.onStateChange = onStateChange;
+    constructor(callback: ChannelCallback) {
+        this.callback = callback;
     }
 
     /**
@@ -107,7 +108,7 @@ export abstract class SoundChannel implements Addressable {
     start(): void {
         if (this.enabled) return;
         this.enabled = true;
-        this.onStateChange(true);
+        this.callback.changed(true);
     }
 
     /**
@@ -116,7 +117,7 @@ export abstract class SoundChannel implements Addressable {
     stop(): void {
         if (!this.enabled) return;
         this.enabled = false;
-        this.onStateChange(false);
+        this.callback.changed(false);
     }
 
     abstract read(pos: number): number;

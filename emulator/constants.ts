@@ -1,7 +1,7 @@
 // CPU
-export const CLOCK_SPEED = 4194304; // 2^22Hz
-export const FRAME_RATE = 60;
-export const CYCLES_PER_FRAME = Math.floor(CLOCK_SPEED / FRAME_RATE);
+export const CLOCK_SPEED: i32 = 4194304; // 2^22Hz
+export const FRAME_RATE: i32 = 60;
+export const CYCLES_PER_FRAME: i32 = CLOCK_SPEED / FRAME_RATE;
 
 // Screen
 export const SCREEN_WIDTH = 160;

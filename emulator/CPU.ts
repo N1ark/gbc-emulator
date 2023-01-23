@@ -53,6 +53,7 @@ class CPU {
 
     constructor() {
         this.generateOperationTable();
+        this.generateExtendedOperation;
     }
 
     // Returns the next opcode

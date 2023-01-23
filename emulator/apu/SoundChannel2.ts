@@ -1,6 +1,7 @@
 import { Addressable } from "../Memory";
 import { RegisterFF, SubRegister } from "../Register";
 import { clamp8, Int16Map, u1, u2, u3, u4 } from "../util";
+import { ChannelCallback } from "./APU";
 import { SoundChannel, FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX2_STOP_DAC: u8 = 0b1111_1000;
@@ -20,8 +21,8 @@ class SoundChannel2 extends SoundChannel {
 
     protected addresses: Int16Map<Addressable> = new Map<u16, Addressable>();
 
-    constructor(onStateChange: (state: boolean) => void) {
-        super(onStateChange);
+    constructor(callback: ChannelCallback) {
+        super(callback);
 
         this.nrX1 = new SubRegister(0x3f);
         this.nrX2 = new SubRegister(0x00);

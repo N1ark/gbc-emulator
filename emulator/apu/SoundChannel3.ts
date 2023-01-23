@@ -1,6 +1,7 @@
 import { CircularRAM, Addressable, RAM } from "../Memory";
 import { PaddedSubRegister, SubRegister } from "../Register";
 import { fillMap, Int16Map, u1, u2, u4 } from "../util";
+import { ChannelCallback } from "./APU";
 import { SoundChannel, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX0_DAC_FLAG: u8 = 1 << 7;
@@ -31,8 +32,8 @@ class SoundChannel3 extends SoundChannel {
 
     protected lastReadByte: u8 = 0xff;
 
-    constructor(onStateChange: (state: boolean) => void) {
-        super(onStateChange);
+    constructor(callback: ChannelCallback) {
+        super(callback);
 
         this.nrX0 = new PaddedSubRegister(0b0111_1111);
         this.nrX1 = new SubRegister(0xbf);
@@ -45,7 +46,7 @@ class SoundChannel3 extends SoundChannel {
         this.addresses.set(0xff1c, this.nrX2);
         this.addresses.set(0xff1d, this.nrX3);
         this.addresses.set(0xff1e, this.nrX4);
-        fillMap(0xff30, 0xff3f, this.addresses, this.waveData);
+        fillMap(<u16>0xff30, <u16>0xff3f, this.addresses, this.waveData);
     }
 
     protected override doTick(): void {
