@@ -1,64 +1,66 @@
 import { ConsoleType, CYCLES_PER_FRAME } from "./constants";
-import CPU from "./CPU";
+// import CPU from "./CPU";
 import GameBoyInput from "./GameBoyInput";
 import System from "./System";
 import GameBoyOutput from "./GameBoyOutput";
-import { Partial } from "./util";
 
-export type GameBoyColorOptions = {
-    bootRom: "none" | "real";
-};
+enum BootRom {
+    None,
+    Real,
+}
 
-const DEFAULT_OPTIONS: GameBoyColorOptions = {
-    bootRom: "none",
-};
+export class GameBoyColorOptions {
+    constructor(public bootRom: BootRom) {}
+}
 
 class GameBoyColor {
     protected options: GameBoyColorOptions;
 
-    protected isRunning = false;
-    protected cpu: CPU;
+    protected isRunning: boolean = false;
+    // protected cpu: CPU;
     protected system: System;
 
-    protected cpuIsHalted = false;
+    protected cpuIsHalted: boolean = false;
     protected cycles: number = 0;
 
     protected output: GameBoyOutput;
-    protected breakpoints: (u16 | ((c: CPU) => boolean))[] = [];
-    protected cycleChrono: { count: number; time: number } = { count: 0, time: Date.now() };
+    protected breakpoints: u16[] = [];
+
+    protected cycleChronoCount: usize = 0;
+    protected cycleChronoTime: usize = Date.now();
 
     constructor(
         mode: ConsoleType,
         rom: StaticArray<u8>,
         input: GameBoyInput,
         output: GameBoyOutput,
-        options?: Partial<GameBoyColorOptions>
+        options: GameBoyColorOptions
     ) {
-        this.cpu = new CPU();
+        // this.cpu = new CPU();
         this.system = new System(rom, input, output, mode);
         this.output = output;
-        this.options = { ...DEFAULT_OPTIONS, ...options };
+        this.options = options;
 
         this.setup(mode);
     }
 
-    protected setup(mode: ConsoleType) {
+    protected setup(mode: ConsoleType): void {
         // Setup registers as if the boot ROM was executed
-        if (this.options.bootRom === "none") {
+        if (this.options.bootRom === BootRom.None) {
             // CPU
-            if (mode === "DMG") {
-                this.cpu["regAF"].set(0x01b0);
-                this.cpu["regBC"].set(0x0013);
-                this.cpu["regDE"].set(0x00d8);
-                this.cpu["regHL"].set(0x014d);
-            } else {
-                this.cpu["regAF"].set(0x1180);
-                this.cpu["regBC"].set(0x0000);
-                this.cpu["regDE"].set(0xff56);
-                this.cpu["regHL"].set(0x000d);
-            }
-            this.cpu["regPC"].set(0x0100);
-            this.cpu["regSP"].set(0xfffe);
+            // if (mode === ConsoleType.DMG) {
+            //     this.cpu["regAF"].set(0x01b0);
+            //     this.cpu["regBC"].set(0x0013);
+            //     this.cpu["regDE"].set(0x00d8);
+            //     this.cpu["regHL"].set(0x014d);
+            // } else {
+            //     this.cpu["regAF"].set(0x1180);
+            //     this.cpu["regBC"].set(0x0000);
+            //     this.cpu["regDE"].set(0xff56);
+            //     this.cpu["regHL"].set(0x000d);
+            // }
+            // this.cpu["regPC"].set(0x0100);
+            // this.cpu["regSP"].set(0xfffe);
             // General Registers
             this.system["bootRomLocked"] = true;
             // PPU
@@ -82,26 +84,24 @@ class GameBoyColor {
         while (this.cycles < cycleTarget) {
             // one CPU step, convert M-cycles to CPU cycles
             let cpuIsDone: boolean;
-            if (!this.cpuIsHalted) cpuIsDone = this.cpu.step(this.system, isDebugging);
-            else cpuIsDone = true;
+            // if (!this.cpuIsHalted) cpuIsDone = this.cpu.step(this.system, isDebugging);
+            // else cpuIsDone = true;
 
             this.cpuIsHalted = this.system.tick();
             this.cycles += 4;
-            this.cycleChrono.count += 4;
+            this.cycleChronoCount += 4;
 
             // If instruction finished executing
-            if (cpuIsDone) {
-                if (isDebugging) return true; // going step by step?
+            // if (cpuIsDone) {
+            //     if (isDebugging) return true; // going step by step?
 
-                for (let i = 0; i < this.breakpoints.length; i++) {
-                    const breakpoint = this.breakpoints[i];
-                    if (typeof breakpoint === "number" && breakpoint === this.cpu.getPC()) {
-                        return true;
-                    } else if (typeof breakpoint === "function" && breakpoint(this.cpu)) {
-                        return true;
-                    }
-                }
-            }
+            //     for (let i = 0; i < this.breakpoints.length; i++) {
+            //         const breakpoint = this.breakpoints[i];
+            //         if (typeof breakpoint === "number" && breakpoint === this.cpu.getPC()) {
+            //             return true;
+            //         }
+            //     }
+            // }
         }
         this.cycles %= cycleTarget; // keep leftover cycles
 
@@ -112,18 +112,27 @@ class GameBoyColor {
         this.system.pushOutput(this.output);
 
         // Debug output
-        this.output.frameDrawDuration &&
-            this.output.frameDrawDuration(Date.now() - frameDrawStart);
-        this.output.stepCount && this.output.stepCount(this.cpu.getStepCounts());
-        if (this.output.cyclesPerSec && Date.now() - this.cycleChrono.time >= 1000) {
-            const count = this.cycleChrono.count;
-            this.cycleChrono.time = Date.now();
-            this.cycleChrono.count = 0;
+        this.output.frameDrawDuration(Date.now() - frameDrawStart);
+        // this.output.stepCount(this.cpu.getStepCounts());
+        if (Date.now() - this.cycleChronoTime >= 1000) {
+            const count = this.cycleChronoCount;
+            this.cycleChronoTime = Date.now();
+            this.cycleChronoCount = 0;
             this.output.cyclesPerSec(count);
         }
 
         return false;
     }
+}
+
+export function test(
+    mode: ConsoleType,
+    rom: StaticArray<u8>,
+    input: GameBoyInput,
+    output: GameBoyOutput,
+    options: GameBoyColorOptions
+): GameBoyColor {
+    return new GameBoyColor(mode, rom, input, output, options);
 }
 
 export default GameBoyColor;

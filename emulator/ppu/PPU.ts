@@ -7,7 +7,7 @@ import {
 } from "../constants";
 import { Addressable } from "../Memory";
 import { PaddedSubRegister, RegisterFF, SubRegister } from "../Register";
-import { Int16Map } from "../util";
+import { Int16Map, Tuple } from "../util";
 import GameBoyOutput from "../GameBoyOutput";
 import { OAM, Sprite } from "../OAM";
 import { CGBColorControl, ColorController, DMGColorControl } from "./ColorController";
@@ -26,10 +26,6 @@ class InterruptLine {
         public vblankActive: i8,
         public hblankActive: i8
     ) {}
-}
-
-class Tuple<A, B> {
-    constructor(public a: A, public b: B) {}
 }
 
 /*

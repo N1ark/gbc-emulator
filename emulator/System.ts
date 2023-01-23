@@ -204,6 +204,10 @@ class System implements Addressable {
     pushOutput(output: GameBoyOutput): void {
         this.ppu.pushOutput(output);
     }
+
+    getInterrupts(): Interrupts {
+        return this.interrupts;
+    }
 }
 
 export default System;

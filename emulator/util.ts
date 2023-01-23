@@ -25,3 +25,7 @@ export type u4 = u8;
 
 export type Int8Map<T> = Map<u8, T>;
 export type Int16Map<T> = Map<u16, T>;
+
+export class Tuple<A, B> {
+    constructor(public a: A, public b: B) {}
+}
