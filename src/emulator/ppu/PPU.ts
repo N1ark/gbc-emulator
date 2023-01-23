@@ -788,7 +788,7 @@ class PPU implements Addressable {
         const component = this.address(address);
 
         if (component === this.oam && !this.canWriteOam) return;
-        if (component === this.vramControl && !this.canWriteVram) return;
+        if (0x8000 <= address && address <= 0x9fff && !this.canWriteVram) return;
 
         if (component === this.lcdControl) {
             const isEnabled = this.lcdControl.flag(LCDC_LCD_ENABLE);
