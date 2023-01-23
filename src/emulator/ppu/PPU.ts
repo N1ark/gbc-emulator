@@ -230,7 +230,7 @@ class PPU implements Addressable {
         return haltCpu;
     }
 
-    tickHBlankFirst(system: System) {
+    tickHBlankFirst() {
         if (this.cycleCounter === MODE_HBLANK_FIRST.cycles) {
             this.cycleCounter = 0;
             this.mode = MODE_TRANSFERRING;
@@ -347,7 +347,7 @@ class PPU implements Addressable {
         }
     }
 
-    tickTransferring(system: System) {
+    tickTransferring() {
         if (this.cycleCounter === 1) {
             this.updateInterrupt(null, { oamActive: false });
 
@@ -384,7 +384,7 @@ class PPU implements Addressable {
                 this.transferExtraCycles += Math.floor(extraSpriteTCycles / 4);
             }
 
-            this.updateScanline(system);
+            this.updateScanline();
         }
 
         if (this.cycleCounter === 2) {
@@ -441,22 +441,24 @@ class PPU implements Addressable {
         this.interruptStateBefore = interruptState;
     }
 
+    protected bgPriorities = new Uint8Array(SCREEN_WIDTH);
+
     /** Updates the current scanline, by rendering the background, window and then objects. */
-    updateScanline(system: System) {
-        const bgPriorities = [...new Array(SCREEN_WIDTH)].fill(false);
+    updateScanline() {
+        this.bgPriorities.fill(0);
         // The BG/WIN priority flag acts as a toggle only in DMG
         if (this.consoleMode === "CGB" || this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
-            this.drawBackground(bgPriorities);
+            this.drawBackground();
 
             if (this.lcdControl.flag(LCDC_WIN_ENABLE)) {
-                this.drawWindow(bgPriorities);
+                this.drawWindow();
             }
         } else {
             this.fillWhite();
         }
 
         if (this.lcdControl.flag(LCDC_OBJ_ENABLE)) {
-            this.drawObjects(bgPriorities);
+            this.drawObjects();
         }
     }
 
@@ -565,7 +567,10 @@ class PPU implements Addressable {
         }
     }
 
-    drawBackground(priorities: boolean[]) {
+    drawBackground() {
+        // Global BG priority bit (CGB only)
+        const bgPrioCgb = this.lcdControl.flag(LCDC_BG_WIN_PRIO);
+
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
 
@@ -625,19 +630,27 @@ class PPU implements Addressable {
                 // Get the RGBA color, and draw it!
                 const colorId = tileData[arrayX][arrayY];
                 this.videoBuffer[bufferStart + posX] = palette[colorId];
-                if ((this.consoleMode === "CGB" && bgToOamPrio) || colorId > 0) {
-                    priorities[posX] = true;
+                if (colorId > 0) {
+                    if (this.consoleMode === "DMG") {
+                        this.bgPriorities[posX] = 1;
+                    } else if (this.consoleMode === "CGB") {
+                        if (bgPrioCgb) this.bgPriorities[posX] += 2;
+                        if (bgToOamPrio) this.bgPriorities[posX] += 1;
+                    }
                 }
             }
         }
     }
 
-    drawWindow(priorities: boolean[]) {
+    drawWindow() {
         // The top-left corner of the 160x144 view area
         const windowX = this.windowX.get() - 7;
         const windowY = this.windowY.get();
 
         if (this.lcdY.get() < windowY || windowX >= SCREEN_WIDTH) return;
+
+        // Global BG priority bit (CGB only)
+        const bgPrioCgb = this.lcdControl.flag(LCDC_BG_WIN_PRIO);
 
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(LCDC_WIN_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
@@ -691,14 +704,21 @@ class PPU implements Addressable {
 
                 const colorId = tileData[arrayX][arrayY];
                 this.videoBuffer[bufferStart + posX] = palette[colorId];
-                if ((this.consoleMode === "CGB" && bgToOamPrio) || colorId > 0) {
-                    priorities[posX] = true;
+
+                this.bgPriorities[posX] = 0;
+                if (colorId > 0) {
+                    if (this.consoleMode === "DMG") {
+                        this.bgPriorities[posX] = 1;
+                    } else if (this.consoleMode === "CGB") {
+                        if (bgPrioCgb) this.bgPriorities[posX] += 2;
+                        if (bgToOamPrio) this.bgPriorities[posX] += 1;
+                    }
                 }
             }
         }
     }
 
-    drawObjects(priorities: boolean[]) {
+    drawObjects() {
         const y = this.lcdY.get();
         const doubleObjects = this.lcdControl.flag(LCDC_OBJ_SIZE);
         const sprites = this.readSprites;
@@ -733,7 +753,12 @@ class PPU implements Addressable {
 
                 // if transparent, skip
                 // also skip if bg/win should be above, and priority is set
-                if (colorId === 0 || (sprite.bgAndWinOverObj && priorities[x])) continue;
+                if (colorId === 0) continue;
+                if (this.consoleMode === "CGB") {
+                    if (this.bgPriorities[x] + (sprite.bgAndWinOverObj ? 1 : 0) > 2) continue;
+                } else if (this.consoleMode === "DMG") {
+                    if (this.bgPriorities[x] && sprite.bgAndWinOverObj) continue;
+                }
 
                 this.videoBuffer[y * SCREEN_WIDTH + x] = palette[colorId];
             }
