@@ -1,15 +1,15 @@
-import {
-    ARROW_DOWN,
-    ARROW_LEFT,
-    ARROW_RIGHT,
-    ARROW_UP,
-    BUTTON_A,
-    BUTTON_B,
-    BUTTON_SELECT,
-    BUTTON_START,
-} from "./constants";
 import GameBoyInput from "./GameBoyInput";
 import { Addressable } from "./Memory";
+
+// Inputs
+const BUTTON_A = 1 << 0;
+const BUTTON_B = 1 << 1;
+const BUTTON_SELECT = 1 << 2;
+const BUTTON_START = 1 << 3;
+const ARROW_RIGHT = 1 << 0;
+const ARROW_LEFT = 1 << 1;
+const ARROW_UP = 1 << 2;
+const ARROW_DOWN = 1 << 3;
 
 const READ_ARROWS_BIT = 1 << 4;
 const READ_BUTTON_BIT = 1 << 5;
