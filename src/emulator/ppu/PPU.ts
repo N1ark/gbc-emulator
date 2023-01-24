@@ -5,14 +5,14 @@ import {
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
 } from "../constants";
-import { CircularRAM, Addressable, RAM } from "../Memory";
-import { PaddedSubRegister, Register00, RegisterFF, SubRegister } from "../Register";
-import System from "../System";
-import { asSignedInt8, Int2, Int3, wrap8 } from "../util";
+import { Addressable } from "../Memory";
+import { PaddedSubRegister, RegisterFF, SubRegister } from "../Register";
+import { asSignedInt8, Int3, wrap8 } from "../util";
 import GameBoyOutput from "../GameBoyOutput";
 import OAM, { Sprite } from "../OAM";
 import { CGBColorControl, ColorController, DMGColorControl } from "./ColorController";
 import { VRAMController, CGBVRAMController, DMGVRAMController } from "./VRAMController";
+import Interrupts from "../Interrupts";
 
 type KeyForType<T, V> = NonNullable<
     {
@@ -21,7 +21,7 @@ type KeyForType<T, V> = NonNullable<
 >;
 
 type PPUMode = {
-    doTick: KeyForType<PPU, (system: System) => void>;
+    doTick: KeyForType<PPU, (interrupts: Interrupts) => void>;
     flag: number;
     cycles: number;
 };
@@ -203,7 +203,7 @@ class PPU implements Addressable {
      * @returns Whether the CPU should be halted (a GBC VRAM-DMA is in progress)
      * @link https://gbdev.io/pandocs/pixel_fifo.html
      */
-    tick(system: System, isMCycle: boolean): boolean {
+    tick(system: Addressable, interrupts: Interrupts, isMCycle: boolean): boolean {
         this.oam.tick(system);
 
         if (!isMCycle || !this.lcdControl.flag(LCDC_LCD_ENABLE)) return false;
@@ -215,7 +215,7 @@ class PPU implements Addressable {
 
         // Update interrupt line from previous write operations?
         if (this.nextInterruptLineUpdate !== null) {
-            this.updateInterrupt(system, this.nextInterruptLineUpdate);
+            this.updateInterrupt(interrupts, this.nextInterruptLineUpdate);
             this.nextInterruptLineUpdate = null;
         }
 
@@ -225,7 +225,7 @@ class PPU implements Addressable {
             this.setMode(this.mode);
         }
 
-        this[this.mode.doTick](system);
+        this[this.mode.doTick](interrupts);
 
         return haltCpu;
     }
@@ -237,9 +237,9 @@ class PPU implements Addressable {
         }
     }
 
-    tickHBlank(system: System) {
+    tickHBlank(interrupts: Interrupts) {
         if (this.cycleCounter === 1) {
-            this.updateInterrupt(system, { hblankActive: true });
+            this.updateInterrupt(interrupts, { hblankActive: true });
 
             this.canReadOam = true;
 
@@ -260,7 +260,7 @@ class PPU implements Addressable {
             this.lcdY.set(wrap8(this.lcdY.get() + 1));
 
             if (this.lcdY.get() !== this.lcdYCompare.get()) {
-                this.updateInterrupt(system, { lycLyMatch: false });
+                this.updateInterrupt(interrupts, { lycLyMatch: false });
             }
 
             if (this.lcdY.get() === SCREEN_HEIGHT) {
@@ -271,21 +271,21 @@ class PPU implements Addressable {
         }
     }
 
-    tickVBlank(system: System) {
+    tickVBlank(interrupts: Interrupts) {
         if (this.cycleCounter === 1) {
             const isVblankStart = this.lcdY.get() === 144;
-            this.updateInterrupt(system, {
+            this.updateInterrupt(interrupts, {
                 lycLyMatch: this.lcdY.get() === this.lcdYCompare.get(),
                 vblankActive: isVblankStart || this.interruptLineState.vblankActive,
                 oamActive: isVblankStart || this.interruptLineState.oamActive,
             });
 
             if (this.lcdY.get() === 144) {
-                system.requestInterrupt(IFLAG_VBLANK);
+                interrupts.requestInterrupt(IFLAG_VBLANK);
                 this.lastVideoOut.set(this.videoBuffer);
             }
         } else if (this.cycleCounter === 20) {
-            this.updateInterrupt(system, { oamActive: false });
+            this.updateInterrupt(interrupts, { oamActive: false });
         } else if (this.cycleCounter === MODE_VBLANK.cycles) {
             this.cycleCounter = 0;
             this.lcdY.set(wrap8(this.lcdY.get() + 1));
@@ -297,9 +297,9 @@ class PPU implements Addressable {
         }
     }
 
-    tickSearchingOam(system: System) {
+    tickSearchingOam(interrupts: Interrupts) {
         if (this.cycleCounter === 1) {
-            this.updateInterrupt(system, {
+            this.updateInterrupt(interrupts, {
                 oamActive: true,
                 hblankActive: false,
                 vblankActive: false,
@@ -421,7 +421,10 @@ class PPU implements Addressable {
      * Will update the STAT interrupt line, raise an interrupt if there is a high to low
      * transition and the passed in System isn't null (ie. pass null to disable interrupts).
      */
-    updateInterrupt(system: System | null, data: Partial<typeof this.interruptLineState>) {
+    updateInterrupt(
+        interrupts: Interrupts | null,
+        data: Partial<typeof this.interruptLineState>
+    ) {
         Object.assign(this.interruptLineState, data);
         const interruptState =
             (this.lcdStatus.flag(STAT_LYC_LY_EQ_INT) && this.interruptLineState.lycLyMatch) ||
@@ -435,8 +438,8 @@ class PPU implements Addressable {
         this.lcdStatus.sflag(STAT_LYC_LY_EQ_FLAG, this.interruptLineState.lycLyMatch);
 
         // LCDC Interrupt only happens on rising edges (if allowed)
-        if (system && interruptState && !this.interruptStateBefore) {
-            system.requestInterrupt(IFLAG_LCDC);
+        if (interrupts && interruptState && !this.interruptStateBefore) {
+            interrupts.requestInterrupt(IFLAG_LCDC);
         }
         this.interruptStateBefore = interruptState;
     }
@@ -848,8 +851,8 @@ class PPUExported implements Addressable {
         this.ppu = new PPU(mode);
     }
 
-    tick(system: System, isMCycle: boolean): boolean {
-        return this.ppu.tick(system, isMCycle);
+    tick(system: Addressable, interrupts: Interrupts, isMCycle: boolean): boolean {
+        return this.ppu.tick(system, interrupts, isMCycle);
     }
 
     pushOutput(output: GameBoyOutput): void {

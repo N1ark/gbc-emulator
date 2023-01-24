@@ -128,11 +128,12 @@ class CPU {
     }
 
     protected loadNextOp(system: System, verbose?: boolean): InstructionMethod | "halted" {
+        const interrupts = system.getInterrupts();
         // Check if any interrupt is requested. This also stops HALTing.
-        if (system.hasPendingInterrupt) {
+        if (interrupts.hasPendingInterrupt) {
             this.halted = false;
-            if (system.interruptsEnabled) {
-                const execNext = system.handleNextInterrupt();
+            if (interrupts.interruptsEnabled) {
+                const execNext = interrupts.handleNextInterrupt();
                 // Interrupt handling takes 5 cycles
                 const nextStep = () => () => this.call(execNext, () => null);
                 this.currentOpcode = null;
@@ -788,7 +789,7 @@ class CPU {
         0xc9: this.return(() => () => null),
         // RETI
         0xd9: this.return((s) => {
-            s.enableInterrupts();
+            s.getInterrupts().enableInterrupts();
             return () => null;
         }),
         // RET Z/C/NZ/NC
@@ -907,17 +908,18 @@ class CPU {
         },
         // DI / EI
         0xf3: (s) => {
-            s.disableInterrupts();
+            s.getInterrupts().disableInterrupts();
             return null;
         },
         0xfb: (s) => {
-            s.enableInterrupts();
+            s.getInterrupts().enableInterrupts();
             return null;
         },
         // HALT
         0x76: (system) => {
+            const interrupts = system.getInterrupts();
             this.halted = true;
-            if (!system.fastEnableInterrupts() && system.hasPendingInterrupt) {
+            if (!interrupts.fastEnableInterrupts() && interrupts.hasPendingInterrupt) {
                 this.haltBug = true; // halt bug triggered on HALT when IME == 0 & IE&IF != 0
             }
             return null;

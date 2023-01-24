@@ -1,6 +1,5 @@
 import { Addressable, CircularRAM } from "../Memory";
 import { PaddedSubRegister, SubRegister } from "../Register";
-import System from "../System";
 import { Int2 } from "../util";
 
 type TileCache = Record<number, { valid: boolean; data: Int2[][] }>;
@@ -50,7 +49,7 @@ abstract class VRAMController implements Addressable {
      * @param isInHblank If the PPU is in a HBlank and LY=0-143.
      * @returns If the CPU should be halted (because a DMA is in progress)
      */
-    tick(system: System, isInHblank: boolean): boolean {
+    tick(system: Addressable, isInHblank: boolean): boolean {
         return false;
     }
 
@@ -130,7 +129,7 @@ class CGBVRAMController extends VRAMController {
         0xff55: this.hdma5,
     };
 
-    override tick(system: System, isInHblank: boolean): boolean {
+    override tick(system: Addressable, isInHblank: boolean): boolean {
         if (
             (this.dmaInProgress === "HBLANK" && isInHblank) ||
             this.dmaInProgress === "GENERAL"

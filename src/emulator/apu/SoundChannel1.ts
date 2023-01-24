@@ -1,6 +1,5 @@
 import { Addressable } from "../Memory";
 import { PaddedSubRegister, SubRegister } from "../Register";
-import System from "../System";
 import { FREQUENCY_SWEEP_PACE } from "./SoundChannel";
 import SoundChannel2 from "./SoundChannel2";
 

@@ -1,14 +1,5 @@
 import APU from "./apu/APU";
-import {
-    ConsoleType,
-    HRAM_SIZE,
-    IFLAG_JOYPAD,
-    IFLAG_LCDC,
-    IFLAG_SERIAL,
-    IFLAG_TIMER,
-    IFLAG_VBLANK,
-    WRAM_SIZE,
-} from "./constants";
+import { ConsoleType, HRAM_SIZE } from "./constants";
 import GameBoyInput from "./GameBoyInput";
 import PPU from "./ppu/PPU";
 import JoypadInput from "./JoypadInput";
@@ -20,37 +11,22 @@ import GameBoyOutput from "./GameBoyOutput";
 import { Int4, rangeObject } from "./util";
 import BootROM from "./BootROM";
 import { DMGWRAM, GBCWRAM } from "./WRAM";
-
-type IntMasterEnableStateType = "DISABLED" | "WILL_ENABLE" | "WILL_ENABLE2" | "ENABLED";
-
-/**
- * The state of the IME.
- * We need two transition states, because the system ticks right after the CPU, so if we go
- * straight from WILL_ENABLE to ENABLED the CPU will never tick during a non-enabled state.
- */
-const IntMasterEnableState: Record<IntMasterEnableStateType, IntMasterEnableStateType> = {
-    DISABLED: "DISABLED",
-    WILL_ENABLE: "WILL_ENABLE2",
-    WILL_ENABLE2: "ENABLED",
-    ENABLED: "ENABLED",
-};
-
-const INTERRUPT_CALLS: [number, number][] = [
-    [IFLAG_VBLANK, 0x0040],
-    [IFLAG_LCDC, 0x0048],
-    [IFLAG_TIMER, 0x0050],
-    [IFLAG_SERIAL, 0x0058],
-    [IFLAG_JOYPAD, 0x0060],
-];
+import Interrupts from "./Interrupts";
 
 class System implements Addressable {
     // General use
     protected mode: ConsoleType;
 
-    // Core components / memory
+    // Devices
+    protected timer = new Timer();
+    protected apu: APU;
+    protected joypad: JoypadInput;
+    protected ppu: PPU;
+    protected interrupts: Interrupts = new Interrupts();
+
+    // Memory
     protected bootRom: Addressable;
     protected rom: ROM;
-    protected ppu: PPU;
     protected wram: Addressable;
     protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
 
@@ -69,16 +45,6 @@ class System implements Addressable {
             (this.wantsSpeedModeChange ? 1 << 0 : 0),
         write: (_, value) => (this.wantsSpeedModeChange = (value & 1) === 1),
     };
-
-    // Interrupts
-    protected intMasterEnable: IntMasterEnableStateType = "DISABLED"; // IME - master enable flag
-    protected intEnable = new SubRegister(0x00); // IE - interrupt enable (handler)
-    protected intFlag = new PaddedSubRegister(0b1110_0000, 0xe1); // IF - interrupt flag (requests)
-
-    // Devices
-    protected timer = new Timer();
-    protected apu: APU;
-    protected joypad: JoypadInput;
 
     // Registers + Utility Registers
     protected registerSerial: Addressable = {
@@ -117,7 +83,7 @@ class System implements Addressable {
             0x01: this.registerSerial, // SB - serial data
             0x02: Register00, // CB - serial control
             ...rangeObject(0x04, 0x07, this.timer), // timer registers
-            0x0f: this.intFlag, // IF
+            0x0f: this.interrupts, // IF
             ...rangeObject(0x10, 0x26, this.apu), // actual apu registers
             ...rangeObject(0x30, 0x3f, this.apu), // wave ram
             ...rangeObject(0x40, 0x4b, this.ppu), // ppu registers
@@ -132,7 +98,7 @@ class System implements Addressable {
             0x74: mode === "CGB" ? new SubRegister() : undefined, // undocumented register
             0x75: mode === "CGB" ? new PaddedSubRegister(0b1000_1111) : undefined, // undocumented register
             ...rangeObject(0x80, 0xfe, this.hram), // hram
-            0xff: this.intEnable, // IE
+            0xff: this.interrupts, // IE
         };
     }
 
@@ -143,12 +109,11 @@ class System implements Addressable {
      * @returns if the CPU should be halted (because a VRAM-DMA is in progress).
      */
     tick(isMCycle: boolean): boolean {
-        const haltCpu = this.ppu.tick(this, isMCycle);
-        this.timer.tick(this);
+        const haltCpu = this.ppu.tick(this, this.interrupts, isMCycle);
+        this.timer.tick(this.interrupts);
         if (isMCycle) this.apu.tick(this.timer);
 
-        // Tick IME
-        this.intMasterEnable = IntMasterEnableState[this.intMasterEnable];
+        this.interrupts.tick();
 
         return haltCpu;
     }
@@ -232,6 +197,10 @@ class System implements Addressable {
         return this.speedMode;
     }
 
+    getInterrupts(): Interrupts {
+        return this.interrupts;
+    }
+
     /**
      * Returns the chain of bytes at the given address, for the given length.
      * @param pos The start position of the inspection
@@ -256,56 +225,6 @@ class System implements Addressable {
     /** Pushes output data if needed */
     pushOutput(output: GameBoyOutput) {
         this.ppu.pushOutput(output);
-    }
-
-    get interruptsEnabled(): boolean {
-        return this.intMasterEnable === "ENABLED";
-    }
-
-    /** Enables the master interrupt toggle. */
-    enableInterrupts() {
-        if (this.intMasterEnable === "DISABLED") this.intMasterEnable = "WILL_ENABLE";
-    }
-    /** Disables the master interrupt toggle. */
-    disableInterrupts() {
-        this.intMasterEnable = "DISABLED";
-    }
-
-    /**
-     * Forces the transition to IME = enabled (needed when halting).
-     * Returns the state of the IME: enabled (true) or disabled (false)
-     */
-    fastEnableInterrupts(): boolean {
-        // forces transition
-        if (this.intMasterEnable !== "DISABLED") {
-            this.intMasterEnable = "ENABLED";
-        }
-        return this.intMasterEnable === "ENABLED";
-    }
-
-    /** Requests an interrupt for the given flag type. */
-    requestInterrupt(flag: number) {
-        this.intFlag.sflag(flag, true);
-    }
-
-    /** Returns whether there are any interrupts to handle. (IE & IF) */
-    get hasPendingInterrupt(): boolean {
-        return !!(this.intEnable.get() & this.intFlag.get() & 0b11111);
-    }
-
-    /**
-     * Returns the address for the current interrupt handler. This also disables interrupts, and
-     * clears the interrupt flag.
-     */
-    handleNextInterrupt(): number {
-        for (const [flag, address] of INTERRUPT_CALLS) {
-            if (this.intEnable.flag(flag) && this.intFlag.flag(flag)) {
-                this.intFlag.sflag(flag, false);
-                this.disableInterrupts();
-                return address;
-            }
-        }
-        throw new Error("Cleared interrupt but nothing was called");
     }
 }
 

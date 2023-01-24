@@ -1,7 +1,7 @@
 import { IFLAG_TIMER } from "./constants";
+import Interrupts from "./Interrupts";
 import { Addressable } from "./Memory";
 import { PaddedSubRegister, Register, SubRegister } from "./Register";
-import System from "./System";
 import { Int2, wrap16 } from "./util";
 
 /**
@@ -40,7 +40,7 @@ class Timer implements Addressable {
      * Ticks the timer system in M-cycles
      * @link https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
      */
-    tick(system: System) {
+    tick(interrupts: Interrupts) {
         // Store bit for TIMA edge-detection
         const speedMode = (this.timerControl.get() & 0b11) as Int2;
         const checkedBit = TIMER_CONTROLS[speedMode];
@@ -55,7 +55,7 @@ class Timer implements Addressable {
         if (this.timerOverflowed) {
             const modulo = this.timerModulo.get();
             this.timerCounter.set(modulo);
-            system.requestInterrupt(IFLAG_TIMER);
+            interrupts.requestInterrupt(IFLAG_TIMER);
             this.timerOverflowed = false;
             this.previousTimerOverflowed = true;
         }

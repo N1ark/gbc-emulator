@@ -1,6 +1,5 @@
 import { Addressable, RAM } from "./Memory";
 import { SubRegister } from "./Register";
-import System from "./System";
 import { Int1, Int3 } from "./util";
 
 export type Sprite = {
@@ -47,7 +46,7 @@ class OAM implements Addressable {
     protected data = new RAM(160);
 
     /** @link https://gbdev.io/pandocs/OAM_DMA_Transfer.html */
-    tick(system: System) {
+    tick(system: Addressable) {
         // If we're transferring...
         if (this.transferStep >= 0) {
             const baseAddress = this.transferStart.get() << 8;

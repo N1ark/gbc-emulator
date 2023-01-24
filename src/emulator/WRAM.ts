@@ -1,5 +1,4 @@
 import { WRAM_SIZE } from "./constants";
-import CPU from "./CPU";
 import { Addressable, CircularRAM } from "./Memory";
 import { PaddedSubRegister } from "./Register";
 
