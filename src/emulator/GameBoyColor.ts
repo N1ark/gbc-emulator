@@ -1,4 +1,4 @@
-import { ConsoleType, CYCLES_PER_FRAME } from "./constants";
+import { ConsoleType, CYCLES_PER_FRAME, SpeedMode } from "./constants";
 import CPU from "./CPU";
 import GameBoyInput from "./GameBoyInput";
 import System from "./System";
@@ -27,12 +27,13 @@ class GameBoyColor {
     protected cycleChrono: { count: number; time: number } = { count: 0, time: Date.now() };
 
     constructor(
-        mode: ConsoleType,
+        modeStr: "DMG" | "CGB",
         rom: Uint8Array,
         input: GameBoyInput,
         output: GameBoyOutput,
         options?: Partial<GameBoyColorOptions>
     ) {
+        const mode = modeStr === "DMG" ? ConsoleType.DMG : ConsoleType.CGB;
         this.cpu = new CPU();
         this.system = new System(rom, input, output, mode);
         this.output = output;
@@ -45,7 +46,7 @@ class GameBoyColor {
         // Setup registers as if the boot ROM was executed
         if (this.options.bootRom === "none") {
             // CPU
-            if (mode === "DMG") {
+            if (mode === ConsoleType.DMG) {
                 this.cpu["regAF"].set(0x01b0);
                 this.cpu["regBC"].set(0x0013);
                 this.cpu["regDE"].set(0x00d8);
@@ -81,9 +82,9 @@ class GameBoyColor {
 
         const frameDrawStart = window.performance.now();
         while (this.cycles < cycleTarget) {
-            const speedMode = this.system.getSpeedMode();
-            const cycles = speedMode === "NORMAL" ? 4 : 2;
-            this.isFullCycle = speedMode === "NORMAL" || !this.isFullCycle;
+            const normalSpeedMode = this.system.getSpeedMode() === SpeedMode.Normal;
+            const cycles = normalSpeedMode ? 4 : 2;
+            this.isFullCycle = normalSpeedMode || !this.isFullCycle;
 
             // one CPU step, convert M-cycles to CPU cycles
             let cpuIsDone: boolean;

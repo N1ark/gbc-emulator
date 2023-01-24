@@ -9,12 +9,7 @@ import { Int2, wrap16 } from "./util";
  * first two bits of the TAC.
  * @link https://gbdev.io/pandocs/Timer_and_Divider_Registers.html#ff07--tac-timer-control
  */
-const TIMER_CONTROLS = {
-    0b00: 9,
-    0b01: 3,
-    0b10: 5,
-    0b11: 7,
-};
+const TIMER_CONTROLS = [9, 3, 5, 7];
 
 /**
  * The TIMA counter only runs if this flag is true in the TAC.
@@ -25,9 +20,9 @@ class Timer implements Addressable {
     // DIV - divider register
     protected divider = new DoubleRegister(0xab00);
     // TIMA - timer counter
-    protected timerCounter = new Register(0x00);
+    protected timerCounter = new Register();
     // TMA - timer modulo
-    protected timerModulo = new Register(0x00);
+    protected timerModulo = new Register();
     // TAC - timer control
     protected timerControl = new MaskRegister(0b1111_1000);
 

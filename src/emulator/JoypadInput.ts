@@ -15,6 +15,11 @@ const READ_ARROWS_BIT = 1 << 4;
 const READ_BUTTON_BIT = 1 << 5;
 const CONTROL_BITS = READ_ARROWS_BIT & READ_BUTTON_BIT;
 
+enum JoypadMode {
+    BUTTONS,
+    ARROWS,
+}
+
 /**
  * The joypad input, that takes care of receiving inputs for the buttons and directional arrows.
  * @see https://gbdev.io/pandocs/Joypad_Input.html
@@ -30,7 +35,7 @@ class JoypadInput implements Addressable {
     protected buttonData: number = 0;
     protected arrowsData: number = 0;
 
-    protected currentlyReading: "buttons" | "arrows" = "buttons";
+    protected currentlyReading: JoypadMode = JoypadMode.BUTTONS;
 
     constructor(input: GameBoyInput) {
         this.input = input;
@@ -51,7 +56,8 @@ class JoypadInput implements Addressable {
     }
 
     read(): number {
-        const data = this.currentlyReading === "buttons" ? this.buttonData : this.arrowsData;
+        const data =
+            this.currentlyReading === JoypadMode.BUTTONS ? this.buttonData : this.arrowsData;
         return (CONTROL_BITS & this.register) | (~CONTROL_BITS & data);
     }
 
@@ -59,8 +65,8 @@ class JoypadInput implements Addressable {
         this.register = data;
 
         // the switch is done when the bit moves to a LOW state.
-        if ((this.register & READ_ARROWS_BIT) === 0) this.currentlyReading = "arrows";
-        if ((this.register & READ_BUTTON_BIT) === 0) this.currentlyReading = "buttons";
+        if ((this.register & READ_ARROWS_BIT) === 0) this.currentlyReading = JoypadMode.ARROWS;
+        if ((this.register & READ_BUTTON_BIT) === 0) this.currentlyReading = JoypadMode.BUTTONS;
     }
 }
 

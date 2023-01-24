@@ -1,5 +1,5 @@
 import APU from "./apu/APU";
-import { ConsoleType, HRAM_SIZE } from "./constants";
+import { ConsoleType, HRAM_SIZE, SpeedMode } from "./constants";
 import GameBoyInput from "./GameBoyInput";
 import PPU from "./ppu/PPU";
 import JoypadInput from "./JoypadInput";
@@ -37,23 +37,14 @@ class System implements Addressable {
         write: (pos, value) => (this.bootRomLocked ||= (value & 1) === 1),
     };
 
-    protected speedMode: "NORMAL" | "DOUBLE" = "NORMAL";
+    protected speedMode: SpeedMode = SpeedMode.Normal;
     protected wantsSpeedModeChange = false;
     protected speedModeRegister: Addressable = {
         read: () =>
-            (this.speedMode === "DOUBLE" ? 1 << 7 : 0) |
+            (this.speedMode === SpeedMode.Double ? 1 << 7 : 0) |
             (this.wantsSpeedModeChange ? 1 << 0 : 0),
         write: (_, value) => (this.wantsSpeedModeChange = (value & 1) === 1),
     };
-
-    // Registers + Utility Registers
-    protected registerSerial: Addressable = {
-        read: () => 0xff,
-        write: (pos, value) => this.serialOut && this.serialOut(value),
-    };
-
-    // Debug
-    protected serialOut: undefined | ((data: number) => void);
 
     constructor(
         rom: Uint8Array,
@@ -65,10 +56,14 @@ class System implements Addressable {
         this.bootRom = BootROM(mode);
         this.rom = new ROM(rom);
         this.ppu = new PPU(mode);
-        this.wram = mode === "DMG" ? new DMGWRAM() : new GBCWRAM();
+        this.wram = mode === ConsoleType.DMG ? new DMGWRAM() : new GBCWRAM();
         this.joypad = new JoypadInput(input);
         this.apu = new APU(output);
-        this.serialOut = output.serialOut;
+
+        const registerSerial: Addressable = {
+            read: () => 0xff,
+            write: (pos, value) => output.serialOut && output.serialOut(value),
+        };
 
         this.addressesLastNibble = {
             ...rangeObject(0x0, 0x7, this.rom),
@@ -80,23 +75,23 @@ class System implements Addressable {
 
         this.addressesRegisters = {
             0x00: this.joypad, // joypad
-            0x01: this.registerSerial, // SB - serial data
+            0x01: registerSerial, // SB - serial data
             0x02: Register00, // CB - serial control
             ...rangeObject(0x04, 0x07, this.timer), // timer registers
             0x0f: this.interrupts, // IF
             ...rangeObject(0x10, 0x26, this.apu), // actual apu registers
             ...rangeObject(0x30, 0x3f, this.apu), // wave ram
             ...rangeObject(0x40, 0x4b, this.ppu), // ppu registers
-            0x4d: mode === "CGB" ? this.speedModeRegister : undefined, // KEY1 - speed switch
+            0x4d: mode === ConsoleType.CGB ? this.speedModeRegister : undefined, // KEY1 - speed switch
             0x4f: this.ppu, // ppu vram bank register
             0x50: this.bootRomRegister, // boot rom register
             ...rangeObject(0x51, 0x55, this.ppu), // ppu vram dma registers
             ...rangeObject(0x68, 0x6b, this.ppu), // ppu palette registers (CGB only)
             0x70: this.wram, // wram bank register
-            0x72: mode === "CGB" ? new Register() : undefined, // undocumented register
-            0x73: mode === "CGB" ? new Register() : undefined, // undocumented register
-            0x74: mode === "CGB" ? new Register() : undefined, // undocumented register
-            0x75: mode === "CGB" ? new MaskRegister(0b1000_1111) : undefined, // undocumented register
+            0x72: mode === ConsoleType.CGB ? new Register() : undefined, // undocumented register
+            0x73: mode === ConsoleType.CGB ? new Register() : undefined, // undocumented register
+            0x74: mode === ConsoleType.CGB ? new Register() : undefined, // undocumented register
+            0x75: mode === ConsoleType.CGB ? new MaskRegister(0b1000_1111) : undefined, // undocumented register
             ...rangeObject(0x80, 0xfe, this.hram), // hram
             0xff: this.interrupts, // IE
         };
@@ -112,7 +107,6 @@ class System implements Addressable {
         const haltCpu = this.ppu.tick(this, this.interrupts, isMCycle);
         this.timer.tick(this.interrupts);
         if (isMCycle) this.apu.tick(this.timer);
-
         this.interrupts.tick();
 
         return haltCpu;
@@ -141,7 +135,7 @@ class System implements Addressable {
         // Boot ROM
         if (!this.bootRomLocked && pos < 0x100) return this.bootRom;
         // (the CGB's boot rom extends to 0x900, but leaves a gap for the header)
-        if (!this.bootRomLocked && this.mode === "CGB" && 0x200 <= pos && pos < 0x900)
+        if (!this.bootRomLocked && this.mode === ConsoleType.CGB && 0x200 <= pos && pos < 0x900)
             return this.bootRom;
 
         // Checking last nibble
@@ -189,11 +183,12 @@ class System implements Addressable {
     didStopInstruction() {
         if (this.wantsSpeedModeChange) {
             this.wantsSpeedModeChange = false;
-            this.speedMode = this.speedMode === "DOUBLE" ? "NORMAL" : "DOUBLE";
+            this.speedMode =
+                this.speedMode === SpeedMode.Double ? SpeedMode.Normal : SpeedMode.Double;
         }
     }
 
-    getSpeedMode(): "NORMAL" | "DOUBLE" {
+    getSpeedMode(): SpeedMode {
         return this.speedMode;
     }
 

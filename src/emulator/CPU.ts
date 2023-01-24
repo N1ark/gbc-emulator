@@ -49,9 +49,6 @@ class CPU {
 
     // for debug purposes
     protected stepCounter: number = 0;
-    protected logOffset: number = 0;
-    protected logLimit: number = 0;
-    protected logOutput: string[] | undefined = [];
 
     // Returns the next opcode
     protected nextOpCode(system: System): number {
@@ -172,62 +169,7 @@ class CPU {
                 ).toString(16)}`
             );
         }
-
-        this.logDebug(system, opcode);
         return instruction;
-    }
-
-    /**
-     * Debug function that logs the gameboy state to a log string that is then saved as a file.
-     */
-    protected logDebug(system: System, opcode: number) {
-        if (
-            this.logOffset < this.stepCounter &&
-            this.stepCounter < this.logOffset + this.logLimit
-        ) {
-            const loggedMemory = {
-                IF: 0xff0f,
-                IE: 0xffff,
-                // DIV: 0xff04,
-                TIMA: 0xff05,
-                TMA: 0xff06,
-                TAC: 0xff07,
-                LCCON: 0xff40,
-                STAT: 0xff41,
-                LY: 0xff44,
-                LYC: 0xff45,
-            };
-            this.logOutput?.push(
-                `op:${opcode.toString(16)}/` +
-                    Object.entries(loggedMemory)
-                        .map(([n, a]) => `${n}:${system.read(a).toString(16)}/`)
-                        .join("") +
-                    `a:${this.srA.get().toString(16)}/` +
-                    `f:${this.regAF.l.get().toString(16)}/` +
-                    `b:${this.srB.get().toString(16)}/` +
-                    `c:${this.srC.get().toString(16)}/` +
-                    `d:${this.srD.get().toString(16)}/` +
-                    `e:${this.srE.get().toString(16)}/` +
-                    `h:${this.srH.get().toString(16)}/` +
-                    `l:${this.srL.get().toString(16)}/` +
-                    `pc:${(this.regPC.get() - 1).toString(16)}/` +
-                    `sp:${this.regSP.get().toString(16)}\n`
-            );
-        } else if (this.stepCounter === this.logLimit + this.logOffset && this.logLimit) {
-            console.log("exporting logs for emulator 1");
-            let filename = "log_em1.txt";
-            let blob = new Blob(this.logOutput ?? [], { type: "text/plain" });
-            delete this.logOutput;
-            let link = document.createElement("a");
-            link.download = filename;
-            link.href = window.URL.createObjectURL(blob);
-            document.body.appendChild(link);
-            link.click();
-            setTimeout(() => {
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(link.href);
-            }, 100);
-        }
     }
 
     /**

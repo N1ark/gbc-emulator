@@ -4,12 +4,12 @@ import { clamp, Int2, Int4 } from "../util";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX2_STOP_DAC = 0b1111_1000;
-const wavePatterns: Record<Int2, (0 | 1)[]> = {
-    0b00: [1, 1, 1, 1, 1, 1, 1, 0],
-    0b01: [0, 1, 1, 1, 1, 1, 1, 0],
-    0b10: [0, 1, 1, 1, 1, 0, 0, 0],
-    0b11: [1, 0, 0, 0, 0, 0, 0, 1],
-};
+const wavePatterns: (0 | 1)[][] = [
+    [1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 0, 0, 0],
+    [1, 0, 0, 0, 0, 0, 0, 1],
+];
 
 /**
  * Sound channel 2 is identical to channel 1, except that it doesn't have a wavelength sweep.

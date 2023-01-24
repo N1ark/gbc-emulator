@@ -7,12 +7,12 @@ const NRX0_DAC_FLAG = 1 << 7;
 const NRX2_OUTPUT_LEVEL = 0b0110_0000;
 
 /** How much to shift the sound to the right */
-const VOLUME_LEVELS: Record<Int2, number> = {
-    0b00: 4, // = muted
-    0b01: 0, // = full volume
-    0b10: 1, // = 50%
-    0b11: 2, // = 25%
-};
+const VOLUME_LEVELS = [
+    4, // = muted
+    0, // = full volume
+    1, // = 50%
+    2, // = 25%
+];
 
 /**
  * Sound channel 3 generates a wave that can be customised as needed.

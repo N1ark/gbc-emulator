@@ -19,4 +19,11 @@ export const IFLAG_SERIAL = 1 << 3;
 export const IFLAG_JOYPAD = 1 << 4;
 
 // Types
-export type ConsoleType = "DMG" | "CGB";
+export enum ConsoleType {
+    DMG,
+    CGB,
+}
+export enum SpeedMode {
+    Normal,
+    Double,
+}

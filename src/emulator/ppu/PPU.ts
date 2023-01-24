@@ -159,7 +159,7 @@ class PPU implements Addressable {
     protected registerAddresses: Record<number, Addressable>;
 
     constructor(mode: ConsoleType) {
-        if (mode === "CGB") {
+        if (mode === ConsoleType.CGB) {
             this.vramControl = new CGBVRAMController();
             this.colorControl = new CGBColorControl();
             this.objPriorityMode = new MaskRegister(0b1111_1110);
@@ -450,7 +450,7 @@ class PPU implements Addressable {
     updateScanline() {
         this.bgPriorities.fill(0);
         // The BG/WIN priority flag acts as a toggle only in DMG
-        if (this.consoleMode === "CGB" || this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
+        if (this.consoleMode === ConsoleType.CGB || this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
             this.drawBackground();
 
             if (this.lcdControl.flag(LCDC_WIN_ENABLE)) {
@@ -634,9 +634,9 @@ class PPU implements Addressable {
                 const colorId = tileData[arrayX][arrayY];
                 this.videoBuffer[bufferStart + posX] = palette[colorId];
                 if (colorId > 0) {
-                    if (this.consoleMode === "DMG") {
+                    if (this.consoleMode === ConsoleType.DMG) {
                         this.bgPriorities[posX] = 1;
-                    } else if (this.consoleMode === "CGB") {
+                    } else if (this.consoleMode === ConsoleType.CGB) {
                         if (bgPrioCgb) this.bgPriorities[posX] += 2;
                         if (bgToOamPrio) this.bgPriorities[posX] += 1;
                     }
@@ -710,9 +710,9 @@ class PPU implements Addressable {
 
                 this.bgPriorities[posX] = 0;
                 if (colorId > 0) {
-                    if (this.consoleMode === "DMG") {
+                    if (this.consoleMode === ConsoleType.DMG) {
                         this.bgPriorities[posX] = 1;
-                    } else if (this.consoleMode === "CGB") {
+                    } else if (this.consoleMode === ConsoleType.CGB) {
                         if (bgPrioCgb) this.bgPriorities[posX] += 2;
                         if (bgToOamPrio) this.bgPriorities[posX] += 1;
                     }
@@ -757,9 +757,9 @@ class PPU implements Addressable {
                 // if transparent, skip
                 // also skip if bg/win should be above, and priority is set
                 if (colorId === 0) continue;
-                if (this.consoleMode === "CGB") {
+                if (this.consoleMode === ConsoleType.CGB) {
                     if (this.bgPriorities[x] + (sprite.bgAndWinOverObj ? 1 : 0) > 2) continue;
-                } else if (this.consoleMode === "DMG") {
+                } else if (this.consoleMode === ConsoleType.DMG) {
                     if (this.bgPriorities[x] && sprite.bgAndWinOverObj) continue;
                 }
 
