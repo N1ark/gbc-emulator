@@ -36,11 +36,6 @@ class Timer implements Addressable {
      * @link https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
      */
     tick(interrupts: Interrupts) {
-        // Store bit for TIMA edge-detection
-        const speedMode = (this.timerControl.get() & 0b11) as Int2;
-        const checkedBit = TIMER_CONTROLS[speedMode];
-        const bitStateBefore = (this.previousDivider >> checkedBit) & 1;
-
         // Increase internal counter, update DIV
         const newDivider = wrap16(this.divider.get() + 4);
         this.divider.set(newDivider);
@@ -56,18 +51,24 @@ class Timer implements Addressable {
         }
 
         // Increase TIMA
+        // Store bit for TIMA edge-detection
+        const timerControl = this.timerControl.get();
+        const speedMode = (timerControl & 0b11) as Int2;
+        const checkedBit = TIMER_CONTROLS[speedMode];
+
         // Several edge-y cases can toggle a timer increase:
+        const bitStateBefore = (this.previousDivider >> checkedBit) & 1;
         const bitStateAfter = (newDivider >> checkedBit) & 1;
-        const timerIsEnabled = this.timerControl.flag(TIMER_ENABLE_FLAG);
+        const timerIsEnabled = timerControl & TIMER_ENABLE_FLAG;
         const timerWasEnabled = (this.previousTimerControl & TIMER_ENABLE_FLAG) !== 0;
-        let timerNeedsIncrease = false;
 
-        // Regular falling edge, while toggled
-        if (timerIsEnabled && bitStateBefore && !bitStateAfter) timerNeedsIncrease = true;
-        // Bit is set, and timer went from enabled to disabled
-        if (!timerIsEnabled && timerWasEnabled && bitStateBefore) timerNeedsIncrease = true;
-
-        if (timerNeedsIncrease) {
+        // Cases when timer should increase:
+        if (
+            bitStateBefore &&
+            (timerIsEnabled
+                ? !bitStateAfter // Regular falling edge, while toggled
+                : timerWasEnabled) // Bit is set, and timer went from enabled to disabled
+        ) {
             const result = this.timerCounter.get() + 1;
             // overflow, need to warn for reset + interrupt
             if (result > 0xff) {
@@ -78,7 +79,7 @@ class Timer implements Addressable {
             }
         }
 
-        this.previousTimerControl = this.timerControl.get();
+        this.previousTimerControl = timerControl;
         this.previousDivider = newDivider;
     }
 
@@ -95,21 +96,25 @@ class Timer implements Addressable {
 
     write(pos: number, data: number): void {
         // Trying to write anything to DIV clears it.
-        const register = this.addresses[pos];
-        if (register === this.divider.h) {
+        if (pos === 0xff04) {
             this.divider.set(0);
-        } else if (register === this.timerCounter) {
+            return;
+        }
+
+        const register = this.addresses[pos];
+
+        if (register === this.timerCounter) {
             // If overflow (reload) occurred, writes are ignored
             if (this.previousTimerOverflowed) return;
+            // Otherwise it negates the overflow flag
             this.timerOverflowed = false;
-            register.set(data);
-        } else register.set(data);
-
-        // If an overflow (reload) just happened, we update the value to the new modulo
-        if (register === this.timerModulo && this.previousTimerOverflowed) {
-            const newModulo = this.timerModulo.get();
-            this.timerCounter.set(newModulo);
         }
+        // If an overflow (reload) just happened, we update the value to the new modulo
+        else if (register === this.timerModulo && this.previousTimerOverflowed) {
+            this.timerCounter.set(data);
+        }
+
+        register.set(data);
     }
 }
 
