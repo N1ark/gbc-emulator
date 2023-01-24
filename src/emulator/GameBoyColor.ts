@@ -65,6 +65,8 @@ class GameBoyColor {
         }
     }
 
+    protected isFullCycle = true;
+
     /**
      * Draws a full frame
      * @param frames number of frames to draw (defaults to 1 to draw every frame - can be used
@@ -79,14 +81,19 @@ class GameBoyColor {
 
         const frameDrawStart = window.performance.now();
         while (this.cycles < cycleTarget) {
+            const speedMode = this.system.getSpeedMode();
+            const cycles = speedMode === "NORMAL" ? 4 : 2;
+            this.isFullCycle = speedMode === "NORMAL" || !this.isFullCycle;
+
             // one CPU step, convert M-cycles to CPU cycles
             let cpuIsDone: boolean;
             if (!this.cpuIsHalted) cpuIsDone = this.cpu.step(this.system, isDebugging);
             else cpuIsDone = true;
 
-            this.cpuIsHalted = this.system.tick();
-            this.cycles += 4;
-            this.cycleChrono.count += 4;
+            this.cpuIsHalted = this.system.tick(this.isFullCycle);
+
+            this.cycles += cycles;
+            this.cycleChrono.count += cycles;
 
             // If instruction finished executing
             if (cpuIsDone) {

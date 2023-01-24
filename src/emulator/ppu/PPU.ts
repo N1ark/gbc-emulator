@@ -203,10 +203,10 @@ class PPU implements Addressable {
      * @returns Whether the CPU should be halted (a GBC VRAM-DMA is in progress)
      * @link https://gbdev.io/pandocs/pixel_fifo.html
      */
-    tick(system: System): boolean {
+    tick(system: System, isMCycle: boolean): boolean {
         this.oam.tick(system);
 
-        if (!this.lcdControl.flag(LCDC_LCD_ENABLE)) return false;
+        if (!isMCycle || !this.lcdControl.flag(LCDC_LCD_ENABLE)) return false;
 
         const haltCpu = this.vramControl.tick(
             system,
@@ -848,8 +848,8 @@ class PPUExported implements Addressable {
         this.ppu = new PPU(mode);
     }
 
-    tick(system: System): boolean {
-        return this.ppu.tick(system);
+    tick(system: System, isMCycle: boolean): boolean {
+        return this.ppu.tick(system, isMCycle);
     }
 
     pushOutput(output: GameBoyOutput): void {

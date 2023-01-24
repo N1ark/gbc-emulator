@@ -238,6 +238,11 @@ class CPU {
     protected instructionSet: Partial<Record<number, InstructionMethod>> = {
         // NOP
         0x00: () => null,
+        // STOP
+        0x10: (s) => {
+            s.didStopInstruction();
+            return null;
+        },
         // extended instructions
         0xcb: this.nextByte((opcode) => (system) => {
             const instruction = this.extendedInstructionSet[opcode];

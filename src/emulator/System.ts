@@ -60,11 +60,14 @@ class System implements Addressable {
         read: () => (this.bootRomLocked ? 0xff : 0xfe),
         write: (pos, value) => (this.bootRomLocked ||= (value & 1) === 1),
     };
+
+    protected speedMode: "NORMAL" | "DOUBLE" = "NORMAL";
+    protected wantsSpeedModeChange = false;
     protected speedModeRegister: Addressable = {
-        read: () => 0xff,
-        write: (pos, value) => {
-            console.log("wrote to speed mode register: ", value);
-        },
+        read: () =>
+            (this.speedMode === "DOUBLE" ? 1 << 7 : 0) |
+            (this.wantsSpeedModeChange ? 1 << 0 : 0),
+        write: (_, value) => (this.wantsSpeedModeChange = (value & 1) === 1),
     };
 
     // Interrupts
@@ -118,7 +121,7 @@ class System implements Addressable {
             ...rangeObject(0x10, 0x26, this.apu), // actual apu registers
             ...rangeObject(0x30, 0x3f, this.apu), // wave ram
             ...rangeObject(0x40, 0x4b, this.ppu), // ppu registers
-            0x4d: mode === "CGB" ? this.speedModeRegister : undefined,
+            0x4d: mode === "CGB" ? this.speedModeRegister : undefined, // KEY1 - speed switch
             0x4f: this.ppu, // ppu vram bank register
             0x50: this.bootRomRegister, // boot rom register
             ...rangeObject(0x51, 0x55, this.ppu), // ppu vram dma registers
@@ -135,12 +138,14 @@ class System implements Addressable {
 
     /**
      * Ticks the whole system for one M-cycle.
+     * @param isMCycle if the tick is a regular M-cycle (everything runs) or a double-speed mode
+     * cycle (the APU and PPU don't run).
      * @returns if the CPU should be halted (because a VRAM-DMA is in progress).
      */
-    tick(): boolean {
-        const haltCpu = this.ppu.tick(this);
+    tick(isMCycle: boolean): boolean {
+        const haltCpu = this.ppu.tick(this, isMCycle);
         this.timer.tick(this);
-        this.apu.tick(this.timer);
+        if (isMCycle) this.apu.tick(this.timer);
 
         // Tick IME
         this.intMasterEnable = IntMasterEnableState[this.intMasterEnable];
@@ -210,6 +215,21 @@ class System implements Addressable {
      */
     write(pos: number, data: number): void {
         this.getAddress(pos).write(pos, data);
+    }
+
+    /**
+     * When the STOP (0x10) instruction is executed, the system clock will stop. If a speed
+     * mode change is requested, this will be applied and the system will continue.
+     */
+    didStopInstruction() {
+        if (this.wantsSpeedModeChange) {
+            this.wantsSpeedModeChange = false;
+            this.speedMode = this.speedMode === "DOUBLE" ? "NORMAL" : "DOUBLE";
+        }
+    }
+
+    getSpeedMode(): "NORMAL" | "DOUBLE" {
+        return this.speedMode;
     }
 
     /**
