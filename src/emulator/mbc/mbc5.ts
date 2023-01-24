@@ -1,5 +1,5 @@
 import { RAM } from "../Memory";
-import { SubRegister } from "../Register";
+import { Register } from "../Register";
 import MBC from "./abstract";
 
 const RAM_ENABLED = 0x0a;
@@ -15,13 +15,13 @@ type MBC5Params = {
  */
 class MBC5 extends MBC {
     /** @link https://gbdev.io/pandocs/MBC5.html#0000-1fff---ram-enable-write-only */
-    protected ramEnable = new SubRegister(0x00);
+    protected ramEnable = new Register(0x00);
     /** @link https://gbdev.io/pandocs/MBC5.html#2000-2fff---8-least-significant-bits-of-rom-bank-number-write-only */
-    protected romBankLower8 = new SubRegister(0x01);
+    protected romBankLower8 = new Register(0x01);
     /** @link https://gbdev.io/pandocs/MBC5.html#3000-3fff---9th-bit-of-rom-bank-number-write-only */
-    protected romBankUpper1 = new SubRegister(0x00);
+    protected romBankUpper1 = new Register(0x00);
     /** @link https://gbdev.io/pandocs/MBC5.html#4000-5fff---ram-bank-number-write-only */
-    protected ramBank = new SubRegister(0x00);
+    protected ramBank = new Register(0x00);
     /** The RAM contained in the ROM (ERAM). */
     protected ram: RAM;
 

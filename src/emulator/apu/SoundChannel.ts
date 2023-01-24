@@ -1,5 +1,5 @@
 import { Addressable } from "../Memory";
-import { SubRegister } from "../Register";
+import { Register } from "../Register";
 import { Int4 } from "../util";
 
 const FREQUENCY_SWEEP_PACE = 4;
@@ -14,10 +14,10 @@ abstract class SoundChannel implements Addressable {
     protected abstract readonly NRX1_LENGTH_TIMER_BITS: number;
 
     // Common registers
-    protected abstract nrX1: SubRegister;
-    protected abstract nrX2: SubRegister;
-    protected abstract nrX3: SubRegister;
-    protected abstract nrX4: SubRegister;
+    protected abstract nrX1: Register;
+    protected abstract nrX2: Register;
+    protected abstract nrX3: Register;
+    protected abstract nrX4: Register;
 
     // State
     protected enabled = false;

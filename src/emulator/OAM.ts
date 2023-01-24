@@ -1,5 +1,5 @@
 import { Addressable, RAM } from "./Memory";
-import { SubRegister } from "./Register";
+import { Register } from "./Register";
 import { Int1, Int3 } from "./util";
 
 export type Sprite = {
@@ -42,7 +42,7 @@ class OAM implements Addressable {
      * 0-159 = next byte to transfer
      */
     protected transferStep: number = NOT_TRANSFERRING;
-    protected transferStart = new SubRegister(0xff);
+    protected transferStart = new Register(0xff);
     protected data = new RAM(160);
 
     /** @link https://gbdev.io/pandocs/OAM_DMA_Transfer.html */

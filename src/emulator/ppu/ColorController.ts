@@ -1,6 +1,6 @@
 import { Addressable, RAM } from "../Memory";
 import { Sprite } from "../OAM";
-import { SubRegister, PaddedSubRegister } from "../Register";
+import { Register, MaskRegister } from "../Register";
 import { Int2, Int3 } from "../util";
 
 export type ColorPalette = Record<Int2, number>;
@@ -36,10 +36,10 @@ class DMGColorControl extends ColorController {
     };
 
     // Background palette
-    protected bgPalette = new SubRegister(0x00);
+    protected bgPalette = new Register(0x00);
     // Object palettes
-    protected objPalette0 = new SubRegister(0x00);
-    protected objPalette1 = new SubRegister(0x00);
+    protected objPalette0 = new Register(0x00);
+    protected objPalette1 = new Register(0x00);
 
     protected addresses = {
         0xff47: this.bgPalette,
@@ -71,10 +71,10 @@ class DMGColorControl extends ColorController {
 
 class CGBColorControl extends ColorController {
     // Background palette
-    protected bgPaletteOptions = new PaddedSubRegister(0b0100_0000);
+    protected bgPaletteOptions = new MaskRegister(0b0100_0000);
     protected bgPaletteData = new RAM(64);
     // Object palettes
-    protected objPaletteOptions = new PaddedSubRegister(0b0100_0000);
+    protected objPaletteOptions = new MaskRegister(0b0100_0000);
     protected objPaletteData = new RAM(64);
     // Palette cache
     protected paletteCache: (ColorPalette & { valid: boolean })[] = [...Array(16)].map(() => ({
@@ -91,9 +91,9 @@ class CGBColorControl extends ColorController {
         0xff6a: this.objPaletteOptions,
         0xff6b: this.objPaletteData,
 
-        0xff47: new SubRegister(), // Unused
-        0xff48: new SubRegister(), // Unused
-        0xff49: new SubRegister(), // Unused
+        0xff47: new Register(), // Unused
+        0xff48: new Register(), // Unused
+        0xff49: new Register(), // Unused
     };
 
     override read(pos: number): number {

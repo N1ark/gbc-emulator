@@ -1,5 +1,5 @@
 import { Addressable } from "../Memory";
-import { PaddedSubRegister, RegisterFF, SubRegister } from "../Register";
+import { MaskRegister, RegisterFF, Register } from "../Register";
 import { clamp, Int4 } from "../util";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
@@ -15,10 +15,10 @@ const NRX3_CLOCK_DIVIDER = 0b0000_0111;
 class SoundChannel4 extends SoundChannel {
     protected NRX1_LENGTH_TIMER_BITS: number = 0b0011_1111;
 
-    protected nrX1 = new SubRegister(0xff);
-    protected nrX2 = new SubRegister(0x00);
-    protected nrX3 = new SubRegister(0x00);
-    protected nrX4 = new PaddedSubRegister(0b0011_1111, 0xbf);
+    protected nrX1 = new Register(0xff);
+    protected nrX2 = new Register(0x00);
+    protected nrX3 = new Register(0x00);
+    protected nrX4 = new MaskRegister(0b0011_1111, 0xbf);
 
     protected addresses: Record<number, Addressable> = {
         0xff1f: RegisterFF,

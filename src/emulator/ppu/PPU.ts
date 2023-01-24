@@ -6,7 +6,7 @@ import {
     SCREEN_WIDTH,
 } from "../constants";
 import { Addressable } from "../Memory";
-import { PaddedSubRegister, RegisterFF, SubRegister } from "../Register";
+import { MaskRegister, RegisterFF, Register } from "../Register";
 import { asSignedInt8, Int3, wrap8 } from "../util";
 import GameBoyOutput from "../GameBoyOutput";
 import OAM, { Sprite } from "../OAM";
@@ -135,21 +135,21 @@ class PPU implements Addressable {
 
     // General use
     /** @link https://gbdev.io/pandocs/LCDC.html */
-    lcdControl = new SubRegister(0x00);
+    lcdControl = new Register(0x00);
     /** @link https://gbdev.io/pandocs/STAT.html */
-    lcdStatus = new PaddedSubRegister(0b1000_0000, 0x85);
+    lcdStatus = new MaskRegister(0b1000_0000, 0x85);
     /** Only for GBC @link https://gbdev.io/pandocs/CGB_Registers.html#ff6c--opri-cgb-mode-only-object-priority-mode */
     objPriorityMode: Addressable;
 
     // Positioning
-    screenY = new SubRegister(0x00); // these two indicate position of the viewport
-    screenX = new SubRegister(0x00); // in the background map
+    screenY = new Register(0x00); // these two indicate position of the viewport
+    screenX = new Register(0x00); // in the background map
 
-    lcdY = new SubRegister(0x00); // indicates currently drawn horizontal line
-    lcdYCompare = new SubRegister(0x00);
+    lcdY = new Register(0x00); // indicates currently drawn horizontal line
+    lcdYCompare = new Register(0x00);
 
-    windowY = new SubRegister(0x00); // position of the window
-    windowX = new SubRegister(0x00);
+    windowY = new Register(0x00); // position of the window
+    windowX = new Register(0x00);
 
     // Color control
     colorControl: ColorController;
@@ -162,7 +162,7 @@ class PPU implements Addressable {
         if (mode === "CGB") {
             this.vramControl = new CGBVRAMController();
             this.colorControl = new CGBColorControl();
-            this.objPriorityMode = new PaddedSubRegister(0b1111_1110);
+            this.objPriorityMode = new MaskRegister(0b1111_1110);
         } else {
             this.vramControl = new DMGVRAMController();
             this.colorControl = new DMGColorControl();

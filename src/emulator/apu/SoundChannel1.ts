@@ -1,5 +1,5 @@
 import { Addressable } from "../Memory";
-import { PaddedSubRegister, SubRegister } from "../Register";
+import { MaskRegister, Register } from "../Register";
 import { FREQUENCY_SWEEP_PACE } from "./SoundChannel";
 import SoundChannel2 from "./SoundChannel2";
 
@@ -11,11 +11,11 @@ const NRX0_MULTIPlIER = 0b0000_0111;
  * @link https://gbdev.io/pandocs/Audio_Registers.html#sound-channel-1--pulse-with-wavelength-sweep
  */
 class SoundChannel1 extends SoundChannel2 {
-    protected nrX0 = new PaddedSubRegister(0b1000_0000, 0x80);
-    protected nrX1 = new SubRegister(0xbf);
-    protected nrX2 = new SubRegister(0xf3);
-    protected nrX3 = new SubRegister(0xff);
-    protected nrX4 = new SubRegister(0xbf);
+    protected nrX0 = new MaskRegister(0b1000_0000, 0x80);
+    protected nrX1 = new Register(0xbf);
+    protected nrX2 = new Register(0xf3);
+    protected nrX3 = new Register(0xff);
+    protected nrX4 = new Register(0xbf);
 
     protected override addresses: Record<number, Addressable> = {
         0xff10: this.nrX0,

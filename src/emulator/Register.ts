@@ -9,7 +9,7 @@ import { wrap16 } from "./util";
  * return the value (ignoring the position), and calling `write` will simply set the value,
  * ignoring the position too.
  */
-class SubRegister implements Addressable {
+class Register implements Addressable {
     protected value: number;
 
     /** Initialises a subregister with either 0 or a value */
@@ -49,7 +49,7 @@ class SubRegister implements Addressable {
  * other bits are hard-wired to 1, and can't be changed.
  * e.g. writing 0x02 to a PaddedSubRegister that has a 10000001 mask will actually write 0x83
  */
-class PaddedSubRegister extends SubRegister {
+class MaskRegister extends Register {
     protected mask: number;
 
     /**
@@ -72,20 +72,14 @@ class PaddedSubRegister extends SubRegister {
 /**
  * A register, containing two 8 bit values.
  */
-class Register {
+class DoubleRegister {
     // Most significant byte (0xFF00)
-    public h = new SubRegister();
+    public h = new Register();
     // Least significant byte (0x00FF)
-    public l = new SubRegister();
+    public l = new Register();
 
-    /** Builds the register from either one 16-bit value or two 8-bit values */
-    constructor(high: number = 0, low?: number) {
-        if (low !== undefined) {
-            this.h.set(high);
-            this.l.set(low);
-        } else {
-            this.set(high);
-        }
+    constructor(value: number = 0) {
+        this.set(value);
     }
 
     /** Sets this register to the given 16bit value. */
@@ -117,4 +111,4 @@ class Register {
 const Register00: Addressable = { read: () => 0x00, write: () => {} };
 const RegisterFF: Addressable = { read: () => 0xff, write: () => {} };
 
-export { Register, SubRegister, PaddedSubRegister, Register00, RegisterFF };
+export { DoubleRegister, Register, MaskRegister, Register00, RegisterFF };

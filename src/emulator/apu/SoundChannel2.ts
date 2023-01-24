@@ -1,5 +1,5 @@
 import { Addressable } from "../Memory";
-import { RegisterFF, SubRegister } from "../Register";
+import { RegisterFF, Register } from "../Register";
 import { clamp, Int2, Int4 } from "../util";
 import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
@@ -18,10 +18,10 @@ const wavePatterns: Record<Int2, (0 | 1)[]> = {
 class SoundChannel2 extends SoundChannel {
     protected NRX1_LENGTH_TIMER_BITS = 0b0011_1111;
 
-    protected nrX1 = new SubRegister(0x3f);
-    protected nrX2 = new SubRegister(0x00);
-    protected nrX3 = new SubRegister(0xff);
-    protected nrX4 = new SubRegister(0xbf);
+    protected nrX1 = new Register(0x3f);
+    protected nrX2 = new Register(0x00);
+    protected nrX3 = new Register(0xff);
+    protected nrX4 = new Register(0xbf);
 
     protected addresses: Record<number, Addressable> = {
         0xff15: RegisterFF,

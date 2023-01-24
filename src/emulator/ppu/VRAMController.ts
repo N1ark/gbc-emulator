@@ -1,5 +1,5 @@
 import { Addressable, CircularRAM } from "../Memory";
-import { PaddedSubRegister, SubRegister } from "../Register";
+import { MaskRegister, Register } from "../Register";
 import { Int2 } from "../util";
 
 type TileCache = Record<number, { valid: boolean; data: Int2[][] }>;
@@ -101,17 +101,17 @@ class CGBVRAMController extends VRAMController {
     protected vram1 = new CircularRAM(8192, 0x8000);
     protected tileCache0 = VRAMController.makeCache();
     protected tileCache1 = VRAMController.makeCache();
-    protected vramBank = new PaddedSubRegister(0b1111_1110);
+    protected vramBank = new MaskRegister(0b1111_1110);
 
     protected dmaInProgress: "HBLANK" | "GENERAL" | "NONE" = "NONE";
     protected dmaIndex: number = 0;
     protected dmaToTransfer: number = 0;
 
-    protected hdma1 = new SubRegister();
-    protected hdma2 = new SubRegister();
-    protected hdma3 = new SubRegister();
-    protected hdma4 = new SubRegister();
-    protected hdma5 = new SubRegister();
+    protected hdma1 = new Register();
+    protected hdma2 = new Register();
+    protected hdma3 = new Register();
+    protected hdma4 = new Register();
+    protected hdma5 = new Register();
 
     protected get currentBank() {
         return this.vramBank.get() & 0b1 ? this.vram1 : this.vram0;

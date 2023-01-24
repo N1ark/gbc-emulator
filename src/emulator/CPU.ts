@@ -1,4 +1,4 @@
-import { Register, SubRegister } from "./Register";
+import { DoubleRegister, Register } from "./Register";
 import System from "./System";
 import { asSignedInt8, combine, high, low, wrap16, wrap8 } from "./util";
 
@@ -16,12 +16,12 @@ type InstructionReturn = InstructionMethod | null;
 class CPU {
     // All registers are 16 bits long.
     // AF: lower is flags: ZNHC (zero, substraction, half-carry, carry)
-    protected regAF = new Register();
-    protected regBC = new Register();
-    protected regDE = new Register();
-    protected regHL = new Register();
-    protected regPC = new Register(); // program counter
-    protected regSP = new Register(); // stack pointer
+    protected regAF = new DoubleRegister();
+    protected regBC = new DoubleRegister();
+    protected regDE = new DoubleRegister();
+    protected regHL = new DoubleRegister();
+    protected regPC = new DoubleRegister(); // program counter
+    protected regSP = new DoubleRegister(); // stack pointer
 
     // If the CPU is halted
     protected halted: boolean = false;
@@ -418,7 +418,7 @@ class CPU {
             };
         }),
         // LD B/C/D/E/H/L/A, B/C/D/E/H/L/A
-        ...this.generateOperation<number, [SubRegister, SubRegister]>(
+        ...this.generateOperation<number, [Register, Register]>(
             {
                 0x40: [this.srB, this.srB],
                 0x41: [this.srB, this.srC],
@@ -628,7 +628,7 @@ class CPU {
             return null;
         }),
         // AND/XOR/OR B/C/D/E/H/L/A
-        ...this.generateOperation<number, [SubRegister, "&" | "|" | "^"]>(
+        ...this.generateOperation<number, [Register, "&" | "|" | "^"]>(
             {
                 0xa0: [this.srB, "&"],
                 0xa1: [this.srC, "&"],
@@ -1091,7 +1091,7 @@ class CPU {
         return result;
     }
     /** Applies `incN` to a sub-register */
-    protected incSr(sr: SubRegister) {
+    protected incSr(sr: Register) {
         sr.set(this.incN(sr.get()));
     }
 
@@ -1104,12 +1104,12 @@ class CPU {
         return result;
     }
     /** Applies `decN` to a sub-register */
-    protected decSr(sr: SubRegister) {
+    protected decSr(sr: Register) {
         sr.set(this.decN(sr.get()));
     }
 
     /** Add a register to HL, updates flags 0/H/CY */
-    protected addRToHL(register: Register) {
+    protected addRToHL(register: DoubleRegister) {
         const hl = this.regHL.get();
         const n = register.get();
         const result = wrap16(hl + n);
@@ -1261,7 +1261,7 @@ class CPU {
         return result;
     }
     /** Applies rotateL to a subregister. Sets flags Z|0/0/0/Sr7 */
-    protected rotateLSr(sr: SubRegister, useCarry: boolean, setZero: boolean) {
+    protected rotateLSr(sr: Register, useCarry: boolean, setZero: boolean) {
         sr.set(this.rotateL(sr.get(), useCarry, setZero));
     }
     /** Rotates the given number right. Sets flags Z|0/0/0/N0 */
@@ -1276,7 +1276,7 @@ class CPU {
         return result;
     }
     /** Applies rotateR to a subregister. Sets flags Z|0/0/0/Sr0 */
-    protected rotateRSr(sr: SubRegister, useCarry: boolean, setZero: boolean) {
+    protected rotateRSr(sr: Register, useCarry: boolean, setZero: boolean) {
         sr.set(this.rotateR(sr.get(), useCarry, setZero));
     }
 
@@ -1311,7 +1311,7 @@ class CPU {
             set: (x: number) => InstructionReturn;
         }) => InstructionReturn
     ): Partial<Record<number, InstructionMethod>> {
-        const make = (sr: SubRegister) => ({
+        const make = (sr: Register) => ({
             get: (r: (value: number) => InstructionReturn) => {
                 const value = sr.get();
                 return r(value);

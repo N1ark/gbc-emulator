@@ -1,7 +1,7 @@
 import { IFLAG_TIMER } from "./constants";
 import Interrupts from "./Interrupts";
 import { Addressable } from "./Memory";
-import { PaddedSubRegister, Register, SubRegister } from "./Register";
+import { MaskRegister, DoubleRegister, Register } from "./Register";
 import { Int2, wrap16 } from "./util";
 
 /**
@@ -23,13 +23,13 @@ const TIMER_ENABLE_FLAG = 1 << 2;
 
 class Timer implements Addressable {
     // DIV - divider register
-    protected divider = new Register(0xab00);
+    protected divider = new DoubleRegister(0xab00);
     // TIMA - timer counter
-    protected timerCounter = new SubRegister(0x00);
+    protected timerCounter = new Register(0x00);
     // TMA - timer modulo
-    protected timerModulo = new SubRegister(0x00);
+    protected timerModulo = new Register(0x00);
     // TAC - timer control
-    protected timerControl = new PaddedSubRegister(0b1111_1000);
+    protected timerControl = new MaskRegister(0b1111_1000);
 
     protected previousDivider = this.divider.get();
     protected previousTimerControl = this.timerControl.get();
@@ -87,7 +87,7 @@ class Timer implements Addressable {
         this.previousDivider = newDivider;
     }
 
-    protected addresses: Record<number, SubRegister> = {
+    protected addresses: Record<number, Register> = {
         0xff04: this.divider.h, // we only ever read the upper 8 bits of the divider
         0xff05: this.timerCounter,
         0xff06: this.timerModulo,

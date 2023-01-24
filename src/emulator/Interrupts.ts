@@ -1,6 +1,6 @@
 import { IFLAG_JOYPAD, IFLAG_LCDC, IFLAG_SERIAL, IFLAG_TIMER, IFLAG_VBLANK } from "./constants";
 import { Addressable } from "./Memory";
-import { PaddedSubRegister, SubRegister } from "./Register";
+import { MaskRegister, Register } from "./Register";
 
 type IntMasterEnableStateType = "DISABLED" | "WILL_ENABLE" | "WILL_ENABLE2" | "ENABLED";
 
@@ -27,10 +27,10 @@ const INTERRUPT_CALLS: [number, number][] = [
 class Interrupts implements Addressable {
     // Interrupts
     protected intMasterEnable: IntMasterEnableStateType = "DISABLED"; // IME - master enable flag
-    protected intEnable = new SubRegister(0x00); // IE - interrupt enable (handler)
-    protected intFlag = new PaddedSubRegister(0b1110_0000, 0xe1); // IF - interrupt flag (requests)
+    protected intEnable = new Register(0x00); // IE - interrupt enable (handler)
+    protected intFlag = new MaskRegister(0b1110_0000, 0xe1); // IF - interrupt flag (requests)
 
-    protected addresses: Record<number, SubRegister> = {
+    protected addresses: Record<number, Register> = {
         0xffff: this.intEnable,
         0xff0f: this.intFlag,
     };

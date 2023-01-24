@@ -1,7 +1,7 @@
 import { Addressable } from "../Memory";
 import { CLOCK_SPEED, FRAME_RATE } from "../constants";
 import GameBoyOutput from "../GameBoyOutput";
-import { PaddedSubRegister, SubRegister } from "../Register";
+import { MaskRegister, Register } from "../Register";
 import { Int4, rangeObject } from "../util";
 import SoundChannel1 from "./SoundChannel1";
 import SoundChannel2 from "./SoundChannel2";
@@ -44,11 +44,11 @@ export class APU implements Addressable {
     protected channel4 = new SoundChannel4((s) => this.nr52.sflag(NR52_CHAN4_ON, s));
 
     /** Master voulume and stereo mix control  */
-    protected nr50 = new SubRegister(0x77);
+    protected nr50 = new Register(0x77);
     /** Stereo mix control register */
-    protected nr51 = new SubRegister(0xf3);
+    protected nr51 = new Register(0xf3);
     /** Status and control register */
-    protected nr52 = new PaddedSubRegister(0b0111_0000, 0xf1);
+    protected nr52 = new MaskRegister(0b0111_0000, 0xf1);
 
     /** Ticking control */
     protected oldDivBitState = false;

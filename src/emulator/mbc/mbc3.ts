@@ -1,5 +1,5 @@
 import { RAM } from "../Memory";
-import { SubRegister } from "../Register";
+import { Register } from "../Register";
 import MBC from "./abstract";
 
 const RAM_ENABLED = 0x0a;
@@ -15,11 +15,11 @@ type MBC3Params = {
  */
 class MBC3 extends MBC {
     /** @link https://gbdev.io/pandocs/MBC3.html#0000-1fff---ram-and-timer-enable-write-only */
-    protected ramEnable = new SubRegister(0x00);
+    protected ramEnable = new Register(0x00);
     /** @link https://gbdev.io/pandocs/MBC3.html#2000-3fff---rom-bank-number-write-only */
-    protected romBank = new SubRegister(0x01);
+    protected romBank = new Register(0x01);
     /** @link https://gbdev.io/pandocs/MBC3.html#4000-5fff---ram-bank-number---or---rtc-register-select-write-only */
-    protected ramBank = new SubRegister(0x00);
+    protected ramBank = new Register(0x00);
     /** The RAM contained in the ROM (ERAM). */
     protected ram: RAM;
 
@@ -27,13 +27,13 @@ class MBC3 extends MBC {
      * RTC registers
      * @link https://gbdev.io/pandocs/MBC3.html#the-clock-counter-registers
      */
-    protected rtcS = new SubRegister(0x00);
-    protected rtcM = new SubRegister(0x00);
-    protected rtcH = new SubRegister(0x00);
-    protected rtcDL = new SubRegister(0x00);
-    protected rtcDH = new SubRegister(0x00);
+    protected rtcS = new Register(0x00);
+    protected rtcM = new Register(0x00);
+    protected rtcH = new Register(0x00);
+    protected rtcDL = new Register(0x00);
+    protected rtcDH = new Register(0x00);
 
-    protected rtcRegisters: Partial<Record<number, SubRegister>> = {
+    protected rtcRegisters: Partial<Record<number, Register>> = {
         0x08: this.rtcS,
         0x09: this.rtcM,
         0x0a: this.rtcH,
