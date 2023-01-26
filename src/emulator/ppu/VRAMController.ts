@@ -96,6 +96,12 @@ class DMGVRAMController extends VRAMController {
     }
 }
 
+enum DMAState {
+    NONE,
+    HBLANK,
+    GENERAL,
+}
+
 class CGBVRAMController extends VRAMController {
     protected vram0 = new CircularRAM(8192, 0x8000);
     protected vram1 = new CircularRAM(8192, 0x8000);
@@ -103,7 +109,7 @@ class CGBVRAMController extends VRAMController {
     protected tileCache1 = VRAMController.makeCache();
     protected vramBank = new MaskRegister(0b1111_1110);
 
-    protected dmaInProgress: "HBLANK" | "GENERAL" | "NONE" = "NONE";
+    protected dmaInProgress: DMAState = DMAState.NONE;
     protected dmaIndex: number = 0;
     protected dmaToTransfer: number = 0;
 
@@ -120,19 +126,33 @@ class CGBVRAMController extends VRAMController {
         return this.vramBank.get() & 0b1 ? this.tileCache1 : this.tileCache0;
     }
 
-    protected readonly addresses: Record<number, Addressable> = {
-        0xff4f: this.vramBank,
-        0xff51: this.hdma1,
-        0xff52: this.hdma2,
-        0xff53: this.hdma3,
-        0xff54: this.hdma4,
-        0xff55: this.hdma5,
-    };
+    protected hdmaEnabled: boolean;
+    protected readonly addresses: Record<number, Addressable>;
+
+    constructor(hdmaEnabled: boolean) {
+        super();
+
+        this.hdmaEnabled = hdmaEnabled;
+        if (this.hdmaEnabled) {
+            this.addresses = {
+                0xff4f: this.vramBank,
+                0xff51: this.hdma1,
+                0xff52: this.hdma2,
+                0xff53: this.hdma3,
+                0xff54: this.hdma4,
+                0xff55: this.hdma5,
+            };
+        } else {
+            this.addresses = {
+                0xff4f: this.vramBank,
+            };
+        }
+    }
 
     override tick(system: Addressable, isInHblank: boolean): boolean {
         if (
-            (this.dmaInProgress === "HBLANK" && isInHblank) ||
-            this.dmaInProgress === "GENERAL"
+            (this.dmaInProgress === DMAState.HBLANK && isInHblank) ||
+            this.dmaInProgress === DMAState.GENERAL
         ) {
             const source = ((this.hdma1.get() << 8) | this.hdma2.get()) & 0xfff0;
             const dest = ((this.hdma3.get() << 8) | this.hdma4.get()) & 0x1ff0;
@@ -147,7 +167,7 @@ class CGBVRAMController extends VRAMController {
             this.hdma5.set((this.dmaToTransfer >> 4) & HDMA5_LENGTH);
 
             if (this.dmaToTransfer === 0) {
-                this.dmaInProgress = "NONE";
+                this.dmaInProgress = DMAState.NONE;
             }
 
             return true;
@@ -160,16 +180,16 @@ class CGBVRAMController extends VRAMController {
 
         if (address === 0xff55) {
             // Interrupts the transfer
-            if (this.dmaInProgress !== "NONE") {
+            if (this.dmaInProgress !== DMAState.NONE) {
                 if (value & HDMA5_MODE) {
-                    this.dmaInProgress = "NONE";
+                    this.dmaInProgress = DMAState.NONE;
                 }
             }
 
             // Starts the transfer
             else {
                 const length = ((value & HDMA5_LENGTH) + 1) << 4;
-                this.dmaInProgress = value & HDMA5_MODE ? "HBLANK" : "GENERAL";
+                this.dmaInProgress = value & HDMA5_MODE ? DMAState.HBLANK : DMAState.GENERAL;
                 this.dmaToTransfer = length;
                 this.dmaIndex = 0;
             }
@@ -179,7 +199,9 @@ class CGBVRAMController extends VRAMController {
     override read(pos: number): number {
         if (pos === 0xff55) {
             const hdma5 = this.hdma5.get();
-            return (hdma5 & HDMA5_LENGTH) | (this.dmaInProgress === "NONE" ? HDMA5_MODE : 0);
+            return (
+                (hdma5 & HDMA5_LENGTH) | (this.dmaInProgress === DMAState.NONE ? HDMA5_MODE : 0)
+            );
         }
 
         return super.read(pos);

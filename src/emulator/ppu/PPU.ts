@@ -1,4 +1,5 @@
 import {
+    CGBMode,
     ConsoleType,
     IFLAG_LCDC,
     IFLAG_VBLANK,
@@ -156,20 +157,29 @@ class PPU implements Addressable {
 
     // General use
     consoleMode: ConsoleType;
-    protected registerAddresses: Record<number, Addressable>;
+    cgbMode: CGBMode = CGBMode.DMG; // for cgb only
+    isCgbMode: boolean = false;
+    protected registerAddresses: Record<number, Addressable> = {};
 
     constructor(mode: ConsoleType) {
         if (mode === ConsoleType.CGB) {
-            this.vramControl = new CGBVRAMController();
+            this.cgbMode = CGBMode.CGB;
+            this.vramControl = new CGBVRAMController(true);
             this.colorControl = new CGBColorControl();
             this.objPriorityMode = new MaskRegister(0b1111_1110);
+            this.isCgbMode = true;
         } else {
             this.vramControl = new DMGVRAMController();
             this.colorControl = new DMGColorControl();
             this.objPriorityMode = RegisterFF;
+            this.isCgbMode = false;
         }
 
         this.consoleMode = mode;
+        this.updateAddresses();
+    }
+
+    updateAddresses(): void {
         this.registerAddresses = {
             0xff40: this.lcdControl,
             0xff41: this.lcdStatus,
@@ -195,6 +205,32 @@ class PPU implements Addressable {
             0xff6b: this.colorControl, // |
             0xff6c: this.objPriorityMode,
         };
+    }
+
+    setCGBMode(mode: CGBMode): void {
+        this.cgbMode = mode;
+        this.isCgbMode = mode !== CGBMode.DMG;
+
+        switch (mode) {
+            case CGBMode.CGB:
+                this.objPriorityMode = new MaskRegister(0b1111_1110);
+                this.vramControl = new CGBVRAMController(true);
+                break;
+
+            case CGBMode.DMGExtended:
+                this.objPriorityMode = new MaskRegister(0b1111_1110);
+                this.vramControl = new CGBVRAMController(false);
+                break;
+
+            case CGBMode.DMG:
+                this.objPriorityMode = RegisterFF;
+                this.vramControl = new DMGVRAMController();
+                break;
+        }
+
+        this.colorControl.changeCBGMode(mode);
+
+        this.updateAddresses();
     }
 
     /**
@@ -450,7 +486,7 @@ class PPU implements Addressable {
     updateScanline() {
         this.bgPriorities.fill(0);
         // The BG/WIN priority flag acts as a toggle only in DMG
-        if (this.consoleMode === ConsoleType.CGB || this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
+        if (this.isCgbMode || this.lcdControl.flag(LCDC_BG_WIN_PRIO)) {
             this.drawBackground();
 
             if (this.lcdControl.flag(LCDC_WIN_ENABLE)) {
@@ -564,7 +600,8 @@ class PPU implements Addressable {
 
     fillWhite() {
         const y = this.lcdY.get();
-        const white = 0xffffffff;
+        const bgPalette = this.colorControl.getBgPalette(0);
+        const white = bgPalette[0]; // needed for CGB in DMG-mode with custom palette
         for (let x = 0; x < SCREEN_WIDTH; x++) {
             this.videoBuffer[y * SCREEN_WIDTH + x] = white;
         }
@@ -634,9 +671,9 @@ class PPU implements Addressable {
                 const colorId = tileData[arrayX][arrayY];
                 this.videoBuffer[bufferStart + posX] = palette[colorId];
                 if (colorId > 0) {
-                    if (this.consoleMode === ConsoleType.DMG) {
+                    if (!this.isCgbMode) {
                         this.bgPriorities[posX] = 1;
-                    } else if (this.consoleMode === ConsoleType.CGB) {
+                    } else {
                         if (bgPrioCgb) this.bgPriorities[posX] += 2;
                         if (bgToOamPrio) this.bgPriorities[posX] += 1;
                     }
@@ -710,9 +747,9 @@ class PPU implements Addressable {
 
                 this.bgPriorities[posX] = 0;
                 if (colorId > 0) {
-                    if (this.consoleMode === ConsoleType.DMG) {
+                    if (!this.isCgbMode) {
                         this.bgPriorities[posX] = 1;
-                    } else if (this.consoleMode === ConsoleType.CGB) {
+                    } else {
                         if (bgPrioCgb) this.bgPriorities[posX] += 2;
                         if (bgToOamPrio) this.bgPriorities[posX] += 1;
                     }
@@ -757,9 +794,9 @@ class PPU implements Addressable {
                 // if transparent, skip
                 // also skip if bg/win should be above, and priority is set
                 if (colorId === 0) continue;
-                if (this.consoleMode === ConsoleType.CGB) {
+                if (this.isCgbMode) {
                     if (this.bgPriorities[x] + (sprite.bgAndWinOverObj ? 1 : 0) > 2) continue;
-                } else if (this.consoleMode === ConsoleType.DMG) {
+                } else {
                     if (this.bgPriorities[x] && sprite.bgAndWinOverObj) continue;
                 }
 
@@ -853,6 +890,10 @@ class PPUExported implements Addressable {
 
     tick(system: Addressable, interrupts: Interrupts, isMCycle: boolean): boolean {
         return this.ppu.tick(system, interrupts, isMCycle);
+    }
+
+    setCGBMode(mode: CGBMode): void {
+        this.ppu.setCGBMode(mode);
     }
 
     pushOutput(output: GameBoyOutput): void {

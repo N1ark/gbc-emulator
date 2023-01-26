@@ -1,5 +1,5 @@
 import APU from "./apu/APU";
-import { ConsoleType, HRAM_SIZE, SpeedMode } from "./constants";
+import { CGBMode, ConsoleType, HRAM_SIZE, SpeedMode } from "./constants";
 import GameBoyInput from "./GameBoyInput";
 import PPU from "./ppu/PPU";
 import JoypadInput from "./JoypadInput";
@@ -12,6 +12,9 @@ import { Int4, rangeObject } from "./util";
 import BootROM from "./BootROM";
 import { DMGWRAM, GBCWRAM } from "./WRAM";
 import Interrupts from "./Interrupts";
+
+const KEY0_DISABLE_ALL = 1 << 2;
+const KEY0_DISABLE_SOME = 1 << 3;
 
 class System implements Addressable {
     // General use
@@ -37,9 +40,29 @@ class System implements Addressable {
         write: (pos, value) => (this.bootRomLocked ||= (value & 1) === 1),
     };
 
+    // KEY0: CGB features toggle (CGB Register)
+    protected cgbMode: CGBMode = CGBMode.CGB;
+    protected key0Register: Addressable = {
+        read: () => {
+            return 0x0;
+        },
+        write: (_, value) => {
+            if (this.bootRomLocked) return; // becomes read-only after boot rom is disabled
+
+            if (value & KEY0_DISABLE_SOME) this.cgbMode = CGBMode.DMGExtended;
+            else if (value & KEY0_DISABLE_ALL) this.cgbMode = CGBMode.DMG;
+            else this.cgbMode = CGBMode.CGB;
+
+            this.ppu.setCGBMode(this.cgbMode);
+            this.addressesRegisters[0x4d] =
+                this.cgbMode === CGBMode.CGB ? this.key1Register : undefined;
+        },
+    };
+
+    // KEY1: Speed switch register (CGB Register)
     protected speedMode: SpeedMode = SpeedMode.Normal;
     protected wantsSpeedModeChange = false;
-    protected speedModeRegister: Addressable = {
+    protected key1Register: Addressable = {
         read: () =>
             (this.speedMode === SpeedMode.Double ? 1 << 7 : 0) |
             (this.wantsSpeedModeChange ? 1 << 0 : 0),
@@ -82,7 +105,8 @@ class System implements Addressable {
             ...rangeObject(0x10, 0x26, this.apu), // actual apu registers
             ...rangeObject(0x30, 0x3f, this.apu), // wave ram
             ...rangeObject(0x40, 0x4b, this.ppu), // ppu registers
-            0x4d: mode === ConsoleType.CGB ? this.speedModeRegister : undefined, // KEY1 - speed switch
+            0x4c: mode === ConsoleType.CGB ? this.key0Register : undefined, // KEY0 -
+            0x4d: mode === ConsoleType.CGB ? this.key1Register : undefined, // KEY1 - speed switch
             0x4f: this.ppu, // ppu vram bank register
             0x50: this.bootRomRegister, // boot rom register
             ...rangeObject(0x51, 0x55, this.ppu), // ppu vram dma registers
@@ -92,6 +116,8 @@ class System implements Addressable {
             0x73: mode === ConsoleType.CGB ? new Register() : undefined, // undocumented register
             0x74: mode === ConsoleType.CGB ? new Register() : undefined, // undocumented register
             0x75: mode === ConsoleType.CGB ? new MaskRegister(0b1000_1111) : undefined, // undocumented register
+            0x76: mode === ConsoleType.CGB ? Register00 : undefined, // undocumented register
+            0x77: mode === ConsoleType.CGB ? Register00 : undefined, // undocumented register
             ...rangeObject(0x80, 0xfe, this.hram), // hram
             0xff: this.interrupts, // IE
         };

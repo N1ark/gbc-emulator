@@ -27,3 +27,8 @@ export enum SpeedMode {
     Normal,
     Double,
 }
+export enum CGBMode {
+    CGB,
+    DMG,
+    DMGExtended,
+}
