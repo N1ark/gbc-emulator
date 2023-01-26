@@ -10,6 +10,7 @@ type ScreenProps = {
     inputRef: MutableRef<VideoReceiver | undefined>;
     Filter?: ImageFilter;
     blending?: boolean;
+    id?: string;
 };
 
 export type VideoReceiver = (data: Uint32Array) => void;
@@ -39,6 +40,7 @@ const Screen: FunctionalComponent<ScreenProps> = ({
     scale = 1,
     Filter = Identity,
     blending = false,
+    id,
 }) => {
     const [stateRefresh, setStateRefresh] = useState(0);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -132,7 +134,7 @@ const Screen: FunctionalComponent<ScreenProps> = ({
         }
     }, [width, height, scale, canvasRef.current]);
 
-    return <canvas ref={canvasRef} />;
+    return <canvas id={id} ref={canvasRef} />;
 };
 
 export default Screen;

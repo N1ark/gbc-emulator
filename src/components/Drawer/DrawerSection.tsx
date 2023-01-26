@@ -15,6 +15,8 @@ const DrawerSection: FunctionalComponent<DrawerSectionProps> = ({ title, childre
     const contentRef = useRef<HTMLDivElement>(null);
     const isOpen = useSignal<boolean>(false);
 
+    const id = `drawer-section-${title.toLowerCase().replace(/ /g, "-")}`;
+
     useEffect(() => {
         isOpen.value = localStorage.getItem(`${localStorageKey}-${title}`) === "1";
     }, []);
@@ -27,6 +29,7 @@ const DrawerSection: FunctionalComponent<DrawerSectionProps> = ({ title, childre
             <div className="drawer-title">
                 <h3>{title}</h3>
                 <IconButton
+                    id={id}
                     title="Open/Close Tab"
                     onClick={() => (isOpen.value = !isOpen.value)}
                     Icon={isOpen.value ? ChevronUp : ChevronDown}

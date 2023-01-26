@@ -46,12 +46,14 @@ const SettingsDrawer: FunctionalComponent = () => {
             <div className="drawer-section-title">
                 <div>Console:</div>
                 <IconButton
+                    id="dmg-mode"
                     title="Gameboy (DMG)"
                     toggled={console === "dmg"}
                     Icon={Gamepad}
                     onClick={() => setConfig({ console: "dmg" })}
                 />
                 <IconButton
+                    id="cgb-mode"
                     title="Gameboy Color (CGB)"
                     toggled={console === "cgb"}
                     Icon={Palette}

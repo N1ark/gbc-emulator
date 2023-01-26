@@ -256,6 +256,7 @@ const App: FunctionalComponent = () => {
                     />
 
                     <IconButton
+                        id="emu-speed"
                         title="Double Speed"
                         onClick={() => (tripleSpeed.value = !tripleSpeed.value)}
                         Icon={FastForward}
@@ -276,6 +277,7 @@ const App: FunctionalComponent = () => {
                                 scale={1 << config.scale}
                                 Filter={config.filter}
                                 blending={config.frameBlending}
+                                id="emulator-frame"
                             />
                             {debugEnabled.value && (
                                 <>

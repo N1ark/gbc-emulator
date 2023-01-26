@@ -29,14 +29,7 @@ class MBC1 extends MBC {
 
         // Indicated in header https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size
         const ramSizeCode = this.data[0x0149];
-        const ramSizes: Partial<Record<number, number>> = {
-            0x00: 0,
-            0x02: 1024 * 8,
-            0x03: 1024 * 32,
-            0x04: 1024 * 128,
-            0x05: 1024 * 64,
-        };
-        const ramSize = ramSizes[ramSizeCode];
+        const ramSize = MBC.RAM_SIZES[ramSizeCode];
         if (ramSize === undefined)
             throw new Error(`Invalid RAM size header value: ${ramSizeCode.toString(16)}`);
         this.ram = new RAM(ramSize);

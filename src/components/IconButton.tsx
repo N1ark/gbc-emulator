@@ -2,6 +2,7 @@ import { LucideProps } from "lucide-preact";
 import { FunctionalComponent, JSX } from "preact";
 
 type IconButtonProps = {
+    id?: string;
     title: string;
     Icon: (props: LucideProps) => JSX.Element;
     toggled?: boolean;
@@ -10,6 +11,7 @@ type IconButtonProps = {
 };
 
 const IconButton: FunctionalComponent<IconButtonProps> = ({
+    id,
     title,
     Icon,
     toggled,
@@ -22,6 +24,7 @@ const IconButton: FunctionalComponent<IconButtonProps> = ({
             className={`icon-button ${toggled ? "toggled" : ""}`}
             onClick={onClick}
             disabled={disabled}
+            id={id}
         >
             <Icon />
         </button>

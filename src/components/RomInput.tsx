@@ -32,6 +32,7 @@ const RomInput: FunctionalComponent<RomInputProps> = ({ onLoad }) => {
 
             <input
                 type="file"
+                id="rom-input"
                 accept=".gb,.gbc"
                 ref={fileInput}
                 onChange={romChange}
