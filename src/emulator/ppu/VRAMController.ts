@@ -1,6 +1,6 @@
 import { Addressable, CircularRAM } from "../Memory";
 import { MaskRegister, Register } from "../Register";
-import { Int2 } from "../util";
+import { combine, high, Int2, low } from "../util";
 
 type TileCache = Record<number, { valid: boolean; data: Int2[][] }>;
 
@@ -110,8 +110,8 @@ class CGBVRAMController extends VRAMController {
     protected vramBank = new MaskRegister(0b1111_1110);
 
     protected dmaInProgress: DMAState = DMAState.NONE;
-    protected dmaIndex: number = 0;
-    protected dmaToTransfer: number = 0;
+    /** Number of bytes in the current block that were transferred [0-16] */
+    protected dmaSubSteps: number = 0;
 
     protected hdma1 = new Register();
     protected hdma2 = new Register();
@@ -154,20 +154,33 @@ class CGBVRAMController extends VRAMController {
             (this.dmaInProgress === DMAState.HBLANK && isInHblank) ||
             this.dmaInProgress === DMAState.GENERAL
         ) {
-            const source = ((this.hdma1.get() << 8) | this.hdma2.get()) & 0xfff0;
-            const dest = ((this.hdma3.get() << 8) | this.hdma4.get()) & 0x1ff0;
+            const source = combine(this.hdma1.get(), this.hdma2.get()) & 0xfff0;
+            const dest = combine(this.hdma3.get(), this.hdma4.get()) & 0x1ff0;
 
-            const byte1 = system.read(source + this.dmaIndex);
-            const byte2 = system.read(source + this.dmaIndex + 1);
-            this.write(0x8000 + dest + this.dmaIndex, byte1);
-            this.write(0x8000 + dest + this.dmaIndex + 1, byte2);
+            const byte1 = system.read(source + this.dmaSubSteps);
+            const byte2 = system.read(source + this.dmaSubSteps + 1);
+            this.write(0x8000 + dest + this.dmaSubSteps, byte1);
+            this.write(0x8000 + dest + this.dmaSubSteps + 1, byte2);
 
-            this.dmaIndex += 2;
-            this.dmaToTransfer -= 2;
-            this.hdma5.set((this.dmaToTransfer >> 4) & HDMA5_LENGTH);
+            this.dmaSubSteps += 2;
 
-            if (this.dmaToTransfer === 0) {
-                this.dmaInProgress = DMAState.NONE;
+            if (this.dmaSubSteps === 16) {
+                this.dmaSubSteps = 0;
+
+                const newSource = source + 16;
+                const newDest = dest + 16;
+
+                this.hdma1.set(high(newSource));
+                this.hdma2.set(low(newSource));
+                this.hdma3.set(high(newDest));
+                this.hdma4.set(low(newDest));
+
+                const length = this.hdma5.get() & HDMA5_LENGTH;
+                if (length > 0) {
+                    this.hdma5.set(length - 1);
+                } else {
+                    this.dmaInProgress = DMAState.NONE;
+                }
             }
 
             return true;
@@ -188,10 +201,8 @@ class CGBVRAMController extends VRAMController {
 
             // Starts the transfer
             else {
-                const length = ((value & HDMA5_LENGTH) + 1) << 4;
                 this.dmaInProgress = value & HDMA5_MODE ? DMAState.HBLANK : DMAState.GENERAL;
-                this.dmaToTransfer = length;
-                this.dmaIndex = 0;
+                this.dmaSubSteps = 0;
             }
         }
     }

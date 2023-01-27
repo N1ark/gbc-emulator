@@ -233,6 +233,8 @@ class PPU implements Addressable {
         this.updateAddresses();
     }
 
+    protected haltCpu: boolean = false;
+
     /**
      * This the PPU, effectively updating the screen-buffer and rendering it if it's done.
      * @param system The system that links all components together
@@ -242,12 +244,12 @@ class PPU implements Addressable {
     tick(system: Addressable, interrupts: Interrupts, isMCycle: boolean): boolean {
         this.oam.tick(system);
 
-        if (!isMCycle || !this.lcdControl.flag(LCDC_LCD_ENABLE)) return false;
-
-        const haltCpu = this.vramControl.tick(
+        this.haltCpu = this.vramControl.tick(
             system,
             this.mode === MODE_HBLANK && this.lcdY.get() < SCREEN_HEIGHT
         );
+
+        if (!isMCycle || !this.lcdControl.flag(LCDC_LCD_ENABLE)) return this.haltCpu;
 
         // Update interrupt line from previous write operations?
         if (this.nextInterruptLineUpdate !== null) {
@@ -263,7 +265,7 @@ class PPU implements Addressable {
 
         this[this.mode.doTick](interrupts);
 
-        return haltCpu;
+        return this.haltCpu;
     }
 
     tickHBlankFirst() {
@@ -820,7 +822,7 @@ class PPU implements Addressable {
     read(address: number): number {
         const component = this.address(address);
         if (component === this.oam && !this.canReadOam) return 0xff;
-        if (component === this.vramControl && !this.canReadVram) return 0xff;
+        if (0x8000 <= address && address <= 0x9fff && !this.canReadVram) return 0xff;
         return component.read(address);
     }
 
