@@ -1,4 +1,4 @@
-import { testConfig, testFiles } from "@/testConfig";
+import tests from "@/testConfig";
 import IconButton from "@components/IconButton";
 import GameBoyColor from "@emulator/GameBoyColor";
 import GameBoyInput from "@emulator/GameBoyInput";
@@ -11,6 +11,7 @@ import { useEffect } from "preact/hooks";
 type TestOutput = "❌" | "⌛" | "✅" | "🪦";
 
 const makeGameboy = (
+    type: "DMG" | "CGB",
     rom: Uint8Array,
     videoOut: (d: Uint32Array) => void,
     serialOut: (s: string) => void
@@ -33,7 +34,7 @@ const makeGameboy = (
         serialOut: (d) => serialOut(String.fromCharCode(d)),
     };
 
-    return new GameBoyColor("DMG", rom, gameIn, gbOut);
+    return new GameBoyColor(type, rom, gameIn, gbOut);
 };
 
 type TestResult = Record<string, { group: string; state: TestOutput }>;
@@ -45,21 +46,14 @@ const loadTestRom = async (testType: string, fileName: string) => {
 };
 
 const runTests = async (validGroups: string[] = [], results: (r: TestResult) => void) => {
-    const allTests = Object.entries(testFiles).flatMap(([testType, groups]) =>
-        Object.entries(groups).flatMap(([group, tests]) =>
-            tests.map((test) => [testType, group, test] as [string, string, string])
-        )
-    );
-
     const localResults: TestResult = {};
 
-    for (const [testType, group, fileName] of allTests) {
-        if (validGroups.length && !validGroups.includes(`${testType}/${group}`)) continue;
+    for (const { testType, subTestType, file, consoleType, check } of tests) {
+        if (validGroups.length && !validGroups.includes(`${testType}/${subTestType}`)) continue;
 
-        console.log(`Running test ${testType}/${group} -> ${fileName}`);
+        console.log(`Running test ${testType}/${subTestType} -> ${file}`);
 
-        const getTestState = testConfig[testType as keyof typeof testFiles];
-        const romArray = await loadTestRom(testType, fileName);
+        const romArray = await loadTestRom(testType, file);
 
         let videoOut: Uint32Array = new Uint32Array();
         let serialOut: string = "";
@@ -67,32 +61,36 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
 
         try {
             const gbc = makeGameboy(
+                consoleType,
                 romArray,
                 (v) => (videoOut = v),
                 (s) => (serialOut += s)
             );
 
+            let prevSteps = 0;
             while (true) {
                 gbc.drawFrame();
 
-                if (gbc["cpu"]["stepCounter"] > 10_000_000) {
-                    state = "⌛";
-                    break;
-                }
-
-                const newState = await getTestState(gbc, serialOut, videoOut, fileName);
+                const newState = await check(gbc, serialOut, videoOut, file);
                 if (newState !== null) {
                     state = newState === "failure" ? "❌" : "✅";
                     break;
                 }
+
+                const steps = gbc["cpu"]["stepCounter"];
+                if (steps > 10_000_000 || steps === prevSteps) {
+                    state = "⌛";
+                    break;
+                }
+                prevSteps = steps;
             }
         } catch (e) {
             console.error("Caught error, skipping test", e);
             state = "🪦";
         }
 
-        localResults[fileName] = {
-            group: `${testType}/${group}`,
+        localResults[file] = {
+            group: `${testType}/${subTestType}`,
             state,
         };
         results(localResults);
@@ -105,9 +103,9 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
     );
 };
 
-const testGroups = Object.entries(testFiles).flatMap(([key, groups]) =>
-    Object.keys(groups).map((group) => `${key}/${group}`)
-);
+const testGroups = tests
+    .map((t) => `${t.testType}/${t.subTestType}`)
+    .filter((v, i, a) => a.indexOf(v) === i); // Unique
 
 const localStorageKey = "test-drawer-groups";
 
