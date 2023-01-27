@@ -3,6 +3,7 @@ import IconButton from "@components/IconButton";
 import { useSignal } from "@preact/signals";
 import { RefreshCw } from "lucide-preact";
 import { FunctionalComponent } from "preact";
+import { useEffect } from "preact/hooks";
 
 const refreshMemory = (offset: number) => {
     // @ts-ignore
@@ -28,16 +29,15 @@ const MemoryDrawer: FunctionalComponent = () => {
     const memory = useSignal<string>("");
     const offset = useSignal<number>(0);
 
+    useEffect(() => {
+        const callbackId = setInterval(() => {
+            memory.value = refreshMemory(offset.value);
+        }, 500);
+        return () => clearInterval(callbackId);
+    }, [offset]);
+
     return (
         <div>
-            <div className="drawer-section-title">
-                <div>Refresh:</div>
-                <IconButton
-                    title="Refresh"
-                    Icon={RefreshCw}
-                    onClick={() => (memory.value = refreshMemory(offset.value))}
-                />
-            </div>
             <div className="drawer-section-title">
                 <div>Offset:</div>
                 <input
