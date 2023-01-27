@@ -21,9 +21,10 @@ class GameBoyColor {
 
     protected cpuIsHalted = false;
     protected cycles: number = 0;
+    protected isFullCycle = true; // used for double speed mode
 
     protected output: GameBoyOutput;
-    protected breakpoints: (number | ((c: CPU) => boolean))[] = [];
+    protected breakpoints: (number | ((gbc: GameBoyColor) => boolean))[] = [];
     protected cycleChrono: { count: number; time: number } = { count: 0, time: Date.now() };
 
     constructor(
@@ -59,14 +60,37 @@ class GameBoyColor {
             }
             this.cpu["regPC"].set(0x0100);
             this.cpu["regSP"].set(0xfffe);
-            // General Registers
-            this.system["bootRomLocked"] = true;
+
             // PPU
             this.system["ppu"]["ppu"]["lcdControl"].set(0x91);
+
+            // Emulate GBC compatibility check
+            if (mode === ConsoleType.CGB) {
+                const compat = this.system.read(0x0143);
+                if (compat === 0x80 || compat === 0xc0) {
+                    this.system.write(0xff4c, compat);
+                } else {
+                    const colorControl = this.system["ppu"]["ppu"]["colorControl"];
+                    // reset palette controls
+                    colorControl.write(0xff68, 0x80);
+                    colorControl.write(0xff6a, 0x80);
+
+                    // load palettes
+                    const bgrPalette = [0xff, 0x7f, 0xef, 0x1b, 0x80, 0x61, 0x00, 0x00];
+                    const objPalette = [0xff, 0x7f, 0x1f, 0x42, 0xf2, 0x1c, 0x00, 0x00];
+                    bgrPalette.forEach((value) => colorControl.write(0xff69, value)); // bg
+                    objPalette.forEach((value) => colorControl.write(0xff6b, value)); // obj0
+                    objPalette.forEach((value) => colorControl.write(0xff6b, value)); // obj1
+
+                    this.system.write(0xff4c, 0x04); // change to DMG mode
+                    this.system["ppu"]["ppu"]["objPriorityMode"].write(0, 0x01); // OPRI
+                }
+            }
+
+            // End initialisation
+            this.system["bootRomLocked"] = true;
         }
     }
-
-    protected isFullCycle = true;
 
     /**
      * Draws a full frame
@@ -103,7 +127,7 @@ class GameBoyColor {
                 const foundBreakpoint = this.breakpoints.find(
                     (breakpoint) =>
                         (typeof breakpoint === "number" && breakpoint === this.cpu.getPC()) ||
-                        (typeof breakpoint === "function" && breakpoint(this.cpu))
+                        (typeof breakpoint === "function" && breakpoint(this))
                 );
                 if (foundBreakpoint) return true; // breakpoint hit?
             }
