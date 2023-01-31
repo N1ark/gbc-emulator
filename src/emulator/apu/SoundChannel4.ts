@@ -64,10 +64,11 @@ class SoundChannel4 extends SoundChannel {
         return ((this.lfsr & 1) * this.envelopeVolume) as Int4;
     }
 
-    override start(): void {
-        if (this.enabled) return;
-        super.start();
+    get isDACOn(): boolean {
+        return (this.nrX2.get() & NRX2_STOP_DAC) !== 0;
+    }
 
+    override onStart(): void {
         this.cachedNRX2 = this.nrX2.get();
         this.envelopeVolume = (this.cachedNRX2 >> 4) as Int4;
         this.lfsr = 0;

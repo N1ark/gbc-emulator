@@ -67,10 +67,13 @@ class SoundChannel3 extends SoundChannel {
         return (this.currentSample >> volume) as Int4;
     }
 
-    override start(): void {
-        super.start();
+    override onStart(): void {
         const frequency = (2048 - this.getWavelength()) >> 1;
         this.ticksNextSample = frequency;
+    }
+
+    get isDACOn(): boolean {
+        return this.nrX0.flag(NRX0_DAC_FLAG);
     }
 
     read(pos: number): number {

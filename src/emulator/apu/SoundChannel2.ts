@@ -72,10 +72,11 @@ class SoundChannel2 extends SoundChannel {
         this.ticksPerWaveStep = 2048 - this.getWavelength();
     }
 
-    start(): void {
-        if (this.enabled) return;
-        super.start();
+    get isDACOn(): boolean {
+        return (this.nrX2.get() & NRX2_STOP_DAC) !== 0;
+    }
 
+    override onStart(): void {
         this.cachedNRX2 = this.nrX2.get();
         this.envelopeVolume = (this.cachedNRX2 >> 4) as Int4;
         this.waveLengthUpdate();

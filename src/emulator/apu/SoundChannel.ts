@@ -105,8 +105,11 @@ abstract class SoundChannel implements Addressable {
      */
     start(): void {
         if (this.enabled) return;
+        if (!this.isDACOn) return;
+
         this.enabled = true;
         this.onStateChange(true);
+        this.onStart();
     }
 
     /**
@@ -114,9 +117,14 @@ abstract class SoundChannel implements Addressable {
      */
     stop(): void {
         if (!this.enabled) return;
+
         this.enabled = false;
         this.onStateChange(false);
     }
+
+    onStart(): void {}
+
+    abstract get isDACOn(): boolean;
 
     abstract read(pos: number): number;
     abstract write(pos: number, data: number): void;

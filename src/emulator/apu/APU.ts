@@ -139,6 +139,7 @@ export class APU implements Addressable {
     read(pos: number): number {
         return this.addresses[pos].read(pos);
     }
+
     write(pos: number, data: number): void {
         const component = this.addresses[pos];
 
@@ -158,6 +159,8 @@ export class APU implements Addressable {
             if (wasOn && !isOn) {
                 // when turning off, write 0x00 to all registers
                 for (let address = 0xff10; address <= 0xff25; address++) {
+                    // Except for NR41 for some reason
+                    if (address === 0xff20) continue;
                     this.write(address, 0x00);
                 }
             }
