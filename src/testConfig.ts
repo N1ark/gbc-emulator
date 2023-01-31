@@ -173,7 +173,7 @@ type TestChecker = (
     testName: string
 ) => Promise<null | "success" | "failure">;
 
-type Test = MiniTest & {
+export type Test = MiniTest & {
     testType: TestType;
     subTestType: SubTestType;
     check: TestChecker;

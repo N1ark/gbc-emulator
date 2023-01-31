@@ -1,4 +1,4 @@
-import tests from "@/testConfig";
+import tests, { Test } from "@/testConfig";
 import IconButton from "@components/IconButton";
 import GameBoyColor from "@emulator/GameBoyColor";
 import GameBoyInput from "@emulator/GameBoyInput";
@@ -37,7 +37,7 @@ const makeGameboy = (
     return new GameBoyColor(type, rom, gameIn, gbOut);
 };
 
-type TestResult = Record<string, { group: string; state: TestOutput }>;
+type TestResult = [Test, TestOutput][];
 
 const loadTestRom = async (testType: string, fileName: string) => {
     const romResponse = await fetch(`/tests/${testType}/${fileName}.gb`);
@@ -46,9 +46,10 @@ const loadTestRom = async (testType: string, fileName: string) => {
 };
 
 const runTests = async (validGroups: string[] = [], results: (r: TestResult) => void) => {
-    const localResults: TestResult = {};
+    const localResults: TestResult = [];
 
-    for (const { testType, subTestType, file, consoleType, check } of tests) {
+    for (const test of tests) {
+        const { testType, subTestType, file, consoleType, check } = test;
         if (validGroups.length && !validGroups.includes(`${testType}/${subTestType}`)) continue;
 
         console.log(`Running test ${testType}/${subTestType} -> ${file}`);
@@ -89,18 +90,13 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
             state = "🪦";
         }
 
-        localResults[file] = {
-            group: `${testType}/${subTestType}`,
-            state,
-        };
+        localResults.push([test, state]);
         results(localResults);
-        console.table(localResults);
     }
-    console.log(
-        `Finished running tests! Passed ${
-            Object.values(localResults).filter((x) => x.state === "✅").length
-        }/${Object.keys(localResults).length}`
-    );
+
+    const passedTests = localResults.filter((t) => t[1] === "✅").length;
+    const totalTests = localResults.length;
+    console.log(`Finished running tests! Passed ${passedTests}/${totalTests} tests.`);
 };
 
 const testGroups = tests
@@ -115,7 +111,7 @@ type TestDrawerProps = {
 
 const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
     const testsRunning = useSignal<boolean>(false);
-    const testResults = useSignal<TestResult>({});
+    const testResults = useSignal<TestResult>([]);
     const keptTests = useSignal<string[]>(testGroups);
 
     // Loading
@@ -138,12 +134,11 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
                     Icon={FileQuestion}
                     disabled={testsRunning.value}
                     onClick={() => {
-                        testResults.value = {};
+                        testResults.value = [];
                         testsRunning.value = true;
-                        runTests(
-                            keptTests.value,
-                            (r) => (testResults.value = { ...testResults.value, ...r })
-                        ).then(() => (testsRunning.value = false));
+                        runTests(keptTests.value, (r) => (testResults.value = [...r])).then(
+                            () => (testsRunning.value = false)
+                        );
                     }}
                 />
                 <IconButton
@@ -164,9 +159,15 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
             >
                 {testGroups.map((group) => {
                     const selected = keptTests.value.includes(group);
-                    const matchingTests = Object.entries(testResults.value).filter(
-                        (v) => v[1].group === group
-                    );
+                    const matchingTests = tests
+                        .filter((t) => `${t.testType}/${t.subTestType}` === group)
+                        .map(
+                            (t) => [t, testResults.value.find((r) => r[0] === t)?.[1]] as const
+                        );
+
+                    const passedTests = matchingTests.filter((v) => v[1] === "✅").length;
+                    const totalTests = matchingTests.length;
+
                     return (
                         <Fragment key={group}>
                             <label>
@@ -174,11 +175,7 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
                                     {group}
                                     {selected && matchingTests.length > 0 && (
                                         <strong>
-                                            {
-                                                matchingTests.filter((v) => v[1].state === "✅")
-                                                    .length
-                                            }
-                                            /{matchingTests.length}
+                                            {passedTests}/{totalTests}
                                         </strong>
                                     )}
                                 </span>
@@ -194,17 +191,15 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
                                 />
                             </label>
                             {selected &&
-                                matchingTests.map(([testName, { state }]) => (
+                                matchingTests.map(([test, state]) => (
                                     <button
-                                        key={testName}
+                                        key={test.file}
                                         className="test-result"
                                         onClick={() =>
-                                            loadTestRom(group.split("/")[0], testName).then(
-                                                loadRom
-                                            )
+                                            loadTestRom(test.testType, test.file).then(loadRom)
                                         }
                                     >
-                                        <span className="test-name">{testName}</span>
+                                        <span className="test-name">{test.file}</span>
                                         <span className="test-state">{state}</span>
                                     </button>
                                 ))}
