@@ -218,7 +218,7 @@ const App: FunctionalComponent = () => {
 
     return (
         <>
-            <Drawer loadRom={(rom) => loadGame(rom)} />
+            <Drawer loadRom={loadRom} />
 
             <div id="emulator">
                 <h1>Emmy</h1>

@@ -242,14 +242,17 @@ class PPU implements Addressable {
      * @link https://gbdev.io/pandocs/pixel_fifo.html
      */
     tick(system: Addressable, interrupts: Interrupts, isMCycle: boolean): boolean {
+        const isLcdOn = this.lcdControl.flag(LCDC_LCD_ENABLE);
+
         this.oam.tick(system);
 
         this.haltCpu = this.vramControl.tick(
             system,
-            this.mode === MODE_HBLANK && this.lcdY.get() < SCREEN_HEIGHT
+            this.mode === MODE_HBLANK && this.lcdY.get() < SCREEN_HEIGHT,
+            isLcdOn
         );
 
-        if (!isMCycle || !this.lcdControl.flag(LCDC_LCD_ENABLE)) return this.haltCpu;
+        if (!isMCycle || !isLcdOn) return this.haltCpu;
 
         // Update interrupt line from previous write operations?
         if (this.nextInterruptLineUpdate !== null) {

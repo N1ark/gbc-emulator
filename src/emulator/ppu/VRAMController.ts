@@ -47,9 +47,10 @@ abstract class VRAMController implements Addressable {
      * Ticks the VRAM. This does nothing on DMG, but ticks the VRAM-DMA on CGB.
      * @param system The system of the Gameboy. Used for the DMA.
      * @param isInHblank If the PPU is in a HBlank and LY=0-143.
+     * @param isLcdOn If the LCD is on.
      * @returns If the CPU should be halted (because a DMA is in progress)
      */
-    tick(system: Addressable, isInHblank: boolean): boolean {
+    tick(system: Addressable, isInHblank: boolean, isLcdOn: boolean): boolean {
         return false;
     }
 
@@ -112,6 +113,7 @@ class CGBVRAMController extends VRAMController {
     protected dmaInProgress: DMAState = DMAState.NONE;
     /** Number of bytes in the current block that were transferred [0-16] */
     protected dmaSubSteps: number = 0;
+    protected isFirstDmaBlock: boolean = false;
 
     protected hdma1 = new Register();
     protected hdma2 = new Register();
@@ -149,7 +151,10 @@ class CGBVRAMController extends VRAMController {
         }
     }
 
-    override tick(system: Addressable, isInHblank: boolean): boolean {
+    override tick(system: Addressable, isInHblank: boolean, isLcdOn: boolean): boolean {
+        if (!isLcdOn && !this.isFirstDmaBlock) {
+            return false;
+        }
         if (
             (this.dmaInProgress === DMAState.HBLANK && isInHblank) ||
             this.dmaInProgress === DMAState.GENERAL
@@ -166,6 +171,7 @@ class CGBVRAMController extends VRAMController {
 
             if (this.dmaSubSteps === 16) {
                 this.dmaSubSteps = 0;
+                this.isFirstDmaBlock = false;
 
                 const newSource = source + 16;
                 const newDest = dest + 16;
@@ -198,11 +204,11 @@ class CGBVRAMController extends VRAMController {
                     this.dmaInProgress = DMAState.NONE;
                 }
             }
-
             // Starts the transfer
             else {
                 this.dmaInProgress = value & HDMA5_MODE ? DMAState.HBLANK : DMAState.GENERAL;
                 this.dmaSubSteps = 0;
+                this.isFirstDmaBlock = true;
             }
         }
     }
