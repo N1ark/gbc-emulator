@@ -59,7 +59,8 @@ const rawTestFiles = {
             "ie_push",
             "if_ie_registers",
             "rapid_di_ei",
-            "reg_f"
+            "reg_f",
+            "unused_hwio-GS"
         ),
         ppu: dmgTests(
             "ppu_hblank_ly_scx_timing-GS",

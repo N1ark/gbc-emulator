@@ -58,11 +58,11 @@ class JoypadInput implements Addressable {
     read(): number {
         const data =
             this.currentlyReading === JoypadMode.BUTTONS ? this.buttonData : this.arrowsData;
-        return (CONTROL_BITS & this.register) | (~CONTROL_BITS & data);
+        return 0b1100_0000 | (CONTROL_BITS & this.register) | (~CONTROL_BITS & data);
     }
 
     write(_: number, data: number): void {
-        this.register = data;
+        this.register = data & 0b0011_0000;
 
         // the switch is done when the bit moves to a LOW state.
         if ((this.register & READ_ARROWS_BIT) === 0) this.currentlyReading = JoypadMode.ARROWS;

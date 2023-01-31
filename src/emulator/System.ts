@@ -99,7 +99,7 @@ class System implements Addressable {
         this.addressesRegisters = {
             0x00: this.joypad, // joypad
             0x01: registerSerial, // SB - serial data
-            0x02: Register00, // CB - serial control
+            0x02: RegisterFF, // CB - serial control
             ...rangeObject(0x04, 0x07, this.timer), // timer registers
             0x0f: this.interrupts, // IF
             ...rangeObject(0x10, 0x26, this.apu), // actual apu registers
@@ -111,7 +111,7 @@ class System implements Addressable {
             0x50: this.bootRomRegister, // boot rom register
             ...rangeObject(0x51, 0x55, this.ppu), // ppu vram dma registers
             ...rangeObject(0x68, 0x6b, this.ppu), // ppu palette registers (CGB only)
-            0x70: this.wram, // wram bank register
+            0x70: mode === ConsoleType.CGB ? this.wram : undefined, // wram bank register
             0x72: mode === ConsoleType.CGB ? new Register() : undefined, // undocumented register
             0x73: mode === ConsoleType.CGB ? new Register() : undefined, // undocumented register
             0x74: mode === ConsoleType.CGB ? new Register() : undefined, // undocumented register
