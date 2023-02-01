@@ -50,7 +50,7 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
 
     for (const test of tests) {
         const { testType, subTestType, file, consoleType, check } = test;
-        if (validGroups.length && !validGroups.includes(`${testType}/${subTestType}`)) continue;
+        if (!validGroups.includes(`${testType}/${subTestType}`)) continue;
 
         console.log(`Running test ${testType}/${subTestType} -> ${file}`);
 
