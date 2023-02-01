@@ -266,11 +266,13 @@ const App: FunctionalComponent = () => {
 
                 {gameboy && (
                     <div id="emu-stack">
-                        <div id="emu-stats">
-                            <div ref={stepCount} />
-                            <div ref={cyclesPerSec} />
-                            <div ref={millisPerFrame} />
-                        </div>
+                        {config.showStats && (
+                            <div id="emu-stats">
+                                <div ref={stepCount} />
+                                <div ref={cyclesPerSec} />
+                                <div ref={millisPerFrame} />
+                            </div>
+                        )}
                         <div id="emu-screens">
                             <Screen
                                 inputRef={emulatorFrameIn}
@@ -290,7 +292,7 @@ const App: FunctionalComponent = () => {
                                 </>
                             )}
                         </div>
-                        {serialOut.value.length > 0 && (
+                        {config.showSerialOutput && serialOut.value.length > 0 && (
                             <code
                                 className={
                                     serialOut.value.toLowerCase().includes("error")

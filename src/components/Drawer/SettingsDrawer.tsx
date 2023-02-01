@@ -13,6 +13,8 @@ import {
     FileX2,
     Gamepad,
     Palette,
+    MessageSquare,
+    LineChart,
 } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import Grid2x from "./Grid2x";
@@ -37,7 +39,16 @@ const availableFilters = [
 
 const SettingsDrawer: FunctionalComponent = () => {
     const [
-        { filter: currentFilter, frameBlending, scale, bootRom, console, volume },
+        {
+            filter: currentFilter,
+            frameBlending,
+            scale,
+            bootRom,
+            console,
+            volume,
+            showSerialOutput,
+            showStats,
+        },
         setConfig,
     ] = useConfig();
 
@@ -96,15 +107,6 @@ const SettingsDrawer: FunctionalComponent = () => {
             </div>
 
             <div className="drawer-section-title">
-                <div>Frame Blending:</div>
-                <IconButton
-                    title="Toggle blending"
-                    Icon={frameBlending ? Image : ImageOff}
-                    onClick={() => setConfig({ frameBlending: !frameBlending })}
-                />
-            </div>
-
-            <div className="drawer-section-title">
                 <div>Volume:</div>
 
                 <input
@@ -118,11 +120,37 @@ const SettingsDrawer: FunctionalComponent = () => {
             </div>
 
             <div className="drawer-section-title">
-                <div>Boot Rom:</div>
+                <div>Other:</div>
                 <IconButton
                     title="Boot ROM"
                     Icon={bootRom === "real" ? FileDigit : FileX2}
                     onClick={() => setConfig({ bootRom: bootRom === "none" ? "real" : "none" })}
+                    toggled={bootRom === "real"}
+                    showTooltip
+                />
+
+                <IconButton
+                    title="Toggle blending"
+                    Icon={frameBlending ? Image : ImageOff}
+                    onClick={() => setConfig({ frameBlending: !frameBlending })}
+                    toggled={frameBlending}
+                    showTooltip
+                />
+
+                <IconButton
+                    title="Show Serial Output"
+                    Icon={MessageSquare}
+                    onClick={() => setConfig({ showSerialOutput: !showSerialOutput })}
+                    toggled={showSerialOutput}
+                    showTooltip
+                />
+
+                <IconButton
+                    title="Show Stats"
+                    Icon={LineChart}
+                    onClick={() => setConfig({ showStats: !showStats })}
+                    toggled={showStats}
+                    showTooltip
                 />
             </div>
         </div>

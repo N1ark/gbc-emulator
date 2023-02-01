@@ -27,10 +27,6 @@
     margin: 0;
 }
 
-.drawer-section > .drawer-content {
-    overflow: hidden;
-}
-
 .drawer-section > .drawer-content > div {
     background-color: #242424;
     border-radius: 8px;

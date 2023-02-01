@@ -106,6 +106,7 @@ code.error {
 }
 
 button {
+    position: relative;
     border-radius: 8px;
     border: 1px solid transparent;
     padding: 0.6em 1.2em;
@@ -141,6 +142,28 @@ button.icon-button svg {
 
 button.icon-button.toggled {
     border-color: greenyellow;
+}
+
+button > .tooltip {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    opacity: 0;
+    margin-top: -1.5em;
+    width: max-content;
+    background-color: #1a1a1a77;
+    font-size: 1.3em;
+    padding: 2px;
+    border-radius: 2px;
+    transition: opacity 0.1s ease;
+    pointer-events: none;
+}
+
+button:hover > .tooltip {
+    display: block;
+    opacity: 1;
 }
 
 @media (prefers-color-scheme: light) {

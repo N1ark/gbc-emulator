@@ -124,12 +124,14 @@ class GameBoyColor {
             if (cpuIsDone) {
                 if (isDebugging) return true; // going step by step?
 
-                const foundBreakpoint = this.breakpoints.find(
-                    (breakpoint) =>
-                        (typeof breakpoint === "number" && breakpoint === this.cpu.getPC()) ||
-                        (typeof breakpoint === "function" && breakpoint(this))
-                );
-                if (foundBreakpoint) return true; // breakpoint hit?
+                for (const breakpoint of this.breakpoints) {
+                    if (typeof breakpoint === "number" && breakpoint === this.cpu.getPC()) {
+                        return true;
+                    }
+                    if (typeof breakpoint === "function" && breakpoint(this)) {
+                        return true;
+                    }
+                }
             }
         }
         this.cycles %= cycleTarget; // keep leftover cycles

@@ -10,6 +10,8 @@ export type Configuration = {
     bootRom: "none" | "real";
     console: "dmg" | "cgb";
     volume: number;
+    showSerialOutput: boolean;
+    showStats: boolean;
 };
 
 const IdentitySave = { to: (v: any) => v, from: (v: any) => v };
@@ -30,6 +32,8 @@ const configLoaders: {
     bootRom: IdentitySave,
     console: IdentitySave,
     volume: IdentitySave,
+    showSerialOutput: IdentitySave,
+    showStats: IdentitySave,
 };
 
 const defaultConfig: Configuration = {
@@ -40,6 +44,8 @@ const defaultConfig: Configuration = {
     bootRom: "none",
     console: "dmg",
     volume: 0.5,
+    showSerialOutput: false,
+    showStats: false,
 };
 
 const configToString = (config: Configuration): string =>

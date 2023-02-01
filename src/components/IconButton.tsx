@@ -8,6 +8,7 @@ type IconButtonProps = {
     toggled?: boolean;
     disabled?: boolean;
     onClick?: () => void;
+    showTooltip?: boolean;
 };
 
 const IconButton: FunctionalComponent<IconButtonProps> = ({
@@ -17,6 +18,7 @@ const IconButton: FunctionalComponent<IconButtonProps> = ({
     toggled,
     disabled,
     onClick,
+    showTooltip,
 }) => {
     return (
         <button
@@ -26,6 +28,7 @@ const IconButton: FunctionalComponent<IconButtonProps> = ({
             disabled={disabled}
             id={id}
         >
+            {showTooltip && <div className="tooltip">{title}</div>}
             <Icon />
         </button>
     );
