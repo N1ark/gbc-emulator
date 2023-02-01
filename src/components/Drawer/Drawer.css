@@ -1,11 +1,7 @@
 /* General drawer */
 
 #drawer {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 240px;
+    position: relative;
     background-color: #303030;
     padding: 1em;
     overflow-y: auto;

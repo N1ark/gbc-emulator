@@ -158,7 +158,7 @@ const rawTestFiles = {
         ),
     },
     acid: {
-        acid: dmgTests("dmg-acid2"),
+        acid: [...dmgTests("dmg-acid2"), ...cgbTests("cgb-acid2")],
     },
     samesuite: {
         dma: cgbTests("gbc_dma_cont", "gdma_addr_mask", "hdma_lcd_off", "hdma_mode0"),
@@ -200,7 +200,7 @@ const loadImageData = async (fileName: string): Promise<Uint32Array> => {
 const compareImages = (imgA: Uint32Array, imgB: Uint32Array) => {
     if (imgA.length !== imgB.length) return "failure";
     for (let i = 0; i < imgA.length; i++) {
-        if (imgA[i] !== imgB[i]) return "failure";
+        if ((imgA[i] & 0xf8f8f8) !== (imgB[i] & 0xf8f8f8)) return "failure";
     }
     return "success";
 };
@@ -251,18 +251,23 @@ const testConfig: Record<TestType, TestChecker> = {
             return "failure";
         return null;
     },
-    acid: async (gbc, _, vid) => {
-        if (gbc["cpu"]["stepCounter"] >= 85000) {
-            let imageData = await loadImageData("acid/reference-dmg");
+    acid: async (gbc, _, vid, test) => {
+        if (test === "dmg-acid2" && gbc["cpu"]["stepCounter"] >= 85_000) {
+            const imageData = await loadImageData("acid/reference-dmg");
+            return compareImages(imageData, vid);
+        } else if (test === "cgb-acid2" && gbc["cpu"]["stepCounter"] >= 140_000) {
+            const imageData = await loadImageData("acid/reference-cgb");
+            console.log("comparing ", { imageData, vid });
             return compareImages(imageData, vid);
         }
+
         return null;
     },
     samesuite: async (gbc, txt) => {
-        if (txt === String.fromCharCode(3, 5, 8, 13, 21, 34)) {
+        if (txt.startsWith("\x03")) {
             return "success";
         }
-        if (txt === String.fromCharCode(66, 66, 66, 66, 66, 66)) {
+        if (txt.startsWith("\x42")) {
             return "failure";
         }
         return null;

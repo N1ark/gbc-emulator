@@ -12,7 +12,7 @@ type DrawerProps = {
 };
 
 const Drawer: FunctionalComponent<DrawerProps> = ({ loadRom }) => (
-    <Resizable initalWidth={240} id="drawer">
+    <Resizable initalWidth={485} id="drawer">
         <DrawerSection title="settings">
             <SettingsDrawer />
         </DrawerSection>

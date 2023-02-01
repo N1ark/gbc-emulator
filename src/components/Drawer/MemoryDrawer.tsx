@@ -25,9 +25,16 @@ const refreshMemory = (offset: number) => {
     return memory;
 };
 
+const MEMORY_DRAWER_LOCAL_STORAGE_KEY = "memory-drawer-offset";
+
 const MemoryDrawer: FunctionalComponent = () => {
     const memory = useSignal<string>("");
     const offset = useSignal<number>(0);
+
+    useEffect(() => {
+        const value = localStorage.getItem(MEMORY_DRAWER_LOCAL_STORAGE_KEY);
+        if (value) offset.value = +value;
+    }, []);
 
     useEffect(() => {
         const callbackId = setInterval(() => {
@@ -43,7 +50,13 @@ const MemoryDrawer: FunctionalComponent = () => {
                 <input
                     type="text"
                     value={offset.value.toString(16).padStart(4, "0")}
-                    onChange={(e) => (offset.value = Number(`0x${e.currentTarget.value}`))}
+                    onChange={(e) => {
+                        offset.value = Number(`0x${e.currentTarget.value}`);
+                        localStorage.setItem(
+                            MEMORY_DRAWER_LOCAL_STORAGE_KEY,
+                            offset.value.toString()
+                        );
+                    }}
                 />
             </div>
             <div className="memory-output">{memory}</div>

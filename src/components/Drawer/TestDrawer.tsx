@@ -56,7 +56,7 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
 
         const romArray = await loadTestRom(testType, file);
 
-        let videoOut: Uint32Array = new Uint32Array();
+        let videoOut: Uint32Array = new Uint32Array(160 * 144);
         let serialOut: string = "";
         let state: TestOutput;
 
@@ -64,7 +64,7 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
             const gbc = makeGameboy(
                 consoleType,
                 romArray,
-                (v) => (videoOut = v),
+                (v) => videoOut.set(v),
                 (s) => (serialOut += s)
             );
 
