@@ -152,9 +152,6 @@ class CGBVRAMController extends VRAMController {
     }
 
     override tick(system: Addressable, isInHblank: boolean, isLcdOn: boolean): boolean {
-        if (!isLcdOn && !this.isFirstDmaBlock) {
-            return false;
-        }
         if (
             (this.dmaInProgress === DMAState.HBLANK && isInHblank) ||
             this.dmaInProgress === DMAState.GENERAL
@@ -186,6 +183,7 @@ class CGBVRAMController extends VRAMController {
                     this.hdma5.set(length - 1);
                 } else {
                     this.dmaInProgress = DMAState.NONE;
+                    this.hdma5.set(0xff);
                 }
             }
 
@@ -200,28 +198,17 @@ class CGBVRAMController extends VRAMController {
         if (address === 0xff55) {
             // Interrupts the transfer
             if (this.dmaInProgress !== DMAState.NONE) {
-                if (value & HDMA5_MODE) {
-                    this.dmaInProgress = DMAState.NONE;
-                }
+                this.dmaInProgress = DMAState.NONE;
+                this.hdma5.set(this.hdma5.get() | HDMA5_MODE);
             }
             // Starts the transfer
             else {
                 this.dmaInProgress = value & HDMA5_MODE ? DMAState.HBLANK : DMAState.GENERAL;
                 this.dmaSubSteps = 0;
                 this.isFirstDmaBlock = true;
+                this.hdma5.set(this.hdma5.get() & ~HDMA5_MODE);
             }
         }
-    }
-
-    override read(pos: number): number {
-        if (pos === 0xff55) {
-            const hdma5 = this.hdma5.get();
-            return (
-                (hdma5 & HDMA5_LENGTH) | (this.dmaInProgress === DMAState.NONE ? HDMA5_MODE : 0)
-            );
-        }
-
-        return super.read(pos);
     }
 
     readBank0(pos: number): number {

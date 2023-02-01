@@ -25,6 +25,7 @@
     text-align: center;
     padding: 2rem;
     width: 100%;
+    overflow-x: auto;
 }
 
 a {
@@ -74,6 +75,7 @@ canvas {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
+    flex-wrap: wrap;
 }
 
 #emu-screens > * {

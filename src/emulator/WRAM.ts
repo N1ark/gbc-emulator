@@ -19,7 +19,7 @@ class GBCWRAM implements Addressable {
         const banks = [...new Array(7)].map(() => new CircularRAM(WRAM_BANK_SIZE, 0x1000));
         return [banks[0], banks[0], banks[1], banks[2], banks[3], banks[4], banks[5], banks[6]];
     })();
-    protected wramBank = new MaskRegister(0b1111_1000, 1);
+    protected wramBank = new MaskRegister(0b1111_1000);
 
     protected address(address: number): Addressable {
         if (address === 0xff70) return this.wramBank;

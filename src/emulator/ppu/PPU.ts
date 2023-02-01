@@ -44,7 +44,7 @@ const MODE_HBLANK_FIRST: PPUModeI = {
 const MODE_HBLANK: PPUModeI = {
     doTick: "tickHBlank",
     flag: 0b00,
-    cycles: 51,
+    cycles: 50,
     interrupt: 1 << 3,
 };
 const MODE_VBLANK: PPUModeI = {
@@ -56,7 +56,7 @@ const MODE_VBLANK: PPUModeI = {
 const MODE_SEARCHING_OAM: PPUModeI = {
     doTick: "tickSearchingOam",
     flag: 0b10,
-    cycles: 20,
+    cycles: 19,
     interrupt: 1 << 5,
 };
 const MODE_TRANSFERRING: PPUMode = {
@@ -298,13 +298,14 @@ class PPU implements Addressable {
 
         if (this.cycleCounter === MODE_HBLANK.cycles - this.transferExtraCycles) {
             this.cycleCounter = 0;
-            this.lcdY.set(wrap8(this.lcdY.get() + 1));
+            const lcdY = this.lcdY.get() + 1;
+            this.lcdY.set(lcdY);
 
-            if (this.lcdY.get() !== this.lcdYCompare.get()) {
+            if (lcdY !== this.lcdYCompare.get()) {
                 this.updateInterrupt(interrupts, { lycLyMatch: false });
             }
 
-            if (this.lcdY.get() === SCREEN_HEIGHT) {
+            if (lcdY === SCREEN_HEIGHT) {
                 this.mode = MODE_VBLANK;
             } else {
                 this.mode = MODE_SEARCHING_OAM;
@@ -329,11 +330,13 @@ class PPU implements Addressable {
             this.updateInterrupt(interrupts, { oamActive: false });
         } else if (this.cycleCounter === MODE_VBLANK.cycles) {
             this.cycleCounter = 0;
-            this.lcdY.set(wrap8(this.lcdY.get() + 1));
-            if (this.lcdY.get() === SCREEN_HEIGHT_WOFFSCREEN) {
+            const lcdY = this.lcdY.get() + 1;
+            if (lcdY === SCREEN_HEIGHT_WOFFSCREEN) {
                 this.lcdY.set(0);
                 this.windowLineCounter = 0;
                 this.mode = MODE_SEARCHING_OAM;
+            } else {
+                this.lcdY.set(lcdY);
             }
         }
     }
@@ -467,14 +470,12 @@ class PPU implements Addressable {
         data: Partial<typeof this.interruptLineState>
     ) {
         Object.assign(this.interruptLineState, data);
+        const lcdStatus = this.lcdStatus.get();
         const interruptState =
-            (this.lcdStatus.flag(STAT_LYC_LY_EQ_INT) && this.interruptLineState.lycLyMatch) ||
-            (this.lcdStatus.flag(MODE_HBLANK.interrupt) &&
-                this.interruptLineState.hblankActive) ||
-            (this.lcdStatus.flag(MODE_VBLANK.interrupt) &&
-                this.interruptLineState.vblankActive) ||
-            (this.lcdStatus.flag(MODE_SEARCHING_OAM.interrupt) &&
-                this.interruptLineState.oamActive);
+            (lcdStatus & STAT_LYC_LY_EQ_INT && this.interruptLineState.lycLyMatch) ||
+            (lcdStatus & MODE_HBLANK.interrupt && this.interruptLineState.hblankActive) ||
+            (lcdStatus & MODE_VBLANK.interrupt && this.interruptLineState.vblankActive) ||
+            (lcdStatus & MODE_SEARCHING_OAM.interrupt && this.interruptLineState.oamActive);
 
         this.lcdStatus.sflag(STAT_LYC_LY_EQ_FLAG, this.interruptLineState.lycLyMatch);
 
@@ -482,7 +483,7 @@ class PPU implements Addressable {
         if (interrupts && interruptState && !this.interruptStateBefore) {
             interrupts.requestInterrupt(IFLAG_LCDC);
         }
-        this.interruptStateBefore = interruptState;
+        this.interruptStateBefore = !!interruptState;
     }
 
     protected bgPriorities = new Uint8Array(SCREEN_WIDTH);
@@ -844,6 +845,11 @@ class PPU implements Addressable {
                 // console.warn("disabled LCD");
                 this.lcdY.set(0);
                 this.setMode(MODE_HBLANK_FIRST);
+
+                this.canWriteOam = true;
+                this.canReadOam = true;
+                this.canWriteVram = true;
+                this.canReadVram = true;
             }
             // Will enable LCD
             else if (!isEnabled && willEnable) {

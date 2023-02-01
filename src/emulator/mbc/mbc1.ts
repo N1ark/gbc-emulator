@@ -23,6 +23,7 @@ class MBC1 extends MBC {
     protected bankingModeSelect = new Register(0x00);
     /** The RAM contained in the ROM (ERAM). */
     protected ram: RAM;
+    protected hasRam: boolean;
 
     constructor(data: Uint8Array, { hasRam }: MBC1Params) {
         super(data);
@@ -33,6 +34,7 @@ class MBC1 extends MBC {
         if (ramSize === undefined)
             throw new Error(`Invalid RAM size header value: ${ramSizeCode.toString(16)}`);
         this.ram = new RAM(ramSize);
+        this.hasRam = hasRam && this.ram.size > 0;
     }
 
     /**
@@ -75,7 +77,7 @@ class MBC1 extends MBC {
             case 0xa:
             case 0xb: {
                 // RAM disabled
-                if (this.ramEnable.get() !== RAM_ENABLED) return 0xff;
+                if (!this.hasRam || this.ramEnable.get() !== RAM_ENABLED) return 0xff;
                 const address = this.resolveERAMAddress(pos);
                 return this.ram.read(address);
             }
