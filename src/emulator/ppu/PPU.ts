@@ -44,7 +44,7 @@ const MODE_HBLANK_FIRST: PPUModeI = {
 const MODE_HBLANK: PPUModeI = {
     doTick: "tickHBlank",
     flag: 0b00,
-    cycles: 50,
+    cycles: 51,
     interrupt: 1 << 3,
 };
 const MODE_VBLANK: PPUModeI = {
@@ -56,7 +56,7 @@ const MODE_VBLANK: PPUModeI = {
 const MODE_SEARCHING_OAM: PPUModeI = {
     doTick: "tickSearchingOam",
     flag: 0b10,
-    cycles: 19,
+    cycles: 20,
     interrupt: 1 << 5,
 };
 const MODE_TRANSFERRING: PPUMode = {
