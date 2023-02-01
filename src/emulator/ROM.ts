@@ -1,5 +1,6 @@
 import MBC from "./mbc/abstract";
 import MBC1 from "./mbc/mbc1";
+import MBC2 from "./mbc/mbc2";
 import MBC3 from "./mbc/mbc3";
 import MBC5 from "./mbc/mbc5";
 import NoMBC from "./mbc/nombc";
@@ -34,6 +35,9 @@ class ROM implements Addressable {
             0x01: () => new MBC1(data, { hasRam: false }),
             0x02: () => new MBC1(data, { hasRam: true }),
             0x03: () => new MBC1(data, { hasRam: true }),
+            // MBC2
+            0x05: () => new MBC2(data),
+            0x06: () => new MBC2(data),
             // MBC3
             0x0f: () => new MBC3(data, { hasTimer: true, hasRam: false }),
             0x10: () => new MBC3(data, { hasTimer: true, hasRam: true }),
