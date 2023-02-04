@@ -68,14 +68,14 @@ const defaultConfig: Configuration = {
     showStats: false,
     showDebugScreens: false,
 
-    controlArrowUp: "arrowup",
-    controlArrowDown: "arrowdown",
-    controlArrowLeft: "arrowleft",
-    controlArrowRight: "arrowright",
-    controlA: "g",
-    controlB: "b",
-    controlStart: "h",
-    controlSelect: "n",
+    controlArrowUp: "ArrowUp",
+    controlArrowDown: "ArrowDown",
+    controlArrowLeft: "ArrowLeft",
+    controlArrowRight: "ArrowRight",
+    controlA: "z",
+    controlB: "x",
+    controlStart: "Enter",
+    controlSelect: "Backspace",
 };
 
 const configToString = (config: Configuration): string =>
