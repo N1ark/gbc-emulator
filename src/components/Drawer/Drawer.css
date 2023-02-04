@@ -50,6 +50,11 @@
     margin-left: 8px;
 }
 
+.drawer-section-description {
+    font-size: 14px;
+    padding: 4px;
+}
+
 /* Test Drawer */
 
 .test-drawer label {
@@ -141,4 +146,22 @@
     white-space: pre-wrap;
     text-align: start;
     line-height: 110%;
+}
+
+/* Keys drawer */
+
+.keys-drawer {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+.keys-drawer > div {
+    width: 20%;
+    text-align: center;
+}
+
+.keys-drawer > button {
+    width: 25%;
 }

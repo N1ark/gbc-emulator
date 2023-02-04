@@ -1,0 +1,31 @@
+.keybinding-input {
+    text-align: center;
+    font-family: "Fira Code", monospace;
+    font-size: 12px;
+    background: #1e1e1e;
+    margin: 1px;
+    padding: 1px;
+    border-radius: 4px;
+}
+
+.keybinding-input:focus {
+    background: #2d2d2d;
+}
+
+/* Animate text pulsating */
+.keybinding-input.editing {
+    font-weight: bolder;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        color: #eee;
+    }
+    50% {
+        color: #888;
+    }
+    100% {
+        color: #eee;
+    }
+}

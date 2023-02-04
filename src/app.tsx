@@ -19,17 +19,6 @@ import { useConfig } from "./helpers/ConfigContext";
 const CACHE_KEY = "rom";
 
 const App: FunctionalComponent = () => {
-    const pressedKeys = useKeys([
-        "arrowup",
-        "arrowdown",
-        "arrowleft",
-        "arrowright",
-        "g",
-        "b",
-        "h",
-        "n",
-    ]);
-
     // Interaction
     const debugEnabled = useSignal(false);
     const tripleSpeed = useSignal(false);
@@ -41,6 +30,16 @@ const App: FunctionalComponent = () => {
         volume.value = config.volume;
     }, [config.volume]);
     const soundOutput = useSignal<AudioPlayer | undefined>(undefined);
+    const pressedKeys = useKeys([
+        config.controlArrowUp,
+        config.controlArrowDown,
+        config.controlArrowLeft,
+        config.controlArrowRight,
+        config.controlA,
+        config.controlB,
+        config.controlStart,
+        config.controlSelect,
+    ]);
 
     // DOM Refs
     const emulatorFrameIn = useRef<VideoReceiver | undefined>(undefined);
@@ -77,14 +76,14 @@ const App: FunctionalComponent = () => {
 
             const gameIn: GameBoyInput = {
                 read: () => ({
-                    up: pressedKeys.includes("arrowup"),
-                    down: pressedKeys.includes("arrowdown"),
-                    left: pressedKeys.includes("arrowleft"),
-                    right: pressedKeys.includes("arrowright"),
-                    a: pressedKeys.includes("g"),
-                    b: pressedKeys.includes("b"),
-                    start: pressedKeys.includes("h"),
-                    select: pressedKeys.includes("n"),
+                    up: pressedKeys.includes(config.controlArrowUp),
+                    down: pressedKeys.includes(config.controlArrowDown),
+                    left: pressedKeys.includes(config.controlArrowLeft),
+                    right: pressedKeys.includes(config.controlArrowRight),
+                    a: pressedKeys.includes(config.controlA),
+                    b: pressedKeys.includes(config.controlB),
+                    start: pressedKeys.includes(config.controlStart),
+                    select: pressedKeys.includes(config.controlSelect),
                 }),
             };
 

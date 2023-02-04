@@ -1,11 +1,12 @@
 import { FunctionalComponent } from "preact";
 import { Resizable } from "../Resizable";
-import "./Drawer.css";
 import DrawerSection from "./DrawerSection";
 import ExpressionDrawer from "./ExpressionDrawer";
+import KeysDrawer from "./KeysDrawer";
 import MemoryDrawer from "./MemoryDrawer";
 import SettingsDrawer from "./SettingsDrawer";
 import TestDrawer from "./TestDrawer";
+import "./Drawer.css";
 
 type DrawerProps = {
     loadRom: (rom: Uint8Array) => void;
@@ -24,6 +25,9 @@ const Drawer: FunctionalComponent<DrawerProps> = ({ loadRom }) => (
         </DrawerSection>
         <DrawerSection title="memory">
             <MemoryDrawer />
+        </DrawerSection>
+        <DrawerSection title="keybindings">
+            <KeysDrawer />
         </DrawerSection>
     </Resizable>
 );

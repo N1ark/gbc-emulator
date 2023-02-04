@@ -4,8 +4,10 @@ const useKeys = (codes: string[] = []) => {
     const pressedKeys = useRef<string[]>([]);
 
     useEffect(() => {
+        const codesLower = codes.map((code) => code.toLowerCase());
+
         const keyDownListener = (e: KeyboardEvent) => {
-            if (!codes.includes(e.key.toLowerCase())) return;
+            if (!codesLower.includes(e.key.toLowerCase())) return;
 
             var target = (e.target || e.srcElement) as HTMLElement;
             var targetTagName = target === null ? "null" : target.nodeName.toUpperCase();
@@ -14,22 +16,19 @@ const useKeys = (codes: string[] = []) => {
             }
 
             e.preventDefault();
-            const key = e.key.toLowerCase();
-            const index = pressedKeys.current.indexOf(key);
+            const index = pressedKeys.current.indexOf(e.key);
             if (index === -1) {
-                pressedKeys.current.push(key);
+                pressedKeys.current.push(e.key);
             }
         };
         const keyUpListener = (e: KeyboardEvent) => {
-            if (!codes.includes(e.key.toLowerCase())) return;
+            if (!codesLower.includes(e.key.toLowerCase())) return;
 
-            const key = e.key.toLowerCase();
-            const index = pressedKeys.current.indexOf(key);
+            const index = pressedKeys.current.indexOf(e.key);
             if (index !== -1) {
                 pressedKeys.current.splice(index, 1);
             }
         };
-
         document.addEventListener("keydown", keyDownListener);
         document.addEventListener("keyup", keyUpListener);
 
@@ -37,7 +36,7 @@ const useKeys = (codes: string[] = []) => {
             document.removeEventListener("keydown", keyDownListener);
             document.removeEventListener("keyup", keyUpListener);
         };
-    }, []);
+    }, [codes]);
 
     return pressedKeys.current;
 };

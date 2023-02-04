@@ -12,6 +12,15 @@ export type Configuration = {
     volume: number;
     showSerialOutput: boolean;
     showStats: boolean;
+
+    controlArrowUp: string;
+    controlArrowDown: string;
+    controlArrowLeft: string;
+    controlArrowRight: string;
+    controlA: string;
+    controlB: string;
+    controlStart: string;
+    controlSelect: string;
 };
 
 const IdentitySave = { to: (v: any) => v, from: (v: any) => v };
@@ -34,6 +43,15 @@ const configLoaders: {
     volume: IdentitySave,
     showSerialOutput: IdentitySave,
     showStats: IdentitySave,
+
+    controlArrowUp: IdentitySave,
+    controlArrowDown: IdentitySave,
+    controlArrowLeft: IdentitySave,
+    controlArrowRight: IdentitySave,
+    controlA: IdentitySave,
+    controlB: IdentitySave,
+    controlStart: IdentitySave,
+    controlSelect: IdentitySave,
 };
 
 const defaultConfig: Configuration = {
@@ -46,6 +64,15 @@ const defaultConfig: Configuration = {
     volume: 0.5,
     showSerialOutput: false,
     showStats: false,
+
+    controlArrowUp: "arrowup",
+    controlArrowDown: "arrowdown",
+    controlArrowLeft: "arrowleft",
+    controlArrowRight: "arrowright",
+    controlA: "g",
+    controlB: "b",
+    controlStart: "h",
+    controlSelect: "n",
 };
 
 const configToString = (config: Configuration): string =>
