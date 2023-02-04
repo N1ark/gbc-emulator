@@ -1,5 +1,5 @@
 import { useSignal } from "@preact/signals";
-import { Bug, FastForward, Pause, Play, Redo, Volume2, VolumeX } from "lucide-preact";
+import { Bug, FastForward, Pause, Play, Redo, Save, Volume2, VolumeX } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import localforage from "localforage";
@@ -17,10 +17,10 @@ import AudioPlayer from "@/helpers/AudioPlayer";
 import { useConfig } from "./helpers/ConfigContext";
 
 const CACHE_KEY = "rom";
+const SAVE_CACHE_KEY = "save_";
 
 const App: FunctionalComponent = () => {
     // Interaction
-    const debugEnabled = useSignal(false);
     const tripleSpeed = useSignal(false);
     const emulatorRunning = useSignal(true);
     const canStep = useSignal(true);
@@ -67,13 +67,41 @@ const App: FunctionalComponent = () => {
         }
     };
 
+    const saveGame = useCallback(() => {
+        if (gameboy) {
+            const save = gameboy.save();
+            if (save) {
+                localforage.setItem(SAVE_CACHE_KEY + gameboy.getIdentifier(), save, (err) => {
+                    if (err)
+                        console.error(
+                            `Could not save game ${gameboy.getTitle()} (${gameboy.getIdentifier()}):`,
+                            err
+                        );
+                    else
+                        console.log(
+                            `Saved game ${gameboy.getTitle()} (${gameboy.getIdentifier()})`
+                        );
+                });
+            }
+        }
+    }, [gameboy]);
+
+    /** Backup  */
+    useEffect(() => {
+        window.addEventListener("beforeunload", saveGame);
+        return () => window.removeEventListener("beforeunload", saveGame);
+    }, [saveGame]);
+
     /**
      * Loads a ROM into the gameboy, instantiating it. Also creates the 2nd emulator if needed
      */
     const loadGame = useCallback(
         (rom: Uint8Array) => {
+            /** Save previous state, clear variables */
+            saveGame();
             serialOut.value = "";
 
+            /** Setup input (relies on the fact pressedKeys doesn't change) */
             const gameIn: GameBoyInput = {
                 read: () => ({
                     up: pressedKeys.includes(config.controlArrowUp),
@@ -87,6 +115,7 @@ const App: FunctionalComponent = () => {
                 }),
             };
 
+            /** Setup output (relies on most things not changing) */
             const gbOut: GameBoyOutput = {
                 get receive() {
                     return emulatorFrameIn.current;
@@ -113,6 +142,7 @@ const App: FunctionalComponent = () => {
                 },
             };
 
+            /** Create the emulator (ensure it loads correctly.) */
             let gbc: GameBoyColor;
             try {
                 gbc = new GameBoyColor(
@@ -128,17 +158,47 @@ const App: FunctionalComponent = () => {
                 alert("Could not load ROM: " + e);
                 return;
             }
+
+            /** Load a save (if one exists) */
+            localforage.getItem<Uint8Array>(
+                SAVE_CACHE_KEY + gbc.getIdentifier(),
+                (err, save) => {
+                    if (save) {
+                        try {
+                            gbc.load(save);
+                            console.log(
+                                `Loaded save for ${gbc.getTitle()} (${gbc.getIdentifier()})`
+                            );
+                        } catch (e) {
+                            console.error(
+                                `Could not load save for ${gbc.getTitle()} (${gbc.getIdentifier()}):`,
+                                e
+                            );
+                        }
+                    }
+                }
+            );
+
             setGameboy(gbc);
 
+            /** Run the emulator (this is the "main loop") */
             const runEmulator = () => {
+                /**
+                 * This is a bit of a hack to ensure that the emulator doesn't run if the
+                 * instance has changed. It doesn't update the state, because the instance
+                 * remains the same.
+                 * This relies on the fact the state setter (setGameboy) doesn't change and is
+                 * synchronous.
+                 */
                 const expectedInstance = gbc;
                 let currentInstance: GameBoyColor | undefined = undefined;
-                setGameboy((g) => (currentInstance = g)); // update the current instance
+                setGameboy((g) => (currentInstance = g));
 
-                // if the instance has changed, don't run the emulator
+                // if the instance has changed, stop this loop.
                 if (currentInstance !== expectedInstance) return;
 
-                const speed = tripleSpeed.value ? 4 : 1;
+                /** Run the emulator */
+                const speed = tripleSpeed.value ? 3 : 1;
                 const brokeExecution = gbc.drawFrame(speed, !emulatorRunning.value);
 
                 /** Need to handle wait for a step to be made. */
@@ -165,7 +225,7 @@ const App: FunctionalComponent = () => {
 
             return gbc;
         },
-        [gameboy, debugEnabled, config]
+        [gameboy, config]
     );
 
     /**
@@ -208,10 +268,10 @@ const App: FunctionalComponent = () => {
      * Hot load: if a ROM is cached, instantly loads it on startup.
      */
     useEffect(() => {
-        localforage.getItem(CACHE_KEY, (err, value) => {
+        localforage.getItem<Uint8Array>(CACHE_KEY, (err, value) => {
             if (!value) return;
-            setLoadedGame(value as Uint8Array);
-            loadGame(value as Uint8Array);
+            setLoadedGame(value);
+            loadGame(value);
         });
     }, []);
 
@@ -232,6 +292,7 @@ const App: FunctionalComponent = () => {
                         onClick={() =>
                             (emulatorRunning.value = canStep.value = !emulatorRunning.value)
                         }
+                        showTooltip
                     />
 
                     <IconButton
@@ -239,27 +300,30 @@ const App: FunctionalComponent = () => {
                         Icon={Redo}
                         onClick={() => (canStep.value = true)}
                         disabled={emulatorRunning.value}
+                        showTooltip
                     />
 
                     <IconButton
-                        title="Sound"
+                        title="Sound Enabled"
                         onClick={toggleHasSound}
                         Icon={config.audioEnabled ? Volume2 : VolumeX}
-                    />
-
-                    <IconButton
-                        title="Debug"
-                        onClick={() => (debugEnabled.value = !debugEnabled.value)}
-                        Icon={Bug}
-                        toggled={debugEnabled.value}
+                        showTooltip
                     />
 
                     <IconButton
                         id="emu-speed"
-                        title="Double Speed"
+                        title="Triple Speed"
                         onClick={() => (tripleSpeed.value = !tripleSpeed.value)}
                         Icon={FastForward}
                         toggled={tripleSpeed.value}
+                        showTooltip
+                    />
+
+                    <IconButton
+                        title="Save Game"
+                        onClick={() => saveGame()}
+                        Icon={Save}
+                        showTooltip
                     />
                 </div>
 
@@ -280,7 +344,7 @@ const App: FunctionalComponent = () => {
                                 blending={config.frameBlending}
                                 id="emulator-frame"
                             />
-                            {debugEnabled.value && (
+                            {config.showDebugScreens && (
                                 <>
                                     <Screen width={256} height={256} inputRef={bgDebugger} />
                                     <Screen

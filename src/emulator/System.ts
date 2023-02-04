@@ -247,6 +247,26 @@ class System implements Addressable {
     pushOutput(output: GameBoyOutput) {
         this.ppu.pushOutput(output);
     }
+
+    /** Saves the current ROM state (null if no save support). */
+    save(): Uint8Array | null {
+        return this.rom.save();
+    }
+
+    /** Loads the given ROM data. */
+    load(data: Uint8Array): void {
+        this.rom.load(data);
+    }
+
+    /** Returns the title of the current ROM. */
+    getTitle(): string {
+        return this.rom.getTitle();
+    }
+
+    /** Returns the identifier of the current ROM */
+    getIdentifier(): string {
+        return this.rom.getIdentifier();
+    }
 }
 
 export default System;

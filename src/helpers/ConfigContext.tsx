@@ -12,6 +12,7 @@ export type Configuration = {
     volume: number;
     showSerialOutput: boolean;
     showStats: boolean;
+    showDebugScreens: boolean;
 
     controlArrowUp: string;
     controlArrowDown: string;
@@ -43,6 +44,7 @@ const configLoaders: {
     volume: IdentitySave,
     showSerialOutput: IdentitySave,
     showStats: IdentitySave,
+    showDebugScreens: IdentitySave,
 
     controlArrowUp: IdentitySave,
     controlArrowDown: IdentitySave,
@@ -64,6 +66,7 @@ const defaultConfig: Configuration = {
     volume: 0.5,
     showSerialOutput: false,
     showStats: false,
+    showDebugScreens: false,
 
     controlArrowUp: "arrowup",
     controlArrowDown: "arrowdown",

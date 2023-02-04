@@ -25,6 +25,22 @@ class AbstractMemory implements Addressable {
     write(pos: number, data: number): void {
         throw new Error("write is not implemented for this object.");
     }
+
+    /**
+     * Returns the raw data of this memory. Shouldn't be used for regular access - useful for
+     * backups and save states.
+     */
+    rawData(): Uint8Array {
+        return this.data;
+    }
+
+    /**
+     * Sets the raw data of this memory. Shouldn't be used for regular access - useful for backups
+     * and save states.
+     */
+    rawSet(data: Uint8Array): void {
+        this.data.set(data);
+    }
 }
 
 /**

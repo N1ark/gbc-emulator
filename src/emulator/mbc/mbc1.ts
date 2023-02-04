@@ -6,6 +6,7 @@ const RAM_ENABLED = 0x0a;
 
 type MBC1Params = {
     hasRam: boolean;
+    hasBattery: boolean;
 };
 
 /**
@@ -25,8 +26,8 @@ class MBC1 extends MBC {
     protected ram: RAM;
     protected hasRam: boolean;
 
-    constructor(data: Uint8Array, { hasRam }: MBC1Params) {
-        super(data);
+    constructor(data: Uint8Array, { hasRam, hasBattery }: MBC1Params) {
+        super(data, hasBattery);
 
         // Indicated in header https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size
         const ramSizeCode = this.data[0x0149];

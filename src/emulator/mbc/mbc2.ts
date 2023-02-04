@@ -5,6 +5,10 @@ import MBC from "./abstract";
 const RAM_ENABLED = 0x0a;
 const MBC2_ROM_BANK = 1 << 8;
 
+type MBC2Params = {
+    hasBattery: boolean;
+};
+
 /**
  * Implementation of MBC2.
  * @link https://gbdev.io/pandocs/MBC2.html
@@ -16,6 +20,10 @@ class MBC2 extends MBC {
     protected romBank = new Register(0x01);
     /** The RAM contained in the ROM (ERAM). */
     protected ram: RAM = new RAM(512);
+
+    constructor(data: Uint8Array, { hasBattery }: MBC2Params) {
+        super(data, hasBattery);
+    }
 
     /**
      * Reads from the ROM, taking into account banking and the control ROMs.

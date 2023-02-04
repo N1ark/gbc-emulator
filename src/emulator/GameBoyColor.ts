@@ -92,6 +92,26 @@ class GameBoyColor {
         }
     }
 
+    /** Saves the current ROM state (null if no save support). */
+    save(): Uint8Array | null {
+        return this.system.save();
+    }
+
+    /** Loads the given ROM data. */
+    load(data: Uint8Array): void {
+        this.system.load(data);
+    }
+
+    /** Returns the title of the current ROM. */
+    getTitle(): string {
+        return this.system.getTitle();
+    }
+
+    /** Returns the identifier of the current ROM. */
+    getIdentifier(): string {
+        return this.system.getIdentifier();
+    }
+
     /**
      * Draws a full frame
      * @param frames number of frames to draw (defaults to 1 to draw every frame - can be used

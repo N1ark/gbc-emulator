@@ -7,6 +7,7 @@ const RAM_ENABLED = 0x0a;
 type MBC3Params = {
     hasRam: boolean;
     hasTimer: boolean;
+    hasBattery: boolean;
 };
 
 /**
@@ -41,8 +42,8 @@ class MBC3 extends MBC {
         0x0c: this.rtcDH,
     };
 
-    constructor(data: Uint8Array, { hasRam, hasTimer }: MBC3Params) {
-        super(data);
+    constructor(data: Uint8Array, { hasRam, hasTimer, hasBattery }: MBC3Params) {
+        super(data, hasBattery);
 
         // Indicated in header https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size
         const ramSizeCode = this.data[0x0149];

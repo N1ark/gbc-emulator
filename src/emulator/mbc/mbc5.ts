@@ -7,6 +7,7 @@ const RAM_ENABLED = 0x0a;
 type MBC5Params = {
     hasRam: boolean;
     hasRumble: boolean;
+    hasBattery: boolean;
 };
 
 /**
@@ -25,8 +26,8 @@ class MBC5 extends MBC {
     /** The RAM contained in the ROM (ERAM). */
     protected ram: RAM;
 
-    constructor(data: Uint8Array, { hasRam, hasRumble }: MBC5Params) {
-        super(data);
+    constructor(data: Uint8Array, { hasRam, hasRumble, hasBattery }: MBC5Params) {
+        super(data, hasBattery);
 
         // Indicated in header https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size
         const ramSizeCode = this.data[0x0149];

@@ -15,6 +15,7 @@ import {
     Palette,
     MessageSquare,
     LineChart,
+    Bug,
 } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import Grid2x from "./Grid2x";
@@ -48,6 +49,7 @@ const SettingsDrawer: FunctionalComponent = () => {
             volume,
             showSerialOutput,
             showStats,
+            showDebugScreens,
         },
         setConfig,
     ] = useConfig();
@@ -150,6 +152,14 @@ const SettingsDrawer: FunctionalComponent = () => {
                     Icon={LineChart}
                     onClick={() => setConfig({ showStats: !showStats })}
                     toggled={showStats}
+                    showTooltip
+                />
+
+                <IconButton
+                    title="Debug"
+                    Icon={Bug}
+                    onClick={() => setConfig({ showDebugScreens: !showDebugScreens })}
+                    toggled={showDebugScreens}
                     showTooltip
                 />
             </div>
