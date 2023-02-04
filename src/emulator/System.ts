@@ -116,8 +116,8 @@ class System implements Addressable {
             0x73: mode === ConsoleType.CGB ? new Register() : undefined, // undocumented register
             0x74: mode === ConsoleType.CGB ? new Register() : undefined, // undocumented register
             0x75: mode === ConsoleType.CGB ? new MaskRegister(0b1000_1111) : undefined, // undocumented register
-            0x76: mode === ConsoleType.CGB ? Register00 : undefined, // undocumented register
-            0x77: mode === ConsoleType.CGB ? Register00 : undefined, // undocumented register
+            0x76: mode === ConsoleType.CGB ? this.apu : undefined, // PCM12
+            0x77: mode === ConsoleType.CGB ? this.apu : undefined, // PCM34
             ...rangeObject(0x80, 0xfe, this.hram), // hram
             0xff: this.interrupts, // IE
         };

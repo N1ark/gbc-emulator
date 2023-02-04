@@ -50,6 +50,10 @@ export class APU implements Addressable {
     /** Status and control register */
     protected nr52 = new MaskRegister(0b0111_0000, 0xf1);
 
+    /** PCM registers (CGB only) */
+    protected pcm12 = new Register();
+    protected pcm34 = new Register();
+
     /** Ticking control */
     protected oldDivBitState = false;
 
@@ -79,6 +83,14 @@ export class APU implements Addressable {
         this.channel3.tick(divChanged);
         this.channel4.tick(divChanged);
 
+        const chan1Out = this.channel1.getOutput();
+        const chan2Out = this.channel2.getOutput();
+        const chan3Out = this.channel3.getOutput();
+        const chan4Out = this.channel4.getOutput();
+
+        this.pcm12.set(chan1Out | (chan2Out << 4));
+        this.pcm34.set(chan3Out | (chan4Out << 4));
+
         if (++this.cyclesForSample >= CYCLES_PER_SAMPLE) {
             this.cyclesForSample -= CYCLES_PER_SAMPLE;
 
@@ -87,10 +99,10 @@ export class APU implements Addressable {
             const nr52 = this.nr52.get();
 
             // Get output from each channel (we only get it if it's used later on)
-            const out1 = (nr51 >> 0) | (nr51 >> 4) ? DAC(this.channel1.getOutput()) : 0;
-            const out2 = (nr51 >> 1) | (nr51 >> 5) ? DAC(this.channel2.getOutput()) : 0;
-            const out3 = (nr51 >> 2) | (nr51 >> 6) ? DAC(this.channel3.getOutput()) : 0;
-            const out4 = (nr51 >> 3) | (nr51 >> 7) ? DAC(this.channel4.getOutput()) : 0;
+            const out1 = (nr51 >> 0) | (nr51 >> 4) ? DAC(chan1Out) : 0;
+            const out2 = (nr51 >> 1) | (nr51 >> 5) ? DAC(chan2Out) : 0;
+            const out3 = (nr51 >> 2) | (nr51 >> 6) ? DAC(chan3Out) : 0;
+            const out4 = (nr51 >> 3) | (nr51 >> 7) ? DAC(chan4Out) : 0;
 
             // Mix right stereo side, enabling relevant channels
             const rightAudio =
@@ -134,6 +146,8 @@ export class APU implements Addressable {
         0xff25: this.nr51,
         0xff26: this.nr52,
         ...rangeObject(0xff30, 0xff3f, this.channel3), // wave RAM
+        0xff76: this.pcm12,
+        0xff77: this.pcm34,
     };
 
     read(pos: number): number {
@@ -142,6 +156,8 @@ export class APU implements Addressable {
 
     write(pos: number, data: number): void {
         const component = this.addresses[pos];
+
+        if (component === this.pcm12 || component === this.pcm34) return; // read-only
 
         // ignore writes to channel when turned off (except for NRX1 and wave RAM)
         if (
