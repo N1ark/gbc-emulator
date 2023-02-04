@@ -1,0 +1,30 @@
+#alert-box {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+    align-items: end;
+    pointer-events: none;
+}
+
+#alert-box .alert {
+    padding: 5px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    border-radius: 5px;
+    margin: 5px;
+    transition: opacity 0.2s ease;
+}
+
+#alert-box .alert.visible {
+    opacity: 1;
+}
+
+#alert-box .alert.fading {
+    opacity: 0;
+}

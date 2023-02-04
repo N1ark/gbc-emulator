@@ -34,6 +34,7 @@ const MemoryDrawer: FunctionalComponent = () => {
     useEffect(() => {
         const value = localStorage.getItem(MEMORY_DRAWER_LOCAL_STORAGE_KEY);
         if (value) offset.value = +value;
+        memory.value = refreshMemory(offset.value);
     }, []);
 
     useEffect(() => {

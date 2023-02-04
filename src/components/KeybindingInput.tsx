@@ -1,3 +1,4 @@
+import { FunctionalComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import "./KeybindingInput.css";
 
@@ -15,7 +16,7 @@ const KEY_DISPLAY: Record<string, string | undefined> = {
     " ": "Space",
 };
 
-const KeybindingInput = ({ value, onChange }: KeybindingInputProps) => {
+const KeybindingInput: FunctionalComponent<KeybindingInputProps> = ({ value, onChange }) => {
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [key, setKey] = useState<string | undefined>(undefined);
 

@@ -94,19 +94,6 @@ code {
     transition: color 0.5s ease;
 }
 
-code.passed {
-    color: greenyellow;
-}
-
-code.failed {
-    color: orangered;
-}
-
-code.error {
-    color: white;
-    background-color: maroon;
-}
-
 button {
     position: relative;
     border-radius: 8px;

@@ -1,5 +1,5 @@
 import { useSignal } from "@preact/signals";
-import { Bug, FastForward, Pause, Play, Redo, Save, Volume2, VolumeX } from "lucide-preact";
+import { FastForward, Pause, Play, Redo, Save, Volume2, VolumeX } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import localforage from "localforage";
@@ -15,6 +15,7 @@ import GameBoyInput from "@emulator/GameBoyInput";
 import GameBoyOutput from "@emulator/GameBoyOutput";
 import AudioPlayer from "@/helpers/AudioPlayer";
 import { useConfig } from "./helpers/ConfigContext";
+import { addAlert, AlertManager } from "./components/Alerts";
 
 const CACHE_KEY = "rom";
 const SAVE_CACHE_KEY = "save_";
@@ -49,7 +50,7 @@ const App: FunctionalComponent = () => {
     // Emulator data
     const [loadedGame, setLoadedGame] = useState<Uint8Array>();
     const [gameboy, setGameboy] = useState<GameBoyColor>();
-    const serialOut = useSignal("");
+    const serialOut = useRef<HTMLElement>(null);
 
     // Debug state
     const cyclesPerSec = useRef<HTMLDivElement>(null);
@@ -77,10 +78,12 @@ const App: FunctionalComponent = () => {
                             `Could not save game ${gameboy.getTitle()} (${gameboy.getIdentifier()}):`,
                             err
                         );
-                    else
+                    else {
                         console.log(
                             `Saved game ${gameboy.getTitle()} (${gameboy.getIdentifier()})`
                         );
+                        addAlert(`Saved game '${gameboy.getTitle()}'`);
+                    }
                 });
             }
         }
@@ -99,7 +102,6 @@ const App: FunctionalComponent = () => {
         (rom: Uint8Array) => {
             /** Save previous state, clear variables */
             saveGame();
-            serialOut.value = "";
 
             /** Setup input (relies on the fact pressedKeys doesn't change) */
             const gameIn: GameBoyInput = {
@@ -116,12 +118,16 @@ const App: FunctionalComponent = () => {
             };
 
             /** Setup output (relies on most things not changing) */
+            let serialOutTxt = "";
             const gbOut: GameBoyOutput = {
                 get receive() {
                     return emulatorFrameIn.current;
                 },
                 receiveSound: (d) => soundOutput.value?.enqueue(d),
-                serialOut: (d) => (serialOut.value += String.fromCharCode(d)),
+                serialOut: (d) => {
+                    serialOutTxt += String.fromCharCode(d);
+                    if (serialOut.current) serialOut.current.innerHTML = serialOutTxt;
+                },
                 get debugBackground() {
                     return bgDebugger.current;
                 },
@@ -158,6 +164,7 @@ const App: FunctionalComponent = () => {
                 alert("Could not load ROM: " + e);
                 return;
             }
+            addAlert(`Loaded game '${gbc.getTitle()}'`);
 
             /** Load a save (if one exists) */
             localforage.getItem<Uint8Array>(
@@ -169,6 +176,7 @@ const App: FunctionalComponent = () => {
                             console.log(
                                 `Loaded save for ${gbc.getTitle()} (${gbc.getIdentifier()})`
                             );
+                            addAlert(`Loaded save for '${gbc.getTitle()}'`);
                         } catch (e) {
                             console.error(
                                 `Could not load save for ${gbc.getTitle()} (${gbc.getIdentifier()}):`,
@@ -277,6 +285,7 @@ const App: FunctionalComponent = () => {
 
     return (
         <>
+            <AlertManager />
             <Drawer loadRom={loadRom} />
 
             <div id="emulator">
@@ -355,21 +364,7 @@ const App: FunctionalComponent = () => {
                                 </>
                             )}
                         </div>
-                        {config.showSerialOutput && serialOut.value.length > 0 && (
-                            <code
-                                className={
-                                    serialOut.value.toLowerCase().includes("error")
-                                        ? "error"
-                                        : serialOut.value.toLowerCase().includes("failed")
-                                        ? "failed"
-                                        : serialOut.value.toLowerCase().includes("passed")
-                                        ? "passed"
-                                        : undefined
-                                }
-                            >
-                                {serialOut}
-                            </code>
-                        )}
+                        {config.showSerialOutput && <code ref={serialOut} />}
                     </div>
                 )}
             </div>
