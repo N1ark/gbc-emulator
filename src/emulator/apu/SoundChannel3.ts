@@ -19,7 +19,7 @@ const VOLUME_LEVELS = [
  * @link https://gbdev.io/pandocs/Audio_Registers.html#sound-channel-3--wave-output
  */
 class SoundChannel3 extends SoundChannel {
-    protected NRX1_LENGTH_TIMER_BITS: number = 0b1111_1111;
+    protected static NRX1_LENGTH_TIMER_BITS: number = 0b1111_1111;
 
     protected nrX0 = new MaskRegister(0b0111_1111);
     protected nrX1 = new Register(0xbf);
@@ -44,6 +44,10 @@ class SoundChannel3 extends SoundChannel {
 
     protected lastReadByte: number = 0xff;
 
+    constructor(onStateChange: (state: boolean) => void) {
+        super(onStateChange, SoundChannel3.NRX1_LENGTH_TIMER_BITS);
+    }
+
     protected override doTick() {
         if (this.ticksNextSample-- <= 0) {
             const frequency = (2048 - this.getWavelength()) >> 1;
@@ -67,7 +71,7 @@ class SoundChannel3 extends SoundChannel {
         return (this.currentSample >> volume) as Int4;
     }
 
-    override onStart(): void {
+    override trigger(): void {
         const frequency = (2048 - this.getWavelength()) >> 1;
         this.ticksNextSample = frequency;
     }

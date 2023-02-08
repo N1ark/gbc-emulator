@@ -146,12 +146,15 @@ export class APU implements Addressable {
     };
 
     read(pos: number): number {
+        if (pos === 0xff26) {
+            console.log("-------- read nr52 --------");
+        }
         return this.addresses[pos].read(pos);
     }
 
     write(pos: number, data: number): void {
         const component = this.addresses[pos];
-
+        console.log("Wrote ", pos.toString(16), " <-- ", data.toString(16));
         if (component === this.pcm12 || component === this.pcm34) return; // read-only
 
         // ignore writes to channel when turned off (except for NRX1 and wave RAM)

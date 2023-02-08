@@ -1,7 +1,7 @@
 import { Addressable } from "../Memory";
 import { MaskRegister, RegisterFF, Register } from "../Register";
 import { clamp, Int4 } from "../util";
-import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
+import SoundChannel, { NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX2_STOP_DAC = 0b1111_1000;
 const NRX3_CLOCK_SHIFT_OFFSET = 4;
@@ -66,11 +66,7 @@ class SoundChannel4 extends SoundChannel {
         return ((this.lfsr & 1) * this.envelopeVolume) as Int4;
     }
 
-    get isDACOn(): boolean {
-        return (this.nrX2.get() & NRX2_STOP_DAC) !== 0;
-    }
-
-    override onStart(): void {
+    override trigger(): void {
         this.cachedNRX2 = this.nrX2.get();
         this.envelopeVolume = (this.cachedNRX2 >> 4) as Int4;
         this.lfsr = 0;
@@ -96,8 +92,9 @@ class SoundChannel4 extends SoundChannel {
             data &= ~NRX4_RESTART_CHANNEL; // bit is write-only
         }
         // Turning off channel
-        if (component === this.nrX2 && (data & NRX2_STOP_DAC) === 0) {
-            this.stop();
+        if (component === this.nrX2) {
+            this.isDACOn = (data & NRX2_STOP_DAC) !== 0;
+            if (!this.isDACOn) this.stop();
         }
 
         component.write(pos, data);
