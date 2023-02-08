@@ -2,6 +2,7 @@
 
 #drawer {
     position: relative;
+    max-height: calc(100% - 2em);
     background-color: #303030;
     padding: 1em;
     overflow-y: auto;
