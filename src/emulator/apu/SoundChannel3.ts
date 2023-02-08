@@ -44,7 +44,7 @@ class SoundChannel3 extends SoundChannel {
 
     protected lastReadByte: number = 0xff;
 
-    protected override doTick(divChanged: boolean) {
+    protected override doTick() {
         if (this.ticksNextSample-- <= 0) {
             const frequency = (2048 - this.getWavelength()) >> 1;
             this.ticksNextSample = frequency;

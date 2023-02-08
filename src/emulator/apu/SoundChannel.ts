@@ -24,7 +24,7 @@ abstract class SoundChannel implements Addressable {
     protected onStateChange: (state: boolean) => void;
 
     // Counters
-    protected lengthTimerCounter: number = 0;
+    protected step: number = 0;
 
     constructor(onStateChange: (state: boolean) => void) {
         this.onStateChange = onStateChange;
@@ -33,45 +33,56 @@ abstract class SoundChannel implements Addressable {
     /**
      * Ticks the whole channel. This method should not be overrided by subclasses - for ticking
      * behavior, override doTick instead.
+     * @returns The output of this channel
      */
-    tick(divChanged: boolean): void {
+    tick(divChanged: boolean): Int4 {
         // Ticks even when disabled
-        if (divChanged) this.tickLengthTimer();
 
-        if (!this.enabled) return;
-        this.doTick(divChanged);
+        if (divChanged) {
+            this.step = (this.step + 1) % 8;
+
+            if (this.step % 2 === 0) {
+                this.tickLengthTimer();
+            }
+            if (this.step % 4 === 2) {
+                this.tickSweep();
+            }
+            if (this.step === 7) {
+                this.tickEnvelope();
+            }
+        }
+
+        if (!this.enabled) return 0;
+
+        this.doTick();
+
+        return this.getSample();
     }
 
-    /**
-     * Ticks the length timer.
-     */
-    private tickLengthTimer(): void {
+    /** Ticks the length timer. */
+    protected tickLengthTimer(): void {
         // Tick length timer
-        if (++this.lengthTimerCounter >= FREQUENCY_LENGTH_TIMER) {
-            this.lengthTimerCounter = 0;
-            if (this.nrX4.flag(NRX4_LENGTH_TIMER_FLAG)) {
-                const timerBits = this.NRX1_LENGTH_TIMER_BITS;
-                const nrx1 = this.nrX1.get();
-                const lengthTimer = ((nrx1 & timerBits) + 1) & timerBits;
-                this.nrX1.set((nrx1 & ~timerBits) | lengthTimer);
-                // overflowed
-                if (lengthTimer === 0) {
-                    this.stop();
-                }
+        if (this.nrX4.flag(NRX4_LENGTH_TIMER_FLAG)) {
+            const timerBits = this.NRX1_LENGTH_TIMER_BITS;
+            const nrx1 = this.nrX1.get();
+            const lengthTimer = ((nrx1 & timerBits) + 1) & timerBits;
+            this.nrX1.set((nrx1 & ~timerBits) | lengthTimer);
+            // overflowed
+            if (lengthTimer === 0) {
+                this.stop();
             }
         }
     }
 
+    protected tickSweep(): void {}
+
+    protected tickEnvelope(): void {}
+
     /**
      * Ticks the channel. This method should be overrided by subclasses for channel-specific
      * behavior.
-     * @param divChanged Whether the DIV has ticked (ie. bit 4 went from 1 to 0)
      */
-    protected abstract doTick(divChanged: boolean): void;
-
-    getOutput(): Int4 {
-        return this.enabled ? this.getSample() : 0;
-    }
+    protected abstract doTick(): void;
 
     /**
      * @returns The current value of the channel (value between 0-F).

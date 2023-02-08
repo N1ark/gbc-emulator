@@ -31,6 +31,9 @@ class SoundChannel2 extends SoundChannel {
         0xff19: this.nrX4,
     };
 
+    // Stores a private copy of wave length on trigger
+    protected waveLength: number = 0;
+
     // For output
     protected ticksPerWaveStep: number = 0;
     protected waveStep: number = 0;
@@ -43,43 +46,50 @@ class SoundChannel2 extends SoundChannel {
     protected envelopeVolumeSteps: number = 0;
     protected envelopeVolume: Int4 = 0;
 
-    protected override doTick(divChanged: boolean): void {
+    protected override doTick(): void {
         if (this.waveStepSubsteps++ >= this.ticksPerWaveStep) {
             this.waveStepSubsteps = 0;
             this.waveStep = (this.waveStep + 1) % 8;
         }
+    }
 
-        if (divChanged && this.envelopeVolumeSteps-- <= 0 && (this.cachedNRX2 & 0b111) !== 0) {
-            const direction = (this.cachedNRX2 & 0b0000_1000) === 0 ? -1 : 1;
-            this.envelopeVolume = clamp(this.envelopeVolume + direction, 0x0, 0xf) as Int4;
-            this.envelopeVolumeSteps = FREQUENCY_ENVELOPE * (this.cachedNRX2 & 0b111);
+    protected tickEnvelope(): void {
+        if (this.envelopeVolumeSteps > 0) this.envelopeVolumeSteps--;
+        else {
+            this.envelopeVolumeSteps = this.cachedNRX2 & 0b111;
+            if ((this.cachedNRX2 & 0b111) !== 0) {
+                const direction = (this.cachedNRX2 & 0b0000_1000) === 0 ? -1 : 1;
+                this.envelopeVolume = clamp(this.envelopeVolume + direction, 0x0, 0xf) as Int4;
+            }
         }
     }
 
     protected override getSample(): Int4 {
         const dutyCycleType = ((this.nrX1.get() >> 6) & 0b11) as Int2;
         const wavePattern = wavePatterns[dutyCycleType];
+        // if (this.constructor.name === "SoundChannel1")
+        // console.log(this.waveStep, wavePattern[this.waveStep], this.envelopeVolume);
         return (wavePattern[this.waveStep] * this.envelopeVolume) as Int4;
     }
 
     protected override setWavelength(waveLength: number): void {
         super.setWavelength(waveLength);
-        this.waveLengthUpdate();
+        this.ticksPerWaveStep = 2048 - waveLength;
+        this.waveLength = waveLength;
     }
 
     /* Audio control */
-    protected waveLengthUpdate() {
-        this.ticksPerWaveStep = 2048 - this.getWavelength();
-    }
 
     get isDACOn(): boolean {
         return (this.nrX2.get() & NRX2_STOP_DAC) !== 0;
     }
 
     override onStart(): void {
+        this.waveLength = this.getWavelength();
+
         this.cachedNRX2 = this.nrX2.get();
         this.envelopeVolume = (this.cachedNRX2 >> 4) as Int4;
-        this.waveLengthUpdate();
+        this.ticksPerWaveStep = 2048 - this.getWavelength();
     }
 
     read(pos: number): number {

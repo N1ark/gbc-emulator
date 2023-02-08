@@ -78,15 +78,10 @@ export class APU implements Addressable {
         const divChanged = !divBitState && this.oldDivBitState;
         this.oldDivBitState = divBitState;
 
-        this.channel1.tick(divChanged);
-        this.channel2.tick(divChanged);
-        this.channel3.tick(divChanged);
-        this.channel4.tick(divChanged);
-
-        const chan1Out = this.channel1.getOutput();
-        const chan2Out = this.channel2.getOutput();
-        const chan3Out = this.channel3.getOutput();
-        const chan4Out = this.channel4.getOutput();
+        const chan1Out = this.channel1.tick(divChanged);
+        const chan2Out = this.channel2.tick(divChanged);
+        const chan3Out = this.channel3.tick(divChanged);
+        const chan4Out = this.channel4.tick(divChanged);
 
         this.pcm12.set(chan1Out | (chan2Out << 4));
         this.pcm34.set(chan3Out | (chan4Out << 4));
@@ -98,11 +93,11 @@ export class APU implements Addressable {
             const nr51 = this.nr51.get();
             const nr52 = this.nr52.get();
 
-            // Get output from each channel (we only get it if it's used later on)
-            const out1 = (nr51 >> 0) | (nr51 >> 4) ? DAC(chan1Out) : 0;
-            const out2 = (nr51 >> 1) | (nr51 >> 5) ? DAC(chan2Out) : 0;
-            const out3 = (nr51 >> 2) | (nr51 >> 6) ? DAC(chan3Out) : 0;
-            const out4 = (nr51 >> 3) | (nr51 >> 7) ? DAC(chan4Out) : 0;
+            // Get output from each channel
+            const out1 = DAC(chan1Out);
+            const out2 = DAC(chan2Out);
+            const out3 = DAC(chan3Out);
+            const out4 = DAC(chan4Out);
 
             // Mix right stereo side, enabling relevant channels
             const rightAudio =
