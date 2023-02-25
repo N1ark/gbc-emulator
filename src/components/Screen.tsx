@@ -11,9 +11,16 @@ type ScreenProps = {
     Filter?: ImageFilter;
     blending?: boolean;
     id?: string;
+    palette?: Partial<Record<number, number>>;
 };
 
 export type VideoReceiver = (data: Uint32Array) => void;
+
+function applyPalette(frame: Uint32Array, palette: Partial<Record<number, number>>) {
+    for (let index = 0; index < frame.length; index++) {
+        frame[index] = palette[frame[index]] ?? frame[index];
+    }
+}
 
 function mixImages(frame1: Uint32Array, frame2: Uint32Array, target: Uint32Array) {
     for (let index = 0; index < frame1.length; index++) {
@@ -41,6 +48,7 @@ const Screen: FunctionalComponent<ScreenProps> = ({
     Filter = Identity,
     blending = false,
     id,
+    palette,
 }) => {
     const [stateRefresh, setStateRefresh] = useState(0);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -73,6 +81,11 @@ const Screen: FunctionalComponent<ScreenProps> = ({
             previousFrame.set(currentFrame);
             currentFrame.set(data);
 
+            if (palette) {
+                // Apply the color palette if needed
+                applyPalette(currentFrame, palette);
+            }
+
             if (firstFrame) {
                 firstFrame = false;
                 // We copy the current frame into the previous one as it is entirely black
@@ -99,7 +112,7 @@ const Screen: FunctionalComponent<ScreenProps> = ({
                 bitmap.close();
             });
         };
-    }, [stateRefresh, canvasRef.current, width, height, scale, Filter, blending]);
+    }, [stateRefresh, canvasRef.current, width, height, scale, Filter, blending, palette]);
 
     useEffect(() => {
         inputRef.current = newFrame;

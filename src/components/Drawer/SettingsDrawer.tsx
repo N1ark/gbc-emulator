@@ -1,5 +1,5 @@
 import { useConfig } from "@/helpers/ConfigContext";
-import { Identity, ImageFilter, Scale2x, Scale4x } from "@/helpers/ImageFilter";
+import { Identity, Scale2x, Scale4x } from "@/helpers/ImageFilter";
 import IconButton from "@components/IconButton";
 import {
     Grid,
@@ -16,6 +16,10 @@ import {
     MessageSquare,
     LineChart,
     Bug,
+    Circle,
+    Waves,
+    Flame,
+    Flower,
 } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import Grid2x from "./Grid2x";
@@ -38,6 +42,54 @@ const availableFilters = [
     },
 ];
 
+type DMGPalette = Partial<Record<number, number>> | undefined;
+
+const palette = (white: number, lightGray: number, darkGray: number, black: number) => ({
+    0xffffffff: white | 0xff000000,
+    0xffaaaaaa: lightGray | 0xff000000,
+    0xff555555: darkGray | 0xff000000,
+    0xff000000: black | 0xff000000,
+});
+
+const isPaletteEquivalent = (palette1: DMGPalette, palette2: DMGPalette) => {
+    if (!palette1 && !palette2) return true; // both undefined
+    if (!palette1 || !palette2) return false; // only one undefined
+    if (Object.keys(palette1).length !== Object.keys(palette2).length) return false;
+    for (const key of Object.keys(palette1)) {
+        // @ts-ignore
+        if (palette1[key] !== palette2[key]) return false;
+    }
+    return true;
+};
+
+const availablePalettes = [
+    {
+        name: "monochrome",
+        values: undefined, // no transform
+        icon: Circle,
+    },
+    {
+        name: "classic",
+        values: palette(0x95ddca, 0x6aa48b, 0x3d6042, 0x11180c),
+        icon: Gamepad,
+    },
+    {
+        name: "ocean",
+        values: palette(0xace2b9, 0x8a9965, 0x67582c, 0x35250c),
+        icon: Waves,
+    },
+    {
+        name: "magma",
+        values: palette(0x9ed4e5, 0x645ab0, 0x451f7b, 0x3c0112),
+        icon: Flame,
+    },
+    {
+        name: "sakura",
+        values: palette(0xe1dee9, 0x9377cd, 0x623cb5, 0x2b1449),
+        icon: Flower,
+    },
+];
+
 const SettingsDrawer: FunctionalComponent = () => {
     const [
         {
@@ -46,6 +98,7 @@ const SettingsDrawer: FunctionalComponent = () => {
             scale,
             bootRom,
             console,
+            gbPalette,
             volume,
             showSerialOutput,
             showStats,
@@ -53,7 +106,6 @@ const SettingsDrawer: FunctionalComponent = () => {
         },
         setConfig,
     ] = useConfig();
-
     return (
         <div>
             <div className="drawer-section-title">
@@ -119,6 +171,20 @@ const SettingsDrawer: FunctionalComponent = () => {
                     value={volume}
                     onChange={(e) => setConfig({ volume: +e.currentTarget.value })}
                 />
+            </div>
+
+            <div className="drawer-section-title">
+                <div>GB Palette:</div>
+
+                {availablePalettes.map(({ name, icon, values }) => (
+                    <IconButton
+                        title={name}
+                        Icon={icon}
+                        onClick={() => setConfig({ gbPalette: values })}
+                        toggled={isPaletteEquivalent(gbPalette, values)}
+                        showTooltip
+                    />
+                ))}
             </div>
 
             <div className="drawer-section-title">

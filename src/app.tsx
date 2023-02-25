@@ -52,6 +52,8 @@ const App: FunctionalComponent = () => {
     const [gameboy, setGameboy] = useState<GameBoyColor>();
     const serialOut = useRef<HTMLElement>(null);
 
+    const effectivePalette = gameboy?.getMode() === "DMG" ? config.gbPalette : undefined;
+
     // Debug state
     const cyclesPerSec = useRef<HTMLDivElement>(null);
     const stepCount = useRef<HTMLDivElement>(null);
@@ -351,6 +353,7 @@ const App: FunctionalComponent = () => {
                                 scale={1 << config.scale}
                                 Filter={config.filter}
                                 blending={config.frameBlending}
+                                palette={effectivePalette}
                                 id="emulator-frame"
                             />
                             {config.showDebugScreens && (

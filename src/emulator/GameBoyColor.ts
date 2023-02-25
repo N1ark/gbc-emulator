@@ -14,6 +14,7 @@ const DEFAULT_OPTIONS: GameBoyColorOptions = {
 
 class GameBoyColor {
     protected options: GameBoyColorOptions;
+    protected mode: ConsoleType;
 
     protected isRunning = false;
     protected cpu: CPU;
@@ -34,20 +35,20 @@ class GameBoyColor {
         output: GameBoyOutput,
         options?: Partial<GameBoyColorOptions>
     ) {
-        const mode = modeStr === "DMG" ? ConsoleType.DMG : ConsoleType.CGB;
+        this.mode = modeStr === "DMG" ? ConsoleType.DMG : ConsoleType.CGB;
         this.cpu = new CPU();
-        this.system = new System(rom, input, output, mode);
+        this.system = new System(rom, input, output, this.mode);
         this.output = output;
         this.options = { ...DEFAULT_OPTIONS, ...options };
 
-        this.setup(mode);
+        this.setup();
     }
 
-    protected setup(mode: ConsoleType) {
+    protected setup() {
         // Setup registers as if the boot ROM was executed
         if (this.options.bootRom === "none") {
             // CPU
-            if (mode === ConsoleType.DMG) {
+            if (this.mode === ConsoleType.DMG) {
                 this.cpu["regAF"].set(0x01b0);
                 this.cpu["regBC"].set(0x0013);
                 this.cpu["regDE"].set(0x00d8);
@@ -65,7 +66,7 @@ class GameBoyColor {
             this.system["ppu"]["ppu"]["lcdControl"].set(0x91);
 
             // Emulate GBC compatibility check
-            if (mode === ConsoleType.CGB) {
+            if (this.mode === ConsoleType.CGB) {
                 const compat = this.system.read(0x0143);
                 if (compat === 0x80 || compat === 0xc0) {
                     this.system.write(0xff4c, compat);
@@ -110,6 +111,11 @@ class GameBoyColor {
     /** Returns the identifier of the current ROM. */
     getIdentifier(): string {
         return this.system.getIdentifier();
+    }
+
+    /** The current mode of the emulator. */
+    getMode(): "DMG" | "CGB" {
+        return this.mode === ConsoleType.DMG ? "DMG" : "CGB";
     }
 
     /**

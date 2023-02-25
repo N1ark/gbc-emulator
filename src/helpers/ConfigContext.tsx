@@ -9,6 +9,7 @@ export type Configuration = {
     frameBlending: boolean;
     bootRom: "none" | "real";
     console: "dmg" | "cgb";
+    gbPalette: undefined | Partial<Record<number, number>>;
     volume: number;
     showSerialOutput: boolean;
     showStats: boolean;
@@ -41,6 +42,7 @@ const configLoaders: {
     frameBlending: IdentitySave,
     bootRom: IdentitySave,
     console: IdentitySave,
+    gbPalette: IdentitySave,
     volume: IdentitySave,
     showSerialOutput: IdentitySave,
     showStats: IdentitySave,
@@ -63,6 +65,7 @@ const defaultConfig: Configuration = {
     frameBlending: true,
     bootRom: "none",
     console: "dmg",
+    gbPalette: undefined,
     volume: 0.5,
     showSerialOutput: false,
     showStats: false,
