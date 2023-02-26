@@ -50,7 +50,6 @@ const App: FunctionalComponent = () => {
     // Emulator data
     const [loadedGame, setLoadedGame] = useState<Uint8Array>();
     const [gameboy, setGameboy] = useState<GameBoyColor>();
-    const serialOut = useRef<HTMLElement>(null);
 
     const effectivePalette = gameboy?.getMode() === "DMG" ? config.gbPalette : undefined;
 
@@ -128,7 +127,7 @@ const App: FunctionalComponent = () => {
                 receiveSound: (d) => soundOutput.value?.enqueue(d),
                 serialOut: (d) => {
                     serialOutTxt += String.fromCharCode(d);
-                    if (serialOut.current) serialOut.current.innerHTML = serialOutTxt;
+                    console.log("Serial out > ", serialOutTxt);
                 },
                 get debugBackground() {
                     return bgDebugger.current;
@@ -347,27 +346,21 @@ const App: FunctionalComponent = () => {
                                 <div ref={millisPerFrame} />
                             </div>
                         )}
-                        <div id="emu-screens">
-                            <Screen
-                                inputRef={emulatorFrameIn}
-                                scale={1 << config.scale}
-                                Filter={config.filter}
-                                blending={config.frameBlending}
-                                palette={effectivePalette}
-                                id="emulator-frame"
-                            />
-                            {config.showDebugScreens && (
-                                <>
-                                    <Screen width={256} height={256} inputRef={bgDebugger} />
-                                    <Screen
-                                        width={256}
-                                        height={192}
-                                        inputRef={tilesetDebugger}
-                                    />
-                                </>
-                            )}
-                        </div>
-                        {config.showSerialOutput && <code ref={serialOut} />}
+                        <Screen
+                            inputRef={emulatorFrameIn}
+                            scale={1 << config.scale}
+                            Filter={config.filter}
+                            blending={config.frameBlending}
+                            palette={effectivePalette}
+                            id="emulator-frame"
+                        />
+                    </div>
+                )}
+
+                {gameboy && config.showDebugScreens && (
+                    <div id="emu-screens">
+                        <Screen width={256} height={256} inputRef={bgDebugger} />
+                        <Screen width={256} height={192} inputRef={tilesetDebugger} />
                     </div>
                 )}
             </div>

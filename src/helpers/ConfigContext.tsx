@@ -11,7 +11,6 @@ export type Configuration = {
     console: "dmg" | "cgb";
     gbPalette: undefined | Partial<Record<number, number>>;
     volume: number;
-    showSerialOutput: boolean;
     showStats: boolean;
     showDebugScreens: boolean;
 
@@ -44,7 +43,6 @@ const configLoaders: {
     console: IdentitySave,
     gbPalette: IdentitySave,
     volume: IdentitySave,
-    showSerialOutput: IdentitySave,
     showStats: IdentitySave,
     showDebugScreens: IdentitySave,
 
@@ -67,7 +65,6 @@ const defaultConfig: Configuration = {
     console: "dmg",
     gbPalette: undefined,
     volume: 0.5,
-    showSerialOutput: false,
     showStats: false,
     showDebugScreens: false,
 

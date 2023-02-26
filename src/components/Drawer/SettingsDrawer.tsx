@@ -100,14 +100,13 @@ const SettingsDrawer: FunctionalComponent = () => {
             console,
             gbPalette,
             volume,
-            showSerialOutput,
             showStats,
             showDebugScreens,
         },
         setConfig,
     ] = useConfig();
     return (
-        <div>
+        <>
             <div className="drawer-section-title">
                 <div>Console:</div>
                 <IconButton
@@ -206,14 +205,6 @@ const SettingsDrawer: FunctionalComponent = () => {
                 />
 
                 <IconButton
-                    title="Show Serial Output"
-                    Icon={MessageSquare}
-                    onClick={() => setConfig({ showSerialOutput: !showSerialOutput })}
-                    toggled={showSerialOutput}
-                    showTooltip
-                />
-
-                <IconButton
                     title="Show Stats"
                     Icon={LineChart}
                     onClick={() => setConfig({ showStats: !showStats })}
@@ -229,7 +220,7 @@ const SettingsDrawer: FunctionalComponent = () => {
                     showTooltip
                 />
             </div>
-        </div>
+        </>
     );
 };
 
