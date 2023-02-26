@@ -30,7 +30,7 @@ export const Resizable: FunctionalComponent<ResizableProps> = ({
     };
 
     return (
-        <div {...rest} style={{ width: width.value }}>
+        <div {...rest} style={{ minWidth: width.value, maxWidth: width.value }}>
             {children}
             <div className="resizer" onMouseDown={mouseDownHandler} />
         </div>

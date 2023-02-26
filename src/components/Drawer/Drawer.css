@@ -6,6 +6,7 @@
     background-color: #303030;
     padding: 1em;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .drawer-section {
@@ -49,7 +50,7 @@
 }
 
 .drawer-section-title > button {
-    margin-left: 8px;
+    margin-left: 2px;
 }
 
 .drawer-section-description {

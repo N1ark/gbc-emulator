@@ -133,7 +133,7 @@ const Screen: FunctionalComponent<ScreenProps> = ({
         canvas.width = width * scale * window.devicePixelRatio;
         canvas.height = height * scale * window.devicePixelRatio;
         canvas.style.width = `${width * scale}px`;
-        canvas.style.height = `${height * scale}px`;
+        canvas.style.aspectRatio = `${width} / ${height}`;
 
         if (currentImage) {
             const newContext = canvas.getContext("2d", { alpha: false });
@@ -147,7 +147,11 @@ const Screen: FunctionalComponent<ScreenProps> = ({
         }
     }, [width, height, scale, canvasRef.current]);
 
-    return <canvas id={id} ref={canvasRef} />;
+    return (
+        <div className="screen-container">
+            <canvas id={id} ref={canvasRef} />
+        </div>
+    );
 };
 
 export default Screen;
