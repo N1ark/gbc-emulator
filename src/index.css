@@ -169,3 +169,9 @@ button:hover > .tooltip {
         background-color: #f9f9f9;
     }
 }
+
+@media (any-pointer: fine) {
+    .mobile-only {
+        display: none;
+    }
+}
