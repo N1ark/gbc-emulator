@@ -1,0 +1,62 @@
+.joypad-input {
+    display: flex;
+    padding: 5px;
+    justify-content: space-between;
+}
+
+.joypad-input > * {
+    width: 45%;
+    position: relative;
+    aspect-ratio: 1;
+}
+
+.joypad-input .arrow-buttons > * {
+    position: absolute;
+    border-radius: 100%;
+    width: 38%;
+    inset: 0;
+    aspect-ratio: 1;
+    margin: auto;
+}
+
+.joypad-input .arrow-buttons .btn-up {
+    bottom: unset;
+}
+
+.joypad-input .arrow-buttons .btn-left {
+    right: unset;
+}
+
+.joypad-input .arrow-buttons .btn-right {
+    left: unset;
+}
+
+.joypad-input .arrow-buttons .btn-down {
+    top: unset;
+}
+
+.joypad-input .main-buttons > * {
+    position: absolute;
+    width: 55%;
+    height: 23%;
+}
+
+.joypad-input .main-buttons .btn-a {
+    bottom: 0;
+    left: 0;
+}
+
+.joypad-input .main-buttons .btn-b {
+    bottom: 25%;
+    right: 0;
+}
+
+.joypad-input .main-buttons .btn-start {
+    top: 25%;
+    left: 0;
+}
+
+.joypad-input .main-buttons .btn-select {
+    top: 0;
+    right: 0;
+}

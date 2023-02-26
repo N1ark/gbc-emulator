@@ -6,16 +6,16 @@ import localforage from "localforage";
 
 import RomInput from "@components/RomInput";
 import Screen, { VideoReceiver } from "@components/Screen";
-import useKeys from "@/helpers/useKeys";
 
 import Drawer from "@components/Drawer/Drawer";
 import IconButton from "@/components/IconButton";
 import GameBoyColor from "@emulator/GameBoyColor";
-import GameBoyInput from "@emulator/GameBoyInput";
+import GameBoyInput, { GameBoyInputRead } from "@emulator/GameBoyInput";
 import GameBoyOutput from "@emulator/GameBoyOutput";
 import AudioPlayer from "@/helpers/AudioPlayer";
 import { useConfig } from "./helpers/ConfigContext";
 import { addAlert, AlertManager } from "./components/Alerts";
+import GameInput from "./components/GameInput";
 
 const CACHE_KEY = "rom";
 const SAVE_CACHE_KEY = "save_";
@@ -31,16 +31,7 @@ const App: FunctionalComponent = () => {
         volume.value = config.volume;
     }, [config.volume]);
     const soundOutput = useSignal<AudioPlayer | undefined>(undefined);
-    const pressedKeys = useKeys([
-        config.controlArrowUp,
-        config.controlArrowDown,
-        config.controlArrowLeft,
-        config.controlArrowRight,
-        config.controlA,
-        config.controlB,
-        config.controlStart,
-        config.controlSelect,
-    ]);
+    const joypadInput = useSignal<undefined | (() => GameBoyInputRead)>(undefined);
 
     // DOM Refs
     const emulatorFrameIn = useRef<VideoReceiver | undefined>(undefined);
@@ -106,16 +97,7 @@ const App: FunctionalComponent = () => {
 
             /** Setup input (relies on the fact pressedKeys doesn't change) */
             const gameIn: GameBoyInput = {
-                read: () => ({
-                    up: pressedKeys.includes(config.controlArrowUp),
-                    down: pressedKeys.includes(config.controlArrowDown),
-                    left: pressedKeys.includes(config.controlArrowLeft),
-                    right: pressedKeys.includes(config.controlArrowRight),
-                    a: pressedKeys.includes(config.controlA),
-                    b: pressedKeys.includes(config.controlB),
-                    start: pressedKeys.includes(config.controlStart),
-                    select: pressedKeys.includes(config.controlSelect),
-                }),
+                read: () => joypadInput.value!(),
             };
 
             /** Setup output (relies on most things not changing) */
@@ -231,7 +213,6 @@ const App: FunctionalComponent = () => {
 
             // @ts-ignore helpful for debugging :)
             window.gbc = gbc;
-
             return gbc;
         },
         [gameboy, config]
@@ -356,6 +337,8 @@ const App: FunctionalComponent = () => {
                         />
                     </div>
                 )}
+
+                <GameInput inputHandler={(x) => (joypadInput.value = x)} />
 
                 {gameboy && config.showDebugScreens && (
                     <div id="emu-screens">
