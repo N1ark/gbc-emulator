@@ -17,6 +17,11 @@
 \usepackage{dirtree}
 \usepackage{minted}
 
+
+% setup bibliography
+\usepackage[style=ieee]{biblatex}
+\addbibresource{references.bib}
+
 % setup hyperlinks
 \usepackage{hyperref}
 \hypersetup{
@@ -24,7 +29,7 @@
 }
 
 % setup debug box command for places things are missing
-\newcommand{\todo}[1]{\fbox{\textbf{TO-DO:} #1}}
+\newcommand{\todo}[1]{\fbox{\parbox{\textwidth}{\textbf{TO-DO:} #1}}}
 
 % Glossary entry
 \makenoidxglossaries
@@ -201,10 +206,12 @@
 
 \section{Emulation}
 
-\todo{}
-Outline what emulation is/was used for, how it started. Examples of its usage, examples of what it's useful for.
+\todo{
+    Outline what emulation is/was used for, how it started. Examples of its usage, examples of what it's useful for.
+    Current state of emulation, in what industry is it applied? Talk also about virtual machines.
+}
 
-Current state of emulation, in what industry is it applied? Talk also about virtual machines.
+An emulator is "hardware or software that permits programs written for one computer to be run on another computer" \cite{emulator_def}
 
 \section{Video Game Emulation}
 
@@ -663,11 +670,11 @@ step(system: System) {
     \label{fig:system-driven-cpu-tick}
 \end{figure}
 
-\subsection{PPU}
 \subsection{Timer}
+\subsection{PPU}
 \subsection{OAM and OAM DMA}
+\subsection{APU}
 \subsection{MBCs and ROMs}
-\subsection{Audio}
 
 
 \clearpage
@@ -677,6 +684,8 @@ step(system: System) {
 {\hypersetup{hidelinks}
     \listoffigures
 }
+
+\printbibliography
 
 
 \end{document}
