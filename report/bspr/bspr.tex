@@ -26,6 +26,7 @@
 \usepackage{hyperref}
 \hypersetup{
     colorlinks=true,
+    citecolor=black,
 }
 
 % setup debug box command for places things are missing
@@ -57,6 +58,13 @@
     name=GBC,
     description={Gameboy Color},
     first={Gameboy Color (GBC)}
+}
+
+\newglossaryentry{os}{
+	type=\acronymtype,
+	name=OS,
+	description={Operating System},
+	first={Operating System (OS)}
 }
 
 \newglossaryentry{cpu}{
@@ -193,12 +201,7 @@
 
 \clearpage
 
-{\hypersetup{hidelinks}\tableofcontents}
-
-\clearpage
-
-\printnoidxglossary[type=\acronymtype]
-\printnoidxglossary[type=main]
+{\hypersetup{hidelinks}\tableofcontents} 
 
 \clearpage
 
@@ -206,24 +209,29 @@
 
 \section{Emulation}
 
-\todo{
-    Outline what emulation is/was used for, how it started. Examples of its usage, examples of what it's useful for.
-    Current state of emulation, in what industry is it applied? Talk also about virtual machines.
-}
+An emulator is ``hardware or software that permits programs written for one computer to be run on another computer'' \cite{emulator_def}. The imitated computer is the \textit{guest}, and the one that imitates is the \textit{host}. Emulators are nowadays mainly found in the form of software, and have many different uses, from preservation to hardware development.
 
-An emulator is "hardware or software that permits programs written for one computer to be run on another computer" \cite{emulator_def}
+Emulation was technically born with the first computers: the very first computer, the Colossus made in 1941, was built to imitate the Enigma machine \cite{emulator_origin}. However emulation was properly studied towards the end of the twe ntieth century, when computing power started to steadily increase. One of the earliest instances of emulation as an actual feature is with the IBM System/360. This computer supported emulation of previous models, such as the IBM 709, 7090, 7094 and 7094 II \cite{ibm_emulation}.
+
+Nowadays emulation is used when researching and creating new hardware - using virtual systems to design a system and look for errors is much more cost-effective \cite{emu_in_design}. The real system doesn't have to actually be produced, and if something goes wrong it is very simple to look for the error in the simulated system, through logging or stepping through the simulation.
+
+Emulation is also vital for preservation: as transistors and motherboards age, old systems become unusable, and with them the software they ran. Emulating these systems is often the only future-proof and sustainable way to keep this software usable.
+
+Finally, another common use for emulation is virtual machines. These programs allow running another \gls{os} on a computer, which can be used for instance when developing for other systems, without needing to use the physical device directly, for instance when developing a Windows-compatible app with a Linux computer.
 
 \section{Video Game Emulation}
 
-Video game emulation is the art of simulating a video game hardware system, to allow it to run games destined for the original console. This usually requires precise understanding of the console's hardware and functioning, as games may rely on specific behaviours and edge cases to function. This task is rendered harder by the fact that often game consoles are poorly documented, as they are proprietary hardware.
+Video game emulation is the art of emulation applied to video game hardware systems. This allows the host to run games destined for the original console. This usually requires precise understanding of the console's hardware and functioning, as games may rely on specific behaviours and edge cases to function. This task is rendered harder by the fact that often game consoles are poorly documented, as they are proprietary hardware and programmer guides written for them cannot be legally distributed.
 
-The original game files and assembled code for video games is copyrighted material, and is referred to as the \gls{rom} of the game. Although distributing these \glspl{rom} is illegal, there also exist copyright free \glspl{rom}: games created by developers that chose to license them under Creative Commons licenses, for instance. Websites such as \href{https://www.retroveteran.com/category/nintendo-game-boy-color/}{Retro Veteran} host wide collections of legal \glspl{rom}.
+Video game emulation started in the 90s when computers were powerful enough to properly simulate console systems. Although precise dates are hard to get, the first console emulators seem to be either from 1990 or 1993 \cite{first_nes_emu}, and were able to run some NES games. The first Gameboy emulators were in the late 90s, with the \href{http://fms.komkon.org/VGB/}{Virtual GameBoy} in 1995 and \href{https://problemkaputt.de/gmb.htm}{NO\$GMB} in 1997 (although it's \href{https://problemkaputt.de/gmbhist.htm}{history page} seems to indicate development started in 1993) \cite{first_gb_emus}.
+
+The original game files and assembled code for video games is copyrighted material, and is referred to as the \gls{rom} of the game. Although distributing these \glspl{rom} is usually illegal, there also exist copyright free \glspl{rom}: games created by developers that chose to license them under Creative Commons licenses, for instance. Websites such as \href{https://www.retroveteran.com/category/nintendo-game-boy-color/}{Retro Veteran} host wide collections of legal \glspl{rom}.
 
 \section{Gameboy, Gameboy Color}
 
-The \gls{gb} is an 8-bit handheld video game console, released in 1989. It has a small $160 \times 144$ pixel screen, and has a Sharp LR35902 as its \gls{cpu}, clocked at 4.19MHz. In 1998, the \gls{gbc} was then released. Seen as the successor of the \gls{gb}, it contains a screen of the same resolution, but supporting colors, from a palette of 32768 colors. It contains the same \gls{cpu} as its predecessor, a Sharp LR35902, with now two modes: a 4.19MHz mode and a 8.38MHz mode (double-speed mode). This allows the \gls{gbc} to be backwards compatible with most \gls{gb} games - there are a few exceptions to this, which are games that used hardware bugs of the original \gls{gb} that were fixed in the \gls{gbc}.
+The \gls{gb} is an 8-bit handheld video game console, released in 1989. It has a small $160 \times 144$ pixel screen, and has a Sharp LR35902 as its \gls{cpu}, clocked at 4.19MHz. In 1998, the \gls{gbc} was then released. Seen as the successor of the \gls{gb}, it contains a screen of the same resolution, but supporting colors, from a palette of 32768 colors. It contains the same \gls{cpu} as its predecessor, a Sharp LR35902, with now two modes: a 4.19MHz mode and a 8.38MHz mode (double-speed mode). This allows the \gls{gbc} to be backwards compatible with most \gls{gb} games - there are a few exceptions to this, games that used hardware bugs of the original \gls{gb} that were fixed in the \gls{gbc}.
 
-From an emulation perspective, the \glsdesc{gbc} can thus be seen as an extension of the Game Boy - it has an identical CPU (although with a toggle-able double speed mode), and most of the memory layout is identical. To keep the remaining of this document simple, if not stated "GB" will refer to both the original \glsdesc{gb} and the \glsdesc{gbc}, as they are very similar. \gls{dmg} refers to the original \glsdesc{gb} model.
+From an emulation perspective, the \glsdesc{gbc} can thus be seen as an extension of the Game Boy - it has an identical CPU (although with a toggle-able double speed mode), and most of the memory layout is identical. To keep the remaining of this document simple, if not stated, "GB" will refer to both the original \glsdesc{gb} and the \glsdesc{gbc}, as they are very similar. \gls{dmg} refers to the original \glsdesc{gb} model.
 
 \section{Existing Literature}
 
@@ -676,14 +684,10 @@ step(system: System) {
 \subsection{APU}
 \subsection{MBCs and ROMs}
 
-
 \clearpage
 
-\phantomsection
-\addcontentsline{toc}{section}{\listfigurename}
-{\hypersetup{hidelinks}
-    \listoffigures
-}
+\printnoidxglossary[type=\acronymtype]
+\printnoidxglossary[type=main]
 
 \printbibliography
 

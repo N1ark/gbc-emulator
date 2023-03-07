@@ -1,0 +1,10 @@
+*.aux
+*.bbl
+*.blg
+*.bcf
+*.lof
+*.out
+*.run.xml
+*.toc
+.texpadtmp/*
+_minted*
