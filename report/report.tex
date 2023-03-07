@@ -27,6 +27,8 @@
 \hypersetup{
     colorlinks=true,
     citecolor=black,
+    linkcolor=blue,
+    urlcolor=blue,
 }
 
 % setup debug box command for places things are missing
@@ -192,6 +194,17 @@
 
 \null\vfill
 
+\clearpage
+
+\vspace*{\fill}
+\begin{center}
+	I verify that I am the sole author of this report, \\
+	except where explicitly stated  to the contrary.
+	
+	Oscar Sjöstedt, \today
+\end{center}
+\vspace*{\fill}
+
 \begin{abstract}
     This project aims to create a Gameboy emulator web-application, in other words a program capable of receiving Gameboy game files (commonly refered to as ROMs), and interpreting such ROM to play the game (or execute the program) it contains. The emulator will be usable in browsers, for both desktop computers and mobile devices that may not have access to a physical keyboard. The emulator will also contain debugging capacities, to allow other emulator developers to use it when comparing with their emulator and working on it.
 
@@ -204,6 +217,14 @@
 {\hypersetup{hidelinks}\tableofcontents} 
 
 \clearpage
+
+\chapter{Introduction}
+
+\section{Project Motivations}
+
+\section{Scope}
+
+\section{Objectives}
 
 \chapter{Background}
 
@@ -229,7 +250,7 @@ The original game files and assembled code for video games is copyrighted materi
 
 \section{Gameboy, Gameboy Color}
 
-The \gls{gb} is an 8-bit handheld video game console, released in 1989. It has a small $160 \times 144$ pixel screen, and has a Sharp LR35902 as its \gls{cpu}, clocked at 4.19MHz. In 1998, the \gls{gbc} was then released. Seen as the successor of the \gls{gb}, it contains a screen of the same resolution, but supporting colors, from a palette of 32768 colors. It contains the same \gls{cpu} as its predecessor, a Sharp LR35902, with now two modes: a 4.19MHz mode and a 8.38MHz mode (double-speed mode). This allows the \gls{gbc} to be backwards compatible with most \gls{gb} games - there are a few exceptions to this, games that used hardware bugs of the original \gls{gb} that were fixed in the \gls{gbc}.
+The \gls{gb} is an 8-bit handheld video game console, released in 1989. It has a small $160 \times 144$ pixel screen, and has a Sharp LR35902 as its \gls{cpu}, clocked at 4.19MHz \cite[Specifications]{pandoc}. In 1998, the \gls{gbc} was then released. Seen as the successor of the \gls{gb}, it contains a screen of the same resolution, but supporting colour, from a palette of 32768 options (15 bits per color). It contains the same \gls{cpu} as its predecessor, a Sharp LR35902, with now two modes: a 4.19MHz mode and a 8.38MHz mode (double-speed mode). This allows the \gls{gbc} to be backwards compatible with most \gls{gb} games - there are a few exceptions to this, games that used hardware bugs of the original \gls{gb} that were fixed in the \gls{gbc}.
 
 From an emulation perspective, the \glsdesc{gbc} can thus be seen as an extension of the Game Boy - it has an identical CPU (although with a toggle-able double speed mode), and most of the memory layout is identical. To keep the remaining of this document simple, if not stated, "GB" will refer to both the original \glsdesc{gb} and the \glsdesc{gbc}, as they are very similar. \gls{dmg} refers to the original \glsdesc{gb} model.
 
@@ -237,18 +258,18 @@ From an emulation perspective, the \glsdesc{gbc} can thus be seen as an extensio
 
 \subsection{Gameboy Documentation}
 
-The \glsdesc{gb} is one of the best documented consoles for emulation, and an array of resources exist to get started writing a new one. Some of the resources I used to write my emulator are:
+The \glsdesc{gb} is one of the best documented consoles for emulation, and an array of resources exist to get started writing a new one. Some useful resources explaining it's behaviour are:
 
 \begin{compactitem}
     \item \href{https://gbdev.io/pandocs/}{Pandocs} is a technical reference of how the \gls{gb} works. It is extremely complete and covers a wide range of topics, so it is useful to get a global view of a problem. It is one of the most referenced pieces of literature on the console.
     \item \href{https://meganesu.github.io/generate-gb-opcodes/}{GB CPU Instructions} is a table containing all instructions the \gls{gb} \gls{cpu} has, as well as information on the amount of cycles taken by the instruction, the bytes of memory used, the flags affected by the operation, and a description of the instruction.
-    \item \href{https://gekkio.fi/files/gb-docs/gbctr.pdf}{GBCTR} (Gameboy Complete Technical Reference) is an unfinished document that contains very detailed information on the \gls{cpu} and other components of the \gls{gb}. Although incomplete, it provides a much lower-level view of the details of the \gls{gb} (compared to Pandocs), making it useful to emulate very specific behaviour.
-    \item \href{https://gbdev.gg8.se/wiki/}{GB dev wiki} is a wiki containing additional information on the \gls{gb}, including guides to making games and explanations on some hardware quirks.
+    \item \href{https://gekkio.fi/files/gb-docs/gbctr.pdf}{Gameboy Complete Technical Reference} (GBCTR) is an unfinished document that contains very detailed information on the \gls{cpu} and other components of the \gls{gb}. Although incomplete, it provides a much lower-level view of the details of the \gls{gb} (compared to Pandocs), making it useful to emulate very specific behaviour like the cycle-by-cycle timing of the CPU.
+    \item \href{https://gbdev.gg8.se/wiki/}{GB dev wiki} is a wiki containing additional information on the \gls{gb}, including guides to making games and explanations on some hardware quirks, and in particular a very precise description of the \gls{apu}.
 \end{compactitem}
 
 \subsection{Existing Emulators}
 
-Furthermore, to aid with developing the emulator, I sometimes had to look through the open source code of existing emulators, to understand how they implemented certain things. These projects include:
+A wide range of emulators for the \gls{gb} and \gls{gbc} already exist, many of them being open-source. These are useful when developing a new emulator, to see how they work internally. For performance reasons they're usually written in compiled languages, such as C++ and Rust, but some interpreted language alternatives exist. These emulators include:
 
 \begin{compactitem}
     \item \href{https://github.com/mattbruv/Gameboy-Crust}{Game Boy Crust} is a simple \gls{gb} emulator written in Rust. It is quite incomplete but has a comprehensive structure, so it's a good project to first figure out how emulators work.
@@ -264,15 +285,15 @@ Furthermore, to aid with developing the emulator, I sometimes had to look throug
 \subsection{Gameboy Test ROMs}
 \label{sec:gb-test-roms}
 
-Finally, some of the most helpful resources I've used are test \glspl{rom}, that can be run on an emulator and output if the emulator passes certain tests (these can be \gls{cpu}, \gls{ppu}, timer tests, etc.). They help quickly diagnose issues, and also allow me to mark certain components and parts of the emulator as "complete", meaning I can rely on these components and know they are fully-functional. These test \glspl{rom} also have the advantage of being open source, meaning I can understand what the test does, and if it fails figure out where and why it goes wrong without having to decompile the \gls{rom}.
+A core set of resources to develop an emulator is the test \glspl{rom} for that console. These are valid source code for the console, that instead of playing a game will run a set of tests on the console. These tests are first written to pass on the physical console itself, and are then used to ensure they also pass on the emulator. This means issues in specific components can be easily diagnosed (so long as the rest of the emulator responsible for running the test \gls{rom} works itself). These test \glspl{rom} also have the advantage of being open source, meaning their source code can be referred to, to understand what they expect of the console.
 
-An other advantage to using test \gls{rom} is that they re-use the same framework across a given suite to report results. This means the result of the test is usually logged somewhere in the console, and testing can easily be automated without having to compare the displayed image.
+An other advantage to using test \gls{rom} is that they tend to re-use the same framework across a given test suite to report results. This means the result of the test is usually logged somewhere in the console, and testing can easily be automated by inspecting specific registers/memory addresses, rather than having to store an ``expect result'' image for each test.
 
-The test \glspl{rom} I used are:
+The test \glspl{rom} used for this project are:
 
 \begin{compactitem}
     \item \href{https://github.com/retrio/gb-test-roms/}{Blaarg test \glspl{rom}} are some of the most well-known and used \gls{gb} test \glspl{rom}. They include tests for the \gls{cpu}, the timings of instructions, and some other functionality.
-    \item \href{https://github.com/Gekkio/mooneye-test-suite}{Mooneye test \glspl{rom}} is a much more complete and tougher test suite, that verifies most components of the \gls{gb}: \gls{cpu} instructions, memory timings of specific instructions, behaviour of \glspl{mbc}, timing of the \gls{oam} \gls{dma}, \gls{ppu} timings, timer timings, etc.
+    \item \href{https://github.com/Gekkio/mooneye-test-suite}{Mooneye test \glspl{rom}} is a very complete test suite, that verifies most components of the \gls{gb}: \gls{cpu} instructions, memory timings of specific instructions, behaviour of \glspl{mbc}, timing of the \gls{oam} \gls{dma}, \gls{ppu} timings, timer timings, etc.
     \item Acid Test (\href{https://github.com/mattcurrie/dmg-acid2}{\gls{dmg}}, \href{https://github.com/mattcurrie/cgb-acid2}{\gls{gbc}}) is a test that verifies the \gls{ppu} of the \gls{gb} displays data properly (to line-rendering accuracy), for both \glsdesc{gb} and \glsdesc{gbc} displays.
     \item \href{https://github.com/LIJI32/SameSuite/}{SameSuite} is a test suite that is valuable for its \gls{apu} tests: it uses the PCM12 and PCM34 registers exclusive to the \gls{gbc} to inspect the exact ouput of the \gls{apu} (whereas other test \glspl{rom} tend to inspect the on/off status of the channels, which is much less accurate).
 \end{compactitem}
