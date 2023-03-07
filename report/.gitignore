@@ -6,5 +6,6 @@
 *.out
 *.run.xml
 *.toc
+*.synctex.gz
 .texpadtmp/*
 _minted*
