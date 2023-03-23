@@ -15,6 +15,7 @@
 \usepackage{xltabular}
 \usepackage{dirtree}
 \usepackage{minted}
+\usepackage{standalone}
 
 \usepackage{tikz}
 \usepackage{packages/tikz-uml}
@@ -403,18 +404,25 @@ In emulators, the different components are usually split in three parts:
 	\item A memory system, that handles addressing within the console. This part is essential to ensure components are communicating between each other properly, since different addresses may map to different components.
 \end{compactitem}
 
-Because the emulator should not rely on the environment it is running it to work, the functionality of the project can be split into two parts: the emulator core, that is responsible for simulating the Gameboy, and the emulator's frontend, that allows interfacing with the user, and may be changed to work for different platforms.
+Because the emulator should not rely on the environment it is running it to work, the functionality of the project can be split into two parts: the emulator core, that is responsible for simulating the Gameboy, and the emulator's frontend, that allows interfacing with the user, and may be changed to work for different platforms (see \ref{fig:emu-back-front-split-uml}).
 
 \begin{figure}[h]
     \centering
     \begin{tikzpicture}
     	\umlbasiccomponent[x=4]{EmulatorUI}
     	\umlbasiccomponent[y=3]{Gameboy}
-    	\umlHVassemblyconnector[interface=EmulatorOut, with port, first arm]{EmulatorUI}{Gameboy}
-    	\umlHVassemblyconnector[interface=EmulatorIn, with port, last arm]{Gameboy}{EmulatorUI}
+    	\umlHVassemblyconnector[interface=EmulatorOut, with port]{EmulatorUI}{Gameboy}
+    	\umlHVassemblyconnector[interface=EmulatorIn, with port]{Gameboy}{EmulatorUI}
     \end{tikzpicture}
     \caption{Split of emulator core and frontend}
     \label{fig:emu-back-front-split-uml}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics{diagrams/emulator-comp-diagram.drawio.pdf}
+    \caption{Simplified design of the emulator's core}
+    \label{fig:emu-core-components}
 \end{figure}
 
 \section{CPU}
@@ -441,7 +449,7 @@ Aside from it's registers, the \gls{cpu} needs to interact with system interrupt
 
 \section{PPU, APU, Joypad}
 
-The \glsfirst{ppu} is a complex part of the Gameboy, that handles outputting the game state to a $160 \times 144$ screen, that may either be monochrome on the \gls{dmg} or with color support on the \gls{gbc}. It may raise interrupts, and needs to access to two parts of memory: the \glsfirst{vram} and the \glsfirst{oam}.
+The \glsfirst{ppu} is a complex part of the Gameboy, that handles outputting the game state to a $160 \times 144$ screen, that may either be monochrome on the \gls{dmg} or with color support on the \gls{gbc}. It may raise interrupts, and needs to be able to access memory, due to it being responsible for the \glsfirst{oam} - a feature allowing transfer of data from an arbitrary location in memory.
 
 The \glsfirst{apu} is responsible for playing the audio output of the console. It has a few registers to control it, as well as a short memory area called the wave RAM. It is partially controlled by the timer, but is otherwise independent. It's sound output is derived from four separate channels: two square wave channels, a custom wave chanel, and a noise channel \cite[Audio]{pandoc}. These channels are here modelled as separate entities, but are purely internal.
 
@@ -481,6 +489,8 @@ This sub-system is designed as a separate component to reduce coupling between o
 \subsection{MBC}
 
 The \glsfirst{mbc} is an extra chip contained within some game cartridges, to allow access to more \gls{rom} data (as well as external RAM in some cases) via banking \cite[MBCs]{pandoc}. There are multiple different \glspl{mbc}, and so it is convenient to define a common interface for all of them, which can then be implemented according to specification for each \gls{mbc} type.
+
+The type of the \gls{mbc} is in the header of the \gls{rom} \cite[The Cartridge Header]{pandoc}. To separate this logic from the base system, a \texttt{ROM} class is used. It is responsible for reading the cartidge's header, and creating the appropriate \gls{mbc} instance.
 
 \section{Useful Classes}
 

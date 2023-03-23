@@ -10,3 +10,6 @@
 .texpadtmp/*
 _minted*
 packages/*.sty
+diagrams/*.pdf
+diagrams/*.bkp
+diagrams/*.dtmp
