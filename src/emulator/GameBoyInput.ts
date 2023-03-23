@@ -1,4 +1,4 @@
-export type GameBoyInputRead = {
+type GameBoyInputRead = {
     up: boolean;
     down: boolean;
     left: boolean;

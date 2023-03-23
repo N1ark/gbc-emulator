@@ -1,7 +1,8 @@
 import { useSignal } from "@preact/signals";
-import { ChevronDown, ChevronRight, ChevronUp } from "lucide-preact";
+import { ChevronDown, ChevronUp } from "lucide-preact";
 import { ComponentChildren, FunctionalComponent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
+
 import IconButton from "@components/IconButton";
 
 type DrawerSectionProps = {

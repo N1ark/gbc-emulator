@@ -1,12 +1,14 @@
-import tests, { Test } from "@/testConfig";
-import IconButton from "@components/IconButton";
-import GameBoyColor from "@emulator/GameBoyColor";
-import GameBoyInput from "@emulator/GameBoyInput";
-import GameBoyOutput from "@emulator/GameBoyOutput";
 import { useSignal } from "@preact/signals";
 import { BoxSelect, FileQuestion } from "lucide-preact";
 import { Fragment, FunctionalComponent } from "preact";
 import { useEffect } from "preact/hooks";
+
+import GameBoyColor from "@emulator/GameBoyColor";
+import GameBoyInput from "@emulator/GameBoyInput";
+import GameBoyOutput from "@emulator/GameBoyOutput";
+
+import IconButton from "@components/IconButton";
+import tests, { Test } from "@frontend/testConfig";
 
 type TestOutput = "❌" | "⌛" | "✅" | "🪦";
 

@@ -1,6 +1,7 @@
 import { ComponentChildren, createContext, FunctionalComponent } from "preact";
-import { useCallback, useContext, useEffect, useState } from "preact/hooks";
-import { filterByName, Identity, ImageFilter } from "./ImageFilter";
+import { useCallback, useContext, useState } from "preact/hooks";
+
+import { filterByName, Identity, ImageFilter } from "@helpers/ImageFilter";
 
 export type Configuration = {
     scale: 0 | 1 | 2;

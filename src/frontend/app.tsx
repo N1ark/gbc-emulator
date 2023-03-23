@@ -1,21 +1,22 @@
 import { useSignal } from "@preact/signals";
+import localforage from "localforage";
 import { FastForward, Pause, Play, Redo, Save, Volume2, VolumeX } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
-import localforage from "localforage";
 
+import AudioPlayer from "@helpers/AudioPlayer";
+import { useConfig } from "@helpers/ConfigContext";
+
+import { addAlert, AlertManager } from "@components/Alerts";
+import Drawer from "@components/Drawer/Drawer";
+import GameInput from "@components/GameInput";
+import IconButton from "@components/IconButton";
 import RomInput from "@components/RomInput";
 import Screen, { VideoReceiver } from "@components/Screen";
 
-import Drawer from "@components/Drawer/Drawer";
-import IconButton from "@/components/IconButton";
 import GameBoyColor from "@emulator/GameBoyColor";
-import GameBoyInput, { GameBoyInputRead } from "@emulator/GameBoyInput";
+import GameBoyInput from "@emulator/GameBoyInput";
 import GameBoyOutput from "@emulator/GameBoyOutput";
-import AudioPlayer from "@/helpers/AudioPlayer";
-import { useConfig } from "./helpers/ConfigContext";
-import { addAlert, AlertManager } from "./components/Alerts";
-import GameInput from "./components/GameInput";
 
 const CACHE_KEY = "rom";
 const SAVE_CACHE_KEY = "save_";
@@ -31,7 +32,7 @@ const App: FunctionalComponent = () => {
         volume.value = config.volume;
     }, [config.volume]);
     const soundOutput = useSignal<AudioPlayer | undefined>(undefined);
-    const joypadInput = useSignal<undefined | (() => GameBoyInputRead)>(undefined);
+    const joypadInput = useSignal<undefined | GameBoyInput>(undefined);
 
     // DOM Refs
     const emulatorFrameIn = useRef<VideoReceiver | undefined>(undefined);
@@ -95,9 +96,9 @@ const App: FunctionalComponent = () => {
             /** Save previous state, clear variables */
             saveGame();
 
-            /** Setup input (relies on the fact pressedKeys doesn't change) */
+            /** Setup input (we can't pass the value directly, because the object might change) */
             const gameIn: GameBoyInput = {
-                read: () => joypadInput.value!(),
+                read: () => joypadInput.value!.read(),
             };
 
             /** Setup output (relies on most things not changing) */

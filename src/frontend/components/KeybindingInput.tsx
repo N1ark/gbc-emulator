@@ -1,5 +1,6 @@
 import { FunctionalComponent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+
 import "./KeybindingInput.css";
 
 type KeybindingInputProps = {

@@ -1,27 +1,28 @@
-import { useConfig } from "@/helpers/ConfigContext";
-import { Identity, Scale2x, Scale4x } from "@/helpers/ImageFilter";
-import IconButton from "@components/IconButton";
 import {
-    Grid,
-    ImageOff,
-    Image,
-    Square,
+    Bug,
+    Circle,
     Dice1,
     Dice2,
     Dice4,
     FileDigit,
     FileX2,
-    Gamepad,
-    Palette,
-    MessageSquare,
-    LineChart,
-    Bug,
-    Circle,
-    Waves,
     Flame,
     Flower,
+    Gamepad,
+    Grid,
+    Image,
+    ImageOff,
+    LineChart,
+    Palette,
+    Square,
+    Waves,
 } from "lucide-preact";
 import { FunctionalComponent } from "preact";
+
+import IconButton from "@components/IconButton";
+import { useConfig } from "@helpers/ConfigContext";
+import { Identity, Scale2x, Scale4x } from "@helpers/ImageFilter";
+
 import Grid2x from "./Grid2x";
 
 const availableFilters = [

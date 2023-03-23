@@ -1,8 +1,10 @@
 import { render } from "preact";
-import App from "@/app";
-import "@/index.css";
-import "@/mobile.css";
-import { ConfigProvider } from "./helpers/ConfigContext";
+
+import App from "@frontend/app";
+import { ConfigProvider } from "@helpers/ConfigContext";
+
+import "@frontend/index.css";
+import "@frontend/mobile.css";
 
 render(
     <ConfigProvider>

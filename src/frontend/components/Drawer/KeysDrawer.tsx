@@ -1,6 +1,7 @@
-import { useConfig } from "@/helpers/ConfigContext";
 import { FunctionalComponent } from "preact";
-import KeybindingInput from "../KeybindingInput";
+
+import KeybindingInput from "@components/KeybindingInput";
+import { useConfig } from "@helpers/ConfigContext";
 
 const KeysDrawer: FunctionalComponent = () => {
     const [

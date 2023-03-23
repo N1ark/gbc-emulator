@@ -7,9 +7,10 @@ export default defineConfig({
     plugins: [preact()],
     resolve: {
         alias: {
-            "@": path.resolve(__dirname, "src"),
+            "@frontend": path.resolve(__dirname, "src", "frontend"),
             "@emulator": path.resolve(__dirname, "src", "emulator"),
-            "@components": path.resolve(__dirname, "src", "components"),
+            "@components": path.resolve(__dirname, "src", "frontend", "components"),
+            "@helpers": path.resolve(__dirname, "src", "frontend", "helpers"),
         },
     },
 });

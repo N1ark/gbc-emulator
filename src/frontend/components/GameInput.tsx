@@ -1,14 +1,18 @@
-import { GameBoyInputRead } from "@/emulator/GameBoyInput";
-import { useConfig } from "@/helpers/ConfigContext";
-import useKeys from "@/helpers/useKeys";
 import { FunctionalComponent } from "preact";
 import { useCallback, useEffect, useMemo } from "preact/hooks";
+
+import GameBoyInput from "@emulator/GameBoyInput";
+import { useConfig } from "@helpers/ConfigContext";
+import useKeys from "@helpers/useKeys";
+
 import "./GameInput.css";
+
+type GameBoyInputObj = ReturnType<GameBoyInput["read"]>;
 
 type JoypadButtonProps = {
     name: string;
-    objKey: keyof GameBoyInputRead;
-    obj: GameBoyInputRead;
+    objKey: keyof GameBoyInputObj;
+    obj: GameBoyInputObj;
 };
 
 const JoypadButton: FunctionalComponent<JoypadButtonProps> = ({ name, objKey, obj }) => {
@@ -30,7 +34,7 @@ const JoypadButton: FunctionalComponent<JoypadButtonProps> = ({ name, objKey, ob
 };
 
 type GameInputProps = {
-    inputHandler: (input: () => GameBoyInputRead) => void;
+    inputHandler: (input: GameBoyInput) => void;
 };
 
 const GameInput: FunctionalComponent<GameInputProps> = ({ inputHandler }) => {
@@ -98,7 +102,7 @@ const GameInput: FunctionalComponent<GameInputProps> = ({ inputHandler }) => {
     );
 
     useEffect(() => {
-        inputHandler(inputFn);
+        inputHandler({ read: inputFn });
     }, [inputFn]);
 
     return (

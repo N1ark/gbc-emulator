@@ -1,5 +1,6 @@
 import { useSignal } from "@preact/signals";
 import { FunctionalComponent, JSX } from "preact";
+
 import "./Resizable.css";
 
 export type ResizableProps = JSX.HTMLAttributes<HTMLDivElement> & { initalWidth: number };

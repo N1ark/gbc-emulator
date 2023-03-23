@@ -1,9 +1,8 @@
-import GameBoyColor from "@/emulator/GameBoyColor";
-import IconButton from "@components/IconButton";
 import { useSignal } from "@preact/signals";
-import { RefreshCw } from "lucide-preact";
 import { FunctionalComponent } from "preact";
 import { useEffect } from "preact/hooks";
+
+import GameBoyColor from "@emulator/GameBoyColor";
 
 const refreshMemory = (offset: number) => {
     // @ts-ignore
