@@ -9,3 +9,4 @@
 *.synctex.gz
 .texpadtmp/*
 _minted*
+packages/*.sty

@@ -8,7 +8,6 @@
 \usepackage{graphicx}
 \usepackage{paralist}
 \usepackage{multicol}
-\usepackage{tikz}
 \usepackage{tabularx}
 \usepackage{adjustbox}
 \usepackage[acronym,toc,nonumberlist,nogroupskip]{glossaries}
@@ -16,6 +15,9 @@
 \usepackage{xltabular}
 \usepackage{dirtree}
 \usepackage{minted}
+
+\usepackage{tikz}
+\usepackage{packages/tikz-uml}
 
 
 % setup bibliography
@@ -111,6 +113,13 @@
     name={OAM},
     description={Object Attribute Memory},
     first={Object Attribute Memory (OAM)},
+}
+
+\newglossaryentry{vram}{
+	type=\acronymtype,
+	name={VRAM},
+	description={Video RAM},
+	first={Video RAM (VRAM)}
 }
 
 \newglossaryentry{dma}{
@@ -220,11 +229,23 @@
 
 \chapter{Introduction}
 
-\section{Project Motivations}
+\section{Motivation}
+
+Emulators are an area of computer science widely used today. Either implemented in hardware or software, they allow replicating the behaviour of one system on another. One of its applications is video game emulation, where a computer simulates a game console (usually a retro console). This allows users to play games that either may not be obtainable in stores anymore, or made for consoles that don't function properly anymore. A wide range of emulators already exist for most consoles. Emulation in general is also widely used in developing new systems, and is an active area of computer science.
+
+This project will seek to create a new emulator for the Gameboy allowing users to play retro games on their computer or mobile device, through the browser. This report will document how the original console works and how the emulator imitates this behaviour to the best accuracy possible, as well as comparing the resulting emulator with other existing ones.
 
 \section{Scope}
 
+The scope of this project is creating a new Gameboy and Gameboy Color emulator, working for browsers. Emulation will be as accurate as achievable with the time available - there may be minor inacuracies in the end product. Extra peripherals and features of the console may be omitted, to allow more focus to be put on the core part of the console.
+
+The emulator will be usable across a range of devices. Debugging tools and additional features may be provided to the user to let them customise their experience to their needs.
+
 \section{Objectives}
+
+The resulting software will allow users to open a game file for the gameboy - also called a ROM - and play it. They may use the emulator on a computer, controlling the console via the keyboard, or on a touch device, using on-screen buttons. The emulated features of the emulator include proper rendering of the screen, simulating the audio of the console, the different buttons, and support for a variety of chip controllers for game cartridges.
+
+The frontend of the emulator may also contain additional quality of life features, such as custom themes, save states, and debugging options allowing to inspect the state of the Gameboy - a feature vital to emulator developers and retro game developers. 
 
 \chapter{Background}
 
@@ -232,7 +253,7 @@
 
 An emulator is ``hardware or software that permits programs written for one computer to be run on another computer'' \cite{emulator_def}. The imitated computer is the \textit{guest}, and the one that imitates is the \textit{host}. Emulators are nowadays mainly found in the form of software, and have many different uses, from preservation to hardware development.
 
-Emulation was technically born with the first computers: the very first computer, the Colossus made in 1941, was built to imitate the Enigma machine \cite{emulator_origin}. However emulation was properly studied towards the end of the twe ntieth century, when computing power started to steadily increase. One of the earliest instances of emulation as an actual feature is with the IBM System/360. This computer supported emulation of previous models, such as the IBM 709, 7090, 7094 and 7094 II \cite{ibm_emulation}.
+Emulation was technically born with the first computers: the very first computer, the Colossus made in 1941, was built to imitate the Enigma machine \cite{emulator_origin}. However emulation was properly studied towards the end of the twentieth century, when computing power started to steadily increase. One of the earliest instances of emulation as an actual feature is with the IBM System/360. This computer supported emulation of previous models, such as the IBM 709, 7090, 7094 and 7094 II \cite{ibm_emulation}.
 
 Nowadays emulation is used when researching and creating new hardware - using virtual systems to design a system and look for errors is much more cost-effective \cite{emu_in_design}. The real system doesn't have to actually be produced, and if something goes wrong it is very simple to look for the error in the simulated system, through logging or stepping through the simulation.
 
@@ -372,6 +393,118 @@ The test \glspl{rom} used for this project are:
 \end{xltabular}
 
 \chapter{Design}
+
+In this chapter we will outline the main components of the Gameboy and of this emulator. For the different \gls{gb} components, we will briefly go over their role, and how they interact with other components and to what end.
+
+In emulators, the different components are usually split in three parts:
+\begin{compactitem}
+	\item The \gls{cpu}, responsible for reading instructions and changing the state of the console. This is what drives the emulation, as other components usually idle unless acted upon.
+	\item Input and output components, such as the \gls{apu}, the \gls{ppu} and the joypad. These components interact with the outside user, by either outputing the game state, or reading inputs from the user.
+	\item A memory system, that handles addressing within the console. This part is essential to ensure components are communicating between each other properly, since different addresses may map to different components.
+\end{compactitem}
+
+Because the emulator should not rely on the environment it is running it to work, the functionality of the project can be split into two parts: the emulator core, that is responsible for simulating the Gameboy, and the emulator's frontend, that allows interfacing with the user, and may be changed to work for different platforms.
+
+\begin{figure}[h]
+    \centering
+    \begin{tikzpicture}
+    	\umlbasiccomponent[x=4]{EmulatorUI}
+    	\umlbasiccomponent[y=3]{Gameboy}
+    	\umlHVassemblyconnector[interface=EmulatorOut, with port, first arm]{EmulatorUI}{Gameboy}
+    	\umlHVassemblyconnector[interface=EmulatorIn, with port, last arm]{Gameboy}{EmulatorUI}
+    \end{tikzpicture}
+    \caption{Split of emulator core and frontend}
+    \label{fig:emu-back-front-split-uml}
+\end{figure}
+
+\section{CPU}
+
+The \glsfirst{cpu} is perhaps the most complex part of the \gls{gb}. It is however also one of best documented parts of it, making it quite easy to emulate properly. The \gls{cpu} model is a LR35902, which is a hybrid of the Intel 8080 chip and the Zilog Z80 \cite{gbcpumanual}.
+
+Most emulator are typically ``CPU-driven''. This means that the \gls{cpu} is what drives the emulation. If an instruction takes multiple hardware cycles to execute, the \gls{cpu} is responsible for asking the rest of the system to tick at the appropriate time. In the design chosen for this project however, the emulator will be ``System-driven'', with the \gls{cpu} only being part of the overall running of the emulator, and will not be responsible for ticking the rest of the system. This difference will be made obvious by the interfaces exposed to the \gls{cpu}; it allows for nicer encapsulation and better separation of concerns.
+
+The \gls{cpu} is thus responsible for stepping through the program it's given. It has 6 different 16-bit registers, with different roles. Some registers' bytes can be accessed independently, operating as two 8-bit registers or one 16-bit register as needed.
+
+\begin{compactitem}
+	\item \texttt{AF}: the accumulator-flag register. Most arithmetic operations can be done on \texttt{A}. \texttt{F} holds the \gls{cpu}'s flags, and can only be altered through arithmetic opeartions.
+	\item \texttt{PC}: the program counter register. It cannot be accessed directly, and is used to store the current position of the \gls{cpu} in the program. It can be altered via \texttt{CALL}, \texttt{RET}, \texttt{JP} operations, for instance.
+	\item \texttt{SP}: the stack pointer register. It can be modified or incremented, and stores the pointer to the top of the ``stack''. A typical use of the stack is for handling functions, by pushing the current address to the stack whenever a procedure is called, and popping it back to the stack pointer when it returns.
+	\item \texttt{BC}, \texttt{DE}: two simple registers that can be used for arithmetic operations.
+	\item \texttt{HL}: similar to \texttt{BC} and \texttt{DE}, it can also be used as an address by some operations - allowing the use of indirect addressing.
+\end{compactitem}
+
+Aside from it's registers, the \gls{cpu} needs to interact with system interrupts, and needs to access memory for reading/writing operations.
+
+% TODO: Keep this for implementation?
+%
+% Each opcode (operation code) of the \gls{gb} is one byte long, meaning there could be $2^8=256$ different opcodes. However, there exist 16-bit opcodes, to allow the \gls{cpu} to perform more operations. These 16-bit opcodes always start with \texttt{0xCB}, with the second byte containing what operation is executed. There are also 11 values of the opcode that do nothing, and aren't used in any \glspl{rom}. This brings the total number of operations to $2^8 * 2 - 11 = 245$.
+
+\section{PPU, APU, Joypad}
+
+The \glsfirst{ppu} is a complex part of the Gameboy, that handles outputting the game state to a $160 \times 144$ screen, that may either be monochrome on the \gls{dmg} or with color support on the \gls{gbc}. It may raise interrupts, and needs to access to two parts of memory: the \glsfirst{vram} and the \glsfirst{oam}.
+
+The \glsfirst{apu} is responsible for playing the audio output of the console. It has a few registers to control it, as well as a short memory area called the wave RAM. It is partially controlled by the timer, but is otherwise independent. It's sound output is derived from four separate channels: two square wave channels, a custom wave chanel, and a noise channel \cite[Audio]{pandoc}. These channels are here modelled as separate entities, but are purely internal.
+
+The former two components need to output information to the user, either graphic or audio data. To do this in a portable way, the emulator will expose an interface, that can be implemented by the front-end. This allows the emulator core to be platform-agnostic, and be easily portable.
+
+The joypad, on the other hand, is the one input component the \gls{gb} has. It contains 4 directional arrow buttons, and 4 input buttons: A, B, start and select (see \ref{fig:gb-front}). To use these inputs, the \gls{cpu} needs to use two different registers.
+
+Similarly as for the output, the emulator core will expose an interface to read  the user's input, ie. the state of all 8 buttons.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=4cm]{images/gameboy.png}\\
+    \caption{Picture of a Gameboy, with the screen and joypad visible}
+    \label{fig:gb-front}
+\end{figure}
+
+\section{Memory Bus}
+
+Components withing the Gameboy need to communicate. To do this, components typically have a set of registers that control how they behave - for instance, the timer has a \texttt{TAC} register at \texttt{0xFF07} to control it's frequency. To allow this interaction without having all components directly depend on each other, a ``memory-bus'' component is created, responsible for handling all components and managing memory-addressing among them.
+
+This component, called \texttt{System}, is thus responsible for instantiating the other components, and providing them access to eachother, via a read and write method.
+
+\section{Other Components}
+
+Aside from the aforementioned components, the \gls{gb} has a few components that allow it to run but aren't part of the \gls{cpu} or the input/output components. These will be briefly outlined here, as they have a lesser impact on the emulator's design.
+
+\subsection{Timer}
+
+The timer, responsible for incrementing a counter (the \texttt{DIV}) at a set frequency. It can raise interrupts, and owns a few registers.
+
+\subsection{Interrupts}
+
+The interrupt system, that allows components such as the timer or the \gls{ppu} to interrupt the \gls{cpu} to run another process. It can also be enabled and disabled by the \gls{cpu}, with the \texttt{EI} and \texttt{DI} instructions.
+
+This sub-system is designed as a separate component to reduce coupling between other components, and instead have a small object that can be passed to components as needed.
+
+\subsection{MBC}
+
+The \glsfirst{mbc} is an extra chip contained within some game cartridges, to allow access to more \gls{rom} data (as well as external RAM in some cases) via banking \cite[MBCs]{pandoc}. There are multiple different \glspl{mbc}, and so it is convenient to define a common interface for all of them, which can then be implemented according to specification for each \gls{mbc} type.
+
+\section{Useful Classes}
+
+To have similar interfaces over all components, we will also declare specific classes and interfaces to be implemented by them.
+
+\subsection{Addressable}
+
+The \texttt{Addressable} interface provides a read and write method. This allows all components to communicate between each other without needing to be aware of what the component they're communicating with is. Aside from the \gls{cpu}, all components of the emulator implement this method.
+
+\subsection{Memory and registers}
+
+Simple utility classes can be declared to manage memory in a simple way. 
+
+The \texttt{RAM} class implements \texttt{Addressable}. It can be instantiated with a set size, and can be read and written to. It is used in components that have large blocks of writable data.
+
+The \texttt{Register} class implements \texttt{Addressable}, but ignores the address parameter of the read and write operations, as it contains only one byte. A \texttt{DoubleRegister} class may also be implemented, backed by two \texttt{Register}s, to provide support for 16-bit registers, used for instance in the \gls{cpu}.
+
+\section{Emulator Frontend}
+
+To allow the user to access the emulator, a frontend needs to be built with it. This frontend is responsible for outputting the graphics and audio data of the emulator, and also for receiving input from the user to pass down to the emulator. Aside from that, extra UI components have been added, to make the usage of the emulator more convenient and add more features: a play/pause button, custom themes, debugging tools, upscaling filters and keybinding options. All of these are kept independent from the emulator, and control transformations of the input/output, or changes in the running of the emulator.
+
+Because this implementation is merely to allow access to the emulator and doesn't have any outstanding functionality, it's description will be brief - most of the focus will be put on the emulator's core.
+
+\chapter{Implementation}
 
 The project uses \href{https://preactjs.com/}{Preact}, a light-weight alternative to the more popular \href{https://reactjs.org/}{React} framework. I chose to use Preact because the front-end of the web-app is extremely light weight, so I wanted to avoid bloating the app with a heavy framework such as React. The React framework once GZipped and minified is around 31.8Kb, when Preact is only 4Kb (87\% less).
 
@@ -704,6 +837,9 @@ step(system: System) {
 \subsection{OAM and OAM DMA}
 \subsection{APU}
 \subsection{MBCs and ROMs}
+
+\chapter{Evaluation}
+
 
 \clearpage
 
