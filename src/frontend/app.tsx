@@ -104,7 +104,7 @@ const App: FunctionalComponent = () => {
             /** Setup output (relies on most things not changing) */
             let serialOutTxt = "";
             const gbOut: GameBoyOutput = {
-                get receive() {
+                get receiveGraphics() {
                     return emulatorFrameIn.current;
                 },
                 receiveSound: (d) => soundOutput.value?.enqueue(d),

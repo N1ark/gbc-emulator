@@ -1,42 +1,46 @@
 interface GameBoyOutput {
     /**
-     * Receives the GameBoy's output, as an array of RGBA values.
+     * @param data the GameBoy's screen output, as an array of RGBA values, making up for a
+     * 160x144 image.
      */
-    receive?(data: Uint32Array): void;
+    receiveGraphics?(data: Uint32Array): void;
 
     /**
-     * Optional method that receives the currently loaded background data in 256x256.
-     */
-    debugBackground?(data: Uint32Array): void;
-
-    /**
-     * Optional method that receives an image with the current tileset in 256x192.
-     */
-    debugTileset?(data: Uint32Array): void;
-
-    /**
-     * Optional method that receives a sample of sound. The emulator produces samples at a
+     * @param data a sample of sound. The emulator produces samples at a
      * 44.1Hz rate, and outputs them every 60th of a second (ie. every frame).
      */
     receiveSound?(data: Float32Array): void;
 
+    // Debugging methods:
+
     /**
-     * Optional method that receives the serial output of the gameboy, character by character.
+     * @param data an array of RGBA values, with the image of the currently loaded background
+     * data in 256x256.
+     */
+    debugBackground?(data: Uint32Array): void;
+
+    /**
+     * @param data an array of RGBA values, with the image of the current tileset in 256x192.
+     */
+    debugTileset?(data: Uint32Array): void;
+
+    /**
+     * @param data the serial output of the Gameboy - called everytime a character is pushed.
      */
     serialOut?(data: number): void;
 
     /**
-     * Optional method that receives the number of cycles executed so far by the system.
+     * @param steps the number of instructions executed so far by the system.
      */
     stepCount?(steps: number): void;
 
     /**
-     * Optional method that returns the number of clock cycles per second.
+     * @param cycles the number of clock cycles per second.
      */
     cyclesPerSec?(cycles: number): void;
 
     /**
-     * Optional method that receives the number of milliseconds taken between the two last frames.
+     * @param ms the number of milliseconds taken between the two last frames.
      */
     frameDrawDuration?(ms: number): void;
 }

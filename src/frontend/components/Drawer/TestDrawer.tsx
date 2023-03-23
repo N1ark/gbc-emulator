@@ -32,7 +32,7 @@ const makeGameboy = (
     };
 
     const gbOut: GameBoyOutput = {
-        receive: videoOut,
+        receiveGraphics: videoOut,
         serialOut: (d) => serialOut(String.fromCharCode(d)),
     };
 

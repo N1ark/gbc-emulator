@@ -443,8 +443,8 @@ class PPU implements Addressable {
     }
 
     pushOutput(output: GameBoyOutput) {
-        if (output.receive) {
-            output.receive(this.lastVideoOut);
+        if (output.receiveGraphics) {
+            output.receiveGraphics(this.lastVideoOut);
         }
         if (output.debugBackground) {
             const backgroundImg = this.debugBackground();
