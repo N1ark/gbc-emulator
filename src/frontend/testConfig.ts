@@ -285,68 +285,66 @@ const compareImages = (imgA: Uint32Array, imgB: Uint32Array) => {
     return "success";
 };
 
+const blaargTestCheck: TestChecker = async (gbc, serialOut, vid, testName) => {
+    if (serialOut.toLowerCase().includes("pass")) return "success";
+    if (serialOut.toLowerCase().includes("fail")) return "failure";
+
+    // Some blaarg tests 'sign' $a001-$a003 with the string "de b0 61", to then
+    // write the status to $a000
+    if (gbc["system"].inspect(0xa001, 3) === "de b0 61") {
+        const status = gbc["system"].read(0xa000);
+        if (status === 0x80) return null;
+        return status === 0x00 ? "success" : "failure";
+    }
+
+    if (testName === "halt_bug" && gbc["cpu"].getStepCounts() >= 700_000) {
+        const expected = await loadImageData("blaarg/reference-halt_bug");
+        return compareImages(expected, vid);
+    }
+    return null;
+};
+
+const mooneyeAndSamesuiteTestCheck: TestChecker = async (gbc) => {
+    if (
+        gbc["cpu"]["srB"].get() === 3 &&
+        gbc["cpu"]["srC"].get() === 5 &&
+        gbc["cpu"]["srD"].get() === 8 &&
+        gbc["cpu"]["srE"].get() === 13 &&
+        gbc["cpu"]["srH"].get() === 21 &&
+        gbc["cpu"]["srL"].get() === 34
+    )
+        return "success";
+    if (
+        gbc["cpu"]["srB"].get() === 0x42 &&
+        gbc["cpu"]["srC"].get() === 0x42 &&
+        gbc["cpu"]["srD"].get() === 0x42 &&
+        gbc["cpu"]["srE"].get() === 0x42 &&
+        gbc["cpu"]["srH"].get() === 0x42 &&
+        gbc["cpu"]["srL"].get() === 0x42
+    )
+        return "failure";
+    return null;
+};
+
+const acidTestCheck: TestChecker = async (gbc, _, vid, test) => {
+    if (test === "dmg-acid2" && gbc["cpu"]["stepCounter"] >= 85_000) {
+        const imageData = await loadImageData("acid/reference-dmg");
+        return compareImages(imageData, vid);
+    } else if (test === "cgb-acid2" && gbc["cpu"]["stepCounter"] >= 140_000) {
+        const imageData = await loadImageData("acid/reference-cgb");
+        console.log("comparing ", { imageData, vid });
+        return compareImages(imageData, vid);
+    }
+
+    return null;
+};
+
 /** The list of test categories, with a runnable that says the status of the test  */
 const testConfig: Record<TestType, TestChecker> = {
-    blaarg: async (gbc, serialOut, vid, testName) => {
-        if (serialOut.toLowerCase().includes("pass")) return "success";
-        if (serialOut.toLowerCase().includes("fail")) return "failure";
-
-        // Some blaarg tests 'sign' $a001-$a003 with the string "de b0 61", to then
-        // write the status to $a000
-        if (gbc["system"].inspect(0xa001, 3) === "de b0 61") {
-            const status = gbc["system"].read(0xa000);
-            if (status === 0x80) return null;
-            return status === 0x00 ? "success" : "failure";
-        }
-
-        if (testName === "halt_bug" && gbc["cpu"].getStepCounts() >= 700_000) {
-            const expected = await loadImageData("blaarg/reference-halt_bug");
-            return compareImages(expected, vid);
-        }
-        return null;
-    },
-    mooneye: async (gbc) => {
-        if (
-            gbc["cpu"]["srB"].get() === 3 &&
-            gbc["cpu"]["srC"].get() === 5 &&
-            gbc["cpu"]["srD"].get() === 8 &&
-            gbc["cpu"]["srE"].get() === 13 &&
-            gbc["cpu"]["srH"].get() === 21 &&
-            gbc["cpu"]["srL"].get() === 34
-        )
-            return "success";
-        if (
-            gbc["cpu"]["srB"].get() === 0x42 &&
-            gbc["cpu"]["srC"].get() === 0x42 &&
-            gbc["cpu"]["srD"].get() === 0x42 &&
-            gbc["cpu"]["srE"].get() === 0x42 &&
-            gbc["cpu"]["srH"].get() === 0x42 &&
-            gbc["cpu"]["srL"].get() === 0x42
-        )
-            return "failure";
-        return null;
-    },
-    acid: async (gbc, _, vid, test) => {
-        if (test === "dmg-acid2" && gbc["cpu"]["stepCounter"] >= 85_000) {
-            const imageData = await loadImageData("acid/reference-dmg");
-            return compareImages(imageData, vid);
-        } else if (test === "cgb-acid2" && gbc["cpu"]["stepCounter"] >= 140_000) {
-            const imageData = await loadImageData("acid/reference-cgb");
-            console.log("comparing ", { imageData, vid });
-            return compareImages(imageData, vid);
-        }
-
-        return null;
-    },
-    samesuite: async (gbc, txt) => {
-        if (txt.startsWith("\x03")) {
-            return "success";
-        }
-        if (txt.startsWith("\x42")) {
-            return "failure";
-        }
-        return null;
-    },
+    blaarg: blaargTestCheck,
+    mooneye: mooneyeAndSamesuiteTestCheck,
+    acid: acidTestCheck,
+    samesuite: mooneyeAndSamesuiteTestCheck,
 };
 
 const tests: Test[] = (
