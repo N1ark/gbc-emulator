@@ -66,6 +66,7 @@ const ExpressionWatch: FunctionalComponent<ExpressionWatchProps> = ({
                     placeholder="label"
                     type="text"
                     className="label"
+                    spellcheck={false}
                     value={label}
                     onInput={(e) => onLabelChange(e.currentTarget.value)}
                 />

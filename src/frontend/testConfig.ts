@@ -291,21 +291,16 @@ const testConfig: Record<TestType, TestChecker> = {
         if (serialOut.toLowerCase().includes("pass")) return "success";
         if (serialOut.toLowerCase().includes("fail")) return "failure";
 
-        if (testName.startsWith("apu-")) {
-            if (gbc["system"].inspect(0xa001, 3) === "de b0 61") {
-                // APU tests write to a000, with status
-                const status = gbc["system"].read(0xa000);
-                if (status === 0x80) return null;
-                return status === 0x00 ? "success" : "failure";
-            }
+        // Some blaarg tests 'sign' $a001-$a003 with the string "de b0 61", to then
+        // write the status to $a000
+        if (gbc["system"].inspect(0xa001, 3) === "de b0 61") {
+            const status = gbc["system"].read(0xa000);
+            if (status === 0x80) return null;
+            return status === 0x00 ? "success" : "failure";
         }
 
         if (testName === "halt_bug" && gbc["cpu"].getStepCounts() >= 700_000) {
             const expected = await loadImageData("blaarg/reference-halt_bug");
-            return compareImages(expected, vid);
-        }
-        if (testName === "oam_bug" && gbc["cpu"].getStepCounts() >= 6_030_000) {
-            const expected = await loadImageData("blaarg/reference-oam_bug");
             return compareImages(expected, vid);
         }
         return null;
