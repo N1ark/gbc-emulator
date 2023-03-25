@@ -37,6 +37,9 @@
 % setup debug box command for places things are missing
 \newcommand{\todo}[1]{\fbox{\parbox{\textwidth}{\textbf{TO-DO:} #1}}}
 
+% add footnotes without the \footnote{\url{...}} command
+\newcommand{\ftnt}[1]{\footnote{\url{#1}}}
+
 % Glossary entry
 \makenoidxglossaries
 
@@ -132,7 +135,7 @@
 
 \newglossaryentry{dmg_g}{
     name={Dot Matrix Game},
-    description={The model name of the Gameboy. It is often used to refer to the "base" Gameboy (in contrast with GBC for the Gameboy Color)}
+    description={The model name of the Gameboy. It is often used to refer to the ``base'' Gameboy (in contrast with GBC for the Gameboy Color)}
 }
 \newglossaryentry{dmg}{
     type=\acronymtype,
@@ -210,7 +213,7 @@
 \begin{center}
 	I verify that I am the sole author of this report, \\
 	except where explicitly stated  to the contrary.
-	
+
 	Oscar Sjöstedt, \today
 \end{center}
 \vspace*{\fill}
@@ -224,7 +227,7 @@
 
 \clearpage
 
-{\hypersetup{hidelinks}\tableofcontents} 
+{\hypersetup{hidelinks}\tableofcontents}
 
 \clearpage
 
@@ -246,7 +249,7 @@ The emulator will be usable across a range of devices. Debugging tools and addit
 
 The resulting software will allow users to open a game file for the gameboy - also called a ROM - and play it. They may use the emulator on a computer, controlling the console via the keyboard, or on a touch device, using on-screen buttons. The emulated features of the emulator include proper rendering of the screen, simulating the audio of the console, the different buttons, and support for a variety of chip controllers for game cartridges.
 
-The frontend of the emulator may also contain additional quality of life features, such as custom themes, save states, and debugging options allowing to inspect the state of the Gameboy - a feature vital to emulator developers and retro game developers. 
+The frontend of the emulator may also contain additional quality of life features, such as custom themes, save states, and debugging options allowing to inspect the state of the Gameboy - a feature vital to emulator developers and retro game developers.
 
 \chapter{Background}
 
@@ -266,15 +269,15 @@ Finally, another common use for emulation is virtual machines. These programs al
 
 Video game emulation is the art of emulation applied to video game hardware systems. This allows the host to run games destined for the original console. This usually requires precise understanding of the console's hardware and functioning, as games may rely on specific behaviours and edge cases to function. This task is rendered harder by the fact that often game consoles are poorly documented, as they are proprietary hardware and programmer guides written for them cannot be legally distributed.
 
-Video game emulation started in the 90s when computers were powerful enough to properly simulate console systems. Although precise dates are hard to get, the first console emulators seem to be either from 1990 or 1993 \cite{first_nes_emu}, and were able to run some NES games. The first Gameboy emulators were in the late 90s, with the \href{http://fms.komkon.org/VGB/}{Virtual GameBoy} in 1995 and \href{https://problemkaputt.de/gmb.htm}{NO\$GMB} in 1997 (although it's \href{https://problemkaputt.de/gmbhist.htm}{history page} seems to indicate development started in 1993) \cite{first_gb_emus}.
+Video game emulation started in the 90s when computers were powerful enough to properly simulate console systems. Although precise dates are hard to get, the first console emulators seem to be either from 1990 or 1993 \cite{first_nes_emu}, and were able to run some NES games. The first Gameboy emulators were in the late 90s, with the Virtual GameBoy\ftnt{http://fms.komkon.org/VGB/} in 1995 and NO\$GMB\ftnt{https://problemkaputt.de/gmb.htm} in 1997 (although it's history page\ftnt{https://problemkaputt.de/gmbhist.htm} seems to indicate development started in 1993) \cite{first_gb_emus}.
 
-The original game files and assembled code for video games is copyrighted material, and is referred to as the \gls{rom} of the game. Although distributing these \glspl{rom} is usually illegal, there also exist copyright free \glspl{rom}: games created by developers that chose to license them under Creative Commons licenses, for instance. Websites such as \href{https://www.retroveteran.com/category/nintendo-game-boy-color/}{Retro Veteran} host wide collections of legal \glspl{rom}.
+The original game files and assembled code for video games is copyrighted material, and is referred to as the \gls{rom} of the game. Although distributing these \glspl{rom} is usually illegal, there also exist copyright free \glspl{rom}: games created by developers that chose to license them under Creative Commons licenses, for instance. Websites such as Retro Veteran\ftnt{https://www.retroveteran.com/category/nintendo-game-boy-color/} host wide collections of legal \glspl{rom}.
 
 \section{Gameboy, Gameboy Color}
 
 The \gls{gb} is an 8-bit handheld video game console, released in 1989. It has a small $160 \times 144$ pixel screen, and has a Sharp LR35902 as its \gls{cpu}, clocked at 4.19MHz \cite[Specifications]{pandoc}. In 1998, the \gls{gbc} was then released. Seen as the successor of the \gls{gb}, it contains a screen of the same resolution, but supporting colour, from a palette of 32768 options (15 bits per color). It contains the same \gls{cpu} as its predecessor, a Sharp LR35902, with now two modes: a 4.19MHz mode and a 8.38MHz mode (double-speed mode). This allows the \gls{gbc} to be backwards compatible with most \gls{gb} games - there are a few exceptions to this, games that used hardware bugs of the original \gls{gb} that were fixed in the \gls{gbc}.
 
-From an emulation perspective, the \glsdesc{gbc} can thus be seen as an extension of the Game Boy - it has an identical CPU (although with a toggle-able double speed mode), and most of the memory layout is identical. To keep the remaining of this document simple, if not stated, "GB" will refer to both the original \glsdesc{gb} and the \glsdesc{gbc}, as they are very similar. \gls{dmg} refers to the original \glsdesc{gb} model.
+From an emulation perspective, the \glsdesc{gbc} can thus be seen as an extension of the Game Boy - it has an identical CPU (although with a toggle-able double speed mode), and most of the memory layout is identical. To keep the remaining of this document simple, if not stated, ``GB'' will refer to both the original \glsdesc{gb} and the \glsdesc{gbc}, as they are very similar. \gls{dmg} refers to the original \glsdesc{gb} model.
 
 \section{Existing Literature}
 
@@ -283,10 +286,10 @@ From an emulation perspective, the \glsdesc{gbc} can thus be seen as an extensio
 The \glsdesc{gb} is one of the best documented consoles for emulation, and an array of resources exist to get started writing a new one. Some useful resources explaining it's behaviour are:
 
 \begin{compactitem}
-    \item \href{https://gbdev.io/pandocs/}{Pandocs} is a technical reference of how the \gls{gb} works. It is extremely complete and covers a wide range of topics, so it is useful to get a global view of a problem. It is one of the most referenced pieces of literature on the console.
-    \item \href{https://meganesu.github.io/generate-gb-opcodes/}{GB CPU Instructions} is a table containing all instructions the \gls{gb} \gls{cpu} has, as well as information on the amount of cycles taken by the instruction, the bytes of memory used, the flags affected by the operation, and a description of the instruction.
-    \item \href{https://gekkio.fi/files/gb-docs/gbctr.pdf}{Gameboy Complete Technical Reference} (GBCTR) is an unfinished document that contains very detailed information on the \gls{cpu} and other components of the \gls{gb}. Although incomplete, it provides a much lower-level view of the details of the \gls{gb} (compared to Pandocs), making it useful to emulate very specific behaviour like the cycle-by-cycle timing of the CPU.
-    \item \href{https://gbdev.gg8.se/wiki/}{GB dev wiki} is a wiki containing additional information on the \gls{gb}, including guides to making games and explanations on some hardware quirks, and in particular a very precise description of the \gls{apu}.
+    \item Pandocs\ftnt{https://gbdev.io/pandocs/} is a technical reference of how the \gls{gb} works. It is extremely complete and covers a wide range of topics, so it is useful to get a global view of a problem. It is one of the most referenced pieces of literature on the console.
+    \item GB CPU Instructions\ftnt{https://meganesu.github.io/generate-gb-opcodes/} is a table containing all instructions the \gls{gb} \gls{cpu} has, as well as information on the amount of cycles taken by the instruction, the bytes of memory used, the flags affected by the operation, and a description of the instruction.
+    \item Gameboy Complete Technical Reference\ftnt{https://gekkio.fi/files/gb-docs/gbctr.pdf} (GBCTR) is an unfinished document that contains very detailed information on the \gls{cpu} and other components of the \gls{gb}. Although incomplete, it provides a much lower-level view of the details of the \gls{gb} (compared to Pandocs), making it useful to emulate very specific behaviour like the cycle-by-cycle timing of the CPU.
+    \item GB dev wiki\ftnt{https://gbdev.gg8.se/wiki/} is a wiki containing additional information on the \gls{gb}, including guides to making games and explanations on some hardware quirks, and in particular a very precise description of the \gls{apu}.
 \end{compactitem}
 
 \subsection{Existing Emulators}
@@ -294,14 +297,14 @@ The \glsdesc{gb} is one of the best documented consoles for emulation, and an ar
 A wide range of emulators for the \gls{gb} and \gls{gbc} already exist, many of them being open-source. These are useful when developing a new emulator, to see how they work internally. For performance reasons they're usually written in compiled languages, such as C++ and Rust, but some interpreted language alternatives exist. These emulators include:
 
 \begin{compactitem}
-    \item \href{https://github.com/mattbruv/Gameboy-Crust}{Game Boy Crust} is a simple \gls{gb} emulator written in Rust. It is quite incomplete but has a comprehensive structure, so it's a good project to first figure out how emulators work.
-    \item \href{https://github.com/Atem2069/accurateboy}{AccurateBoy} is a highly accurate emulator, in particular for its \gls{ppu} that has pixel-perfect accuracy.
-    \item \href{https://github.com/samcday/oxideboy}{oxideboy} is another \gls{gb} emulator written in Rust, that is much more complete and helpful for some edge cases.
-    \item \href{https://github.com/LIJI32/SameBoy}{SameBoy} is one of the most accurate open source \gls{gb} and \gls{gbc} emulators, written in C. It is much more technically complex but still useful to understand edge cases, especially since it is the emulator I use and compare mine with.
-    \item \href{https://github.com/Gekkio/mooneye-gb}{Mooneye GB} is a \gls{gb} research emulator written in Rust. It passes most of the Mooneye test ROMs, making it helpful when encountering issues with these tests.
-    \item \href{https://github.com/taisel/GameBoy-Online/}{GameBoy-Online} is a high-accuracy JavaScript emulator, that I used when unsure on how to interface the emulator with the browser (notably for the \gls{apu}).
-    \item \href{https://github.com/juchi/gameboy.js/}{Gameboy.js} is another JavaScript emulator. It is fairly simply and inaccurate, but is easily hackable. As such it's the emulator I used when starting the emulator, to compare mine with.
-    \item \href{https://github.com/mvdnes/rboy}{rboy} is an emulator written in Rust, that I used when developing the \gls{apu} to compare mine with, as it passes some test \glspl{rom} I struggled with.
+    \item Game Boy Crust\ftnt{https://github.com/mattbruv/Gameboy-Crust} is a simple \gls{gb} emulator written in Rust. It is quite incomplete but has a comprehensive structure, so it's a good project to first figure out how emulators work.
+    \item AccurateBoy\ftnt{https://github.com/Atem2069/accurateboy} is a highly accurate emulator, in particular for its \gls{ppu} that has pixel-perfect accuracy.
+    \item oxideboy\ftnt{https://github.com/samcday/oxideboy} is another \gls{gb} emulator written in Rust, that is much more complete and helpful for some edge cases.
+    \item SameBoy\ftnt{https://github.com/LIJI32/SameBoy} is one of the most accurate open source \gls{gb} and \gls{gbc} emulators, written in C. It is much more technically complex but still useful to understand edge cases, especially since it is the emulator I use and compare mine with.
+    \item Mooneye GB\ftnt{https://github.com/Gekkio/mooneye-gb} is a \gls{gb} research emulator written in Rust. It passes most of the Mooneye test ROMs, making it helpful when encountering issues with these tests.
+    \item GameBoy-Online\ftnt{https://github.com/taisel/GameBoy-Online/} is a high-accuracy JavaScript emulator, that I used when unsure on how to interface the emulator with the browser (notably for the \gls{apu}).
+    \item Gameboy.js\ftnt{https://github.com/juchi/gameboy.js/} is another JavaScript emulator. It is fairly simply and inaccurate, but is easily hackable. As such it's the emulator I used when starting the emulator, to compare mine with.
+    \item rboy\ftnt{https://github.com/mvdnes/rboy} is an emulator written in Rust, that I used when developing the \gls{apu} to compare mine with, as it passes some test \glspl{rom} I struggled with.
 \end{compactitem}
 
 \subsection{Gameboy Test ROMs}
@@ -314,10 +317,10 @@ An other advantage to using test \gls{rom} is that they tend to re-use the same 
 The test \glspl{rom} used for this project are:
 
 \begin{compactitem}
-    \item \href{https://github.com/retrio/gb-test-roms/}{Blaarg test \glspl{rom}} are some of the most well-known and used \gls{gb} test \glspl{rom}. They include tests for the \gls{cpu}, the timings of instructions, and some other functionality.
-    \item \href{https://github.com/Gekkio/mooneye-test-suite}{Mooneye test \glspl{rom}} is a very complete test suite, that verifies most components of the \gls{gb}: \gls{cpu} instructions, memory timings of specific instructions, behaviour of \glspl{mbc}, timing of the \gls{oam} \gls{dma}, \gls{ppu} timings, timer timings, etc.
-    \item Acid Test (\href{https://github.com/mattcurrie/dmg-acid2}{\gls{dmg}}, \href{https://github.com/mattcurrie/cgb-acid2}{\gls{gbc}}) is a test that verifies the \gls{ppu} of the \gls{gb} displays data properly (to line-rendering accuracy), for both \glsdesc{gb} and \glsdesc{gbc} displays.
-    \item \href{https://github.com/LIJI32/SameSuite/}{SameSuite} is a test suite that is valuable for its \gls{apu} tests: it uses the PCM12 and PCM34 registers exclusive to the \gls{gbc} to inspect the exact ouput of the \gls{apu} (whereas other test \glspl{rom} tend to inspect the on/off status of the channels, which is much less accurate).
+    \item Blaarg test \glspl{rom}\ftnt{https://github.com/retrio/gb-test-roms/} are some of the most well-known and used \gls{gb} test \glspl{rom}. They include tests for the \gls{cpu}, the timings of instructions, and some other functionality.
+    \item Mooneye test \glspl{rom}\ftnt{https://github.com/Gekkio/mooneye-test-suite} is a very complete test suite, that verifies most components of the \gls{gb}: \gls{cpu} instructions, memory timings of specific instructions, behaviour of \glspl{mbc}, timing of the \gls{oam} \gls{dma}, \gls{ppu} timings, timer timings, etc.
+    \item Acid Test (\gls{dmg}\ftnt{https://github.com/mattcurrie/dmg-acid2}, \gls{gbc}\ftnt{https://github.com/mattcurrie/cgb-acid2}) is a test that verifies the \gls{ppu} of the \gls{gb} displays data properly (to line-rendering accuracy), for both \glsdesc{gb} and \glsdesc{gbc} displays.
+    \item SameSuite\ftnt{https://github.com/LIJI32/SameSuite/} is a test suite that is valuable for its \gls{apu} tests: it uses the PCM12 and PCM34 registers exclusive to the \gls{gbc} to inspect the exact ouput of the \gls{apu} (whereas other test \glspl{rom} tend to inspect the on/off status of the channels, which is much less accurate).
 \end{compactitem}
 
 \chapter{Requirements and Specification}
@@ -372,7 +375,7 @@ The test \glspl{rom} used for this project are:
     U1 & User can upload a \gls{gb} \gls{rom} file (\texttt{.gb}), and the emulator will run the game. The keyboard can be used to control the game, and the output is displayed. & High \\ \hline
     U2 & User can upload a \gls{gbc} \gls{rom} file (\texttt{.gbc}), and the emulator will run the game. The keyboard can be used to control the game, and the output is displayed. & Medium \\ \hline
     U3 & User can upload a \gls{gb} \gls{rom} file (\texttt{.gb}). The user can switch between a \gls{dmg} and a \gls{gbc} emulator. & Medium \\ \hline
-    U4 & User can press a button to download a save of their game (or, alternatively, the save can be stored inside the browser with a technology like \href{https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API}{IndexedDB}) & Low \\ \hline
+    U4 & User can press a button to download a save of their game (or, alternatively, the save can be stored inside the browser with a technology like IndexedDB\ftnt{https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API}) & Low \\ \hline
     U5 & User can select the speed of emulation, to dynamically accelerate/decelerate the game. & Medium \\ \hline
     U6 & User can see debug information of the emulator. This information includes the current tileset, background map, time to draw a frame, and register information. & Low \\ \hline
     U7 & User can pause the console emulation through a button. They can also input conditions for which the console should break execution. & Low \\ \hline
@@ -382,7 +385,7 @@ The test \glspl{rom} used for this project are:
     F1 & A \gls{rom} file can be uploaded, is transformed into an \texttt{UInt8Array} (because the \gls{gb} is an 8-bit system), and the appropriate object is created to run the code. & High \\ \hline
     F2 & Different components exists as different classes, respecting typical OOP principles such as encapsulation and inheritance when relevant. & High \\ \hline
     F3 & A \texttt{<canvas />} element is created, and is updated with the output of the emulator after every frame is drawn (ie. at the start of each VBlank mode). & High \\ \hline
-    F4 & The \href{https://preactjs.com/}{Preact} framework is used to handle the UI of the web-app. & High \\ \hline
+    F4 & The Preact\ftnt{https://preactjs.com/} framework is used to handle the UI of the web-app. & High \\ \hline
     F5 & Listeners are added to the environment's \texttt{window} to listen to all key presses and releases. The emulator can then request for a control update, by reading the state of keys. & High \\ \hline
     F6 & If a touch device is detected, button are added to the UI and are used by the emulator as inputs. & Medium \\ \hline
 
@@ -425,13 +428,20 @@ Because the emulator should not rely on the environment it is running it to work
     \label{fig:emu-core-components}
 \end{figure}
 
+
+\section{Emulator Frontend}
+
+To allow the user to access the emulator, a frontend needs to be built with it. This frontend is responsible for outputting the graphics and audio data of the emulator, and also for receiving input from the user to pass down to the emulator. Aside from that, extra UI components have been added, to make the usage of the emulator more convenient and add more features: a play/pause button, custom themes, debugging tools, upscaling filters and keybinding options. All of these are kept independent from the emulator, and control transformations of the input/output, or changes in the running of the emulator.
+
+Because this implementation is merely to allow access to the emulator and doesn't have any outstanding functionality, it's description will be brief - most of the focus will be put on the emulator's core.
+
 \section{CPU}
 
 The \glsfirst{cpu} is perhaps the most complex part of the \gls{gb}. It is however also one of best documented parts of it, making it quite easy to emulate properly. The \gls{cpu} model is a LR35902, which is a hybrid of the Intel 8080 chip and the Zilog Z80 \cite{gbcpumanual}.
 
 Most emulator are typically ``CPU-driven''. This means that the \gls{cpu} is what drives the emulation. If an instruction takes multiple hardware cycles to execute, the \gls{cpu} is responsible for asking the rest of the system to tick at the appropriate time. In the design chosen for this project however, the emulator will be ``System-driven'', with the \gls{cpu} only being part of the overall running of the emulator, and will not be responsible for ticking the rest of the system. This difference will be made obvious by the interfaces exposed to the \gls{cpu}; it allows for nicer encapsulation and better separation of concerns.
 
-The \gls{cpu} is thus responsible for stepping through the program it's given. It has 6 different 16-bit registers, with different roles. Some registers' bytes can be accessed independently, operating as two 8-bit registers or one 16-bit register as needed.
+The \gls{cpu} is thus responsible for stepping through the program it's given. It has 6 different 16-bit registers, with different roles. Some registers' bytes can be accessed independently, operating as two 8-bit registers or one 16-bit register as needed \cite[CPU Registers and Flags]{pandoc}.
 
 \begin{compactitem}
 	\item \texttt{AF}: the accumulator-flag register. Most arithmetic operations can be done on \texttt{A}. \texttt{F} holds the \gls{cpu}'s flags, and can only be altered through arithmetic opeartions.
@@ -461,7 +471,7 @@ Similarly as for the output, the emulator core will expose an interface to read 
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=4cm]{images/gameboy.png}\\
+    \includegraphics[width=4cm]{images/gameboy}\\
     \caption{Picture of a Gameboy, with the screen and joypad visible}
     \label{fig:gb-front}
 \end{figure}
@@ -502,43 +512,39 @@ The \texttt{Addressable} interface provides a read and write method. This allows
 
 \subsection{Memory and registers}
 
-Simple utility classes can be declared to manage memory in a simple way. 
+Simple utility classes can be declared to manage memory in a simple way.
 
 The \texttt{RAM} class implements \texttt{Addressable}. It can be instantiated with a set size, and can be read and written to. It is used in components that have large blocks of writable data.
 
 The \texttt{Register} class implements \texttt{Addressable}, but ignores the address parameter of the read and write operations, as it contains only one byte. A \texttt{DoubleRegister} class may also be implemented, backed by two \texttt{Register}s, to provide support for 16-bit registers, used for instance in the \gls{cpu}.
 
-\section{Emulator Frontend}
-
-To allow the user to access the emulator, a frontend needs to be built with it. This frontend is responsible for outputting the graphics and audio data of the emulator, and also for receiving input from the user to pass down to the emulator. Aside from that, extra UI components have been added, to make the usage of the emulator more convenient and add more features: a play/pause button, custom themes, debugging tools, upscaling filters and keybinding options. All of these are kept independent from the emulator, and control transformations of the input/output, or changes in the running of the emulator.
-
-Because this implementation is merely to allow access to the emulator and doesn't have any outstanding functionality, it's description will be brief - most of the focus will be put on the emulator's core.
-
 \chapter{Implementation}
 
-The project uses \href{https://preactjs.com/}{Preact}, a light-weight alternative to the more popular \href{https://reactjs.org/}{React} framework. I chose to use Preact because the front-end of the web-app is extremely light weight, so I wanted to avoid bloating the app with a heavy framework such as React. The React framework once GZipped and minified is around 31.8Kb, when Preact is only 4Kb (87\% less).
+The project uses Preact\ftnt{https://preactjs.com/}, a light-weight alternative to the more popular React\ftnt{https://reactjs.org/} framework. Preact was chosen because the front-end of the web-app is extremely lightweight, so a smaller framework with less features is enough. This also avoids bloating the app with a heavy framework such as React: its GZipped and minified size is around 31.8Kb, while Preact is only 4Kb (87\% less).
 
-The language used for the project is \href{https://www.typescriptlang.org/}{TypeScript}, a typed version of JavaScript. This will prove very useful as the project gets larger, to ensure the correctness of code.
+The language used for the project is TypeScript\ftnt{https://www.typescriptlang.org/}, a typed version of JavaScript. This is essential for the project, as ensuring the correctness of code can be extremely hard without proper typing constraints, especially as a project grows in size.
 
-The project is divided in two parts:
+The project is divided into two parts:
 \begin{compactitem}
-    \item The root directory contains the UI for the web-app. Most of the code is in \texttt{app.tsx}, since the front-end is quite light-weight (a few buttons, a file input, and the logic to create the emulator as well as handling inputs and outputs).
+    \item The \texttt{frontend/} directory contains the UI for the web-app. The main logic to create the emulator and run it is contained in \texttt{app.tsx}.
     \item  The \texttt{emulator/} directory contains the actual \gls{gb} emulator. Although most classes and interfaces used are exported, only three elements are needed to properly interact with the emulator:
     \begin{compactitem}
-        \item \texttt{GameBoyColor.ts} handles the core loop of the system: it ticks both the \gls{cpu} and the rest of the system, bundled under the class \texttt{System}.
-        \item \texttt{GameBoyOutput.ts} is a simple interface, with optional methods to receive any output produced by the emulator (see figure \ref{fig:gameboyoutput})
-        \item \texttt{GameBoyInput.ts} is a simple interface with a required \texttt{read()} method that should return an object with the current inputs for the console (see figure \ref{fig:gameboyinput}).
+        \item \texttt{GameBoyColor.ts} handles the core loop of the system. It contains the \texttt{GameBoyColor} class, the emulator. Instantiating the emulator creates all the necessary sub-components, and calling the \texttt{drawFrame()} method runs the emulator for one frame (0.16 seconds).
+        \item \texttt{GameBoyOutput.ts} contains a simple interface, with optional methods to receive any output produced by the emulator (see figure \ref{fig:gameboyoutput}). The two main methods of this are \texttt{receiveGraphics} and \texttt{receiveSound}, which use the output of the actual console.
+        \item \texttt{GameBoyInput.ts} contains a simple interface with a required \texttt{read()} method that returns an object with the current inputs for the console (see figure \ref{fig:gameboyinput}).
     \end{compactitem}
 \end{compactitem}
 
 \begin{figure}[h]
     \begin{minted}{typescript}
 interface GameBoyOutput {
-    receive?(data: Uint32Array): void;
+    receiveGraphics?(data: Uint32Array): void;
+    receiveSound?(data: Float32Array): void;
+
+    // Debugging methods:
     debugBackground?(data: Uint32Array): void;
     debugTileset?(data: Uint32Array): void;
     serialOut?(data: number): void;
-    errorOut?(error: unknown): void;
     stepCount?(steps: number): void;
     cyclesPerSec?(cycles: number): void;
     frameDrawDuration?(ms: number): void;
@@ -572,44 +578,124 @@ interface GameBoyInput {
 
 \section{Emulator Frontend}
 
-The frontend of the emulator is written in Preact, allowing us to create a simple, fast and lightweight UI to control it. It contains the emulator title, the control buttons, some debug information, and the emulator video output (see figure~\ref{fig:emmy-home}).
-
-The main controls for the emulator are the 6 buttons above the screen. These are, from left to right:
-\begin{compactitem}
-    \item Pause/play: pauses or starts the emulator.
-    \item Step one \gls{mcyc}: this is particularly useful when debugging to figure out exactly when something goes wrong. It is only enabled when the emulator is paused.
-    \item Debug view: displays the tileset and background map alongside the executing game (see figure~\ref{fig:emmy-debug-view})
-    \item Compare mode: runs a second open-source emulator (\href{https://github.com/juchi/gameboy.js/}{Gameboy.js}) at the same time as my emulator. This is useful to compare graphics and check it works somewhat properly.
-    \item Test mode: stops execution of the current game, and instead runs a series of tests automatically, recording which ones pass and fail. The result of the tests is logged to the console as a table, allowing to quickly check to what is and isn't working (see figure~\ref{fig:emmy-test-output}). The state of a test can be: a green check (passed), a red cross (failed), a headstone (failed due to error) or an hourglass (failed due to timeout).
-    \item Speed-boost toggle: a toggle button that speeds up the emulator to triple its base speed.
-\end{compactitem}
-
-Further more the emulator currently displays some debug data, to check the performance of it. From top to bottom, these are:
-\begin{compactitem}
-    \item The total number of instructions executed so far.
-    \item The number of \glspl{tcyc} executed per second - this is to compare with the ideal of 4.19MHz.
-    \item The number of milliseconds needed to render a frame. The \gls{gb} renders at 60 frames per second (60Hz), so this measures the time taken to perform $(4.19*10^6)/60\approx 69000$ \glspl{tcyc}.
-\end{compactitem}
+The frontend of the emulator is written in Preact, allowing us to create a simple, fast and lightweight UI to control it. It contains the emulator title, the control buttons and the emulator video output (see figure~\ref{fig:emmy-home}). Along the left of the screen is a sidebar with more options, allowing the user to customise the emulator to their needs and debug the state of the console if needed.
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=5cm]{images/emmy-home-page.png}\\
+    \includegraphics[width=15cm]{images/emmy-home-page}\\
     \caption{Home page of the emulator}
     \label{fig:emmy-home}
 \end{figure}
 
+\subsection{Main Controls}
+
+The main controls for the emulator are the 6 buttons above the screen. These are, from left to right:
+
+\begin{compactitem}
+    \item Pause/play: pauses or resumes the emulator.
+    \item Step by one \gls{cpu} instruction: this is a feature useful for debugging the emulator, when precise information of the state of the emulator is needed.
+    \item Sound toggle: allows enabling or disabling the sound of the emulator. By default the sound is turned off, because modern browsers don't allow websites to play any sound before the user interacts with the website \cite{browser_autoplay}.
+    \item Triple speed toggle: a toggle button that speeds up the emulator to emulate the \gls{gb} thrice as fast as usual. This is a common feature found in most emulators.
+    \item Save state: saves the current state of the cartridge in the browser's storage, allowing the user to resume playing the game later. Note this doesn't save the full state of the emulator, but that of the cartridge, making it equivalent to a real-life save on the \gls{gb} where only the battery-backed storage of the cartridge persists through power-offs.
+\end{compactitem}
+
+\subsection{Settings}
+
+In the side drawer, the first tab is ``Settings''. It contains general settings for the emulator, such as:
+
+\begin{compactitem}
+	\item the console used by the emulator. This may either be the \gls{dmg} or the \gls{gbc}.
+	\item an extra filter to be applied to the output. This increases the resolution of the screen, using the Scale2x or Scale4x\ftnt{https://www.scale2x.it/} algorithm (see \ref{fig:scale-filter}).
+	\item the size of the emulator's screen, allowing resizing to two or four times larger.
+	\item a slider to change the volume of the emulator's audio output.
+	\item a palette selector, to change the four hues of the \gls{dmg}'s screen.
+	\item miscellaneous togglable settings, grouped together: 
+	\begin{compactitem} 
+		\item an option to play with or without the initial boot \gls{rom} of the emulator.
+		\item a toggle to enable frame-blending, meaning for every new frame the output is mixed with the previous frame. This is a nice addition to have, because certain games made certain objects flicker on screen to make them appear translucent (since the flicker wasn't visible to the eye).
+		\item a button to show the performance statistics of the emulator. This is mainly useful when developing the emulator to make sure it is still efficient.
+		\item a toggle to enable the debug view of the emulator, where the currently loaded tileset and background map are displayed (see \ref{fig:debug-view}).
+	\end{compactitem}
+\end{compactitem}
+
 \begin{figure}[h]
     \centering
-    \includegraphics[width=8cm]{images/emmy-debug-view.png}\\
-    \caption{Debug view of the emulator}
-    \label{fig:emmy-debug-view}
+    \includegraphics[width=15cm]{images/scale-filter}\\
+    \caption{Output of the \gls{gbc} with, from left to right: no filter, Scale2x and Scale4x}
+    \label{fig:scale-filter}
 \end{figure}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=8cm]{images/emmy-test-output.png}\\
-    \caption{Snippet of test mode output}
-    \label{fig:emmy-test-output}
+    \includegraphics[width=10cm]{images/debug-view}\\
+    \caption{Debug view of the emulator}
+    \label{fig:debug-view}
+\end{figure}
+
+\subsection{Watch Expressions}
+
+The second drawer allows the user to define custom JavaScript functions to inspect the state of the emulator regularly (see \ref{fig:watch-expressions}). This requires knowledge of the inner structure of the emulator, as the field names need to be used, but is quite useful when needing to inspect parts of the console that aren't the memory, like internal counters used for components, or register values. 
+
+To implement this, the \texttt{Function}\ftnt{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function} constructor is used, which takes in a string with the function's code. This allows the user to dynamically change the expression, and the component will simply update the function, without needing to reload the whole application. These expressions are also automatically saved to \texttt{localStorage}\ftnt{https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage}, meaning they will be kept between sessions.
+
+The user-defined function is then repeatedly invoked, and the result output below the expression, allowing for a live-status of the emulator. If an error is thrown by the function (due to a null value, or invalid expression), the error is caught and `\texttt{Error}' is displayed.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=5cm]{images/watch-expressions}\\
+    \caption{Watch expressions drawer}
+    \label{fig:watch-expressions}
+\end{figure}
+
+\subsection{Test ROMs}
+
+To ensure emulators work properly, a variety of test \glspl{rom} have been made, that test most aspects of the \gls{gb} (see \ref{sec:gb-test-roms}). The front-end of the emulator supports running a large number of them in an automated way (see \ref{fig:}). The user can select the group of tests desired, and they will run internally (without receiving any input our outputting anything directly). The status of each individual test is displayed, and the user can click on the test name to run it on the main emulator, for further debugging or inspection.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=5cm]{images/test-roms}\\
+    \caption{Test \glspl{rom} drawer}
+    \label{fig:watch-expressions}
+\end{figure}
+
+To run the tests, an emulator instance is created, with the test \gls{rom} as the input data and ``spy'' objects provided for input and output - these spies store the output of the emulator, to evaluate the state of the test. To stop execution, the emulator's state is inspected regularly, and the outcome of the test is checked (with execution terminating if the test takes too long to end).
+
+To detect the outcome of each test, these are grouped according to what test suite they belong to. Each test suite is then associated to a \textit{success function}, that can either return \texttt{"success"}, \texttt{"failure"} or \texttt{null} if no outcome has been reached yet. As such, all tests in a test suite have a similar way of reporting success and failure.
+
+The currently automated test suites are:
+\begin{compactitem}
+	\item The Blaarg test \glspl{rom}\ftnt{https://github.com/retrio/gb-test-roms}. The success function of this suite is quite complex, as this suite doesn't have a standard way of outputting the result. As such multiple parts of the emulator are inspected simultaneously:
+		\begin{compactitem}
+			\item \texttt{"Passed"}\footnote{See lines 50-54 of \texttt{mem\_timing/source/common/testing.s} in \url{https://github.com/retrio/gb-test-roms}} and \texttt{"Failed"}\footnote{See lines 112-139 of \texttt{mem\_timing/source/common/runtime.s} in \url{https://github.com/retrio/gb-test-roms}} may be output to the console's serial port.
+			\item If the memory at \texttt{0xa001-0xa003} is equal to \texttt{0xdeb061}, then the byte stored at \texttt{0xa000} is the status of the test\footnote{See `Output to memory' in \texttt{dmg\_sound/readme.txt} of \url{https://github.com/retrio/gb-test-roms}}.
+			\item For the \texttt{halt\_bug} test, there doesn't seem to be anywhere where the result is output, so the graphical output of the emulator is verified.
+		\end{compactitem}
+	\item The Mooneye test \glspl{rom}\ftnt{https://github.com/Gekkio/mooneye-test-suite} and SameSuite\ftnt{https://github.com/LIJI32/SameSuite/}, of which all tests are verified the same way. In case of success, the \texttt{B}, \texttt{C}, \texttt{D}, \texttt{E}, \texttt{H} and \texttt{L} registers hold the values $3$, $5$, $8$, $13$, $21$ and $34$ respectively (Fibonacci's sequence). If they instead all hold the value \texttt{0x42}, the test failed\footnote{See \url{https://github.com/Gekkio/mooneye-test-suite/\#passfail-reporting} for the Mooneye test suite, see lines 265-281 of \texttt{include/base.inc} in \url{https://github.com/LIJI32/SameSuite/} for the SameSuite}.
+	\item The Acid test \glspl{rom} (\gls{dmg}\ftnt{https://github.com/mattcurrie/dmg-acid2}, \gls{gbc}\ftnt{https://github.com/mattcurrie/cgb-acid2}). These need to be tested graphically, as their purpose is verifying the actual output of the emulator rather than it's behaviour.
+\end{compactitem}
+
+Thanks to this, the emulator's frontend supports a total of 191 automated test \glspl{rom}, that verify the behaviour of most of the emulator. Of these 191 tests, 101 pass.
+
+\subsection{Memory Inspect}
+
+When debugging an emulator, being able to inspect it's memory is essential, as some bugs may be caused by the wrong mapping of components, or a fault when writing data. To help debugging this, the frontend comes with a basic memory inspection tool, that can show the entirety of the \textit{addressable} data of the emulator (see \ref{fig:memory-inspect}). This means data that is not accessible by the game (for instance, because the appropriate \gls{rom} bank is not selected) cannot be inspected here. A simple offset can also be indicated, to restrain the data to a certain area.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=5cm]{images/memory-inspect}\\
+    \caption{The memory inspection drawer}
+    \label{fig:memory-inspect}
+\end{figure}
+
+\subsection{Keybindings}
+
+The user can also customise their keybindings for the emulator, by mapping each input to a separate key (see \ref{fig:keybindings}). This is only relevant on keyboard-equipped devices.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=5cm]{images/keybindings}\\
+    \caption{The keybindings settings}
+    \label{fig:keybindings}
 \end{figure}
 
 \section{Emulator Backend}
@@ -664,31 +750,31 @@ The way the addressing circuitry works is that addresses are not compared in the
     C000 & CFFF & 4 KiB Work RAM (WRAM) \\ \hline
     D000 & DFFF & 4 KiB Work RAM (WRAM) \\ \hline
     \end{tabular}\\
-    Source: \href{https://gbdev.io/pandocs/Memory_Map.html}{Pandocs}
+    Source: Pandocs\ftnt{https://gbdev.io/pandocs/Memory_Map.html}
     \caption{Memory map for the largest chunks of memory}
     \label{fig:memory-map-largest}
 \end{figure}
 
 This means that for this area of memory we can simply isolate the last nybble, and then create a switch-statement over it to map directly to specific areas. This removes the need for the if-conditions, and is also faster as it is evaluated much earlier on (see figure \ref{fig:getaddress-after}).
 
-I then ran a simple test to verify the performance improvement. I ran the first 25 million instructions of the \href{https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs}{\texttt{cpu\_instrs}} test \gls{rom} - I chose this sample because it is considerably large, because the test itself requires around 25 million instructions to complete, and because this test checks for all instructions of the \gls{cpu}, meaning that it exercices most configurations of the \gls{cpu} and system. For the measurement, I used \texttt{window.performance.now()} before and after each drawn frame, and summed the values.
+I then ran a simple test to verify the performance improvement. I ran the first 25 million instructions of the \texttt{cpu\_instrs}\ftnt{https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs} test \gls{rom} - I chose this sample because it is considerably large, because the test itself requires around 25 million instructions to complete, and because this test checks for all instructions of the \gls{cpu}, meaning that it exercices most configurations of the \gls{cpu} and system. For the measurement, I used \texttt{window.performance.now()} before and after each drawn frame, and summed the values.
 
 The result was the following: $33 955.9$ms before the change, and $20 039.1$ after the change. The relative difference is thus $\frac{20 039.1-33 955.9}{33 955.9}=-0.4098$, thus reducing time taken by $40.98\%$.
 
-Note that, although this may vary based on engine, switch statements aren't faster than if-conditions in JavaScript. \href{https://jsbench.me/qqlbqix93t/1}{This simple test-suite} has a switch statement with 16 cases, along with an object with 16 keys and an if-statement with 16 clauses. On my browser (Google Chrome v108), the switch-statement proved the fastest, with the switch and if statements lagging behind by being respectively $69.81\%$ and $70.23\%$ slower. As such I suspect this improvement to be mainly due to the switch statement being moved at the beginning of the function, thus skipping the more expensive object creation.
+Note that, although this may vary based on engine, switch statements aren't faster than if-conditions in JavaScript. This simple test-suite\ftnt{https://jsbench.me/qqlbqix93t/1} has a switch statement with 16 cases, along with an object with 16 keys and an if-statement with 16 clauses. On my browser (Google Chrome v108), the switch-statement proved the fastest, with the switch and if statements lagging behind by being respectively $69.81\%$ and $70.23\%$ slower. As such I suspect this improvement to be mainly due to the switch statement being moved at the beginning of the function, thus skipping the more expensive object creation.
 
-This also means that improvements to this method can still be done. Using the "Performance" tab of Chrome Developer Tools, I measured the performance of the whole emulator when running the first 10 million instructions of this same test. The results I got indicated that \texttt{getAddress} is still the third method with the higest \textbf{self-time} (see figures \ref{fig:performance-getaddress-before} and \ref{fig:performance-getaddress-after}). Here self-time refers to the time taken inside the method itself, and total time is the time taken by the method and the methods it calls. Note how \texttt{getAddress} still has the third highest self-time, meaning that the content of the method itself takes time (although this value dropped from $40.7\%$ to $7.7\%$). The increase is self-time percentage (not time!) for all other methods is simply due to the fact that by making \texttt{getAddress} faster the self-time of these other methods (that all call \texttt{getAddress}) gets proportionally higher compared to their total time.
+This also means that improvements to this method can still be done. Using the ``Performance'' tab of Chrome Developer Tools, I measured the performance of the whole emulator when running the first 10 million instructions of this same test. The results I got indicated that \texttt{getAddress} is still the third method with the higest \textbf{self-time} (see figures \ref{fig:performance-getaddress-before} and \ref{fig:performance-getaddress-after}). Here self-time refers to the time taken inside the method itself, and total time is the time taken by the method and the methods it calls. Note how \texttt{getAddress} still has the third highest self-time, meaning that the content of the method itself takes time (although this value dropped from $40.7\%$ to $7.7\%$). The increase is self-time percentage (not time!) for all other methods is simply due to the fact that by making \texttt{getAddress} faster the self-time of these other methods (that all call \texttt{getAddress}) gets proportionally higher compared to their total time.
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=8cm]{images/get-address-before.png}\\
+    \includegraphics[width=8cm]{images/get-address-before}\\
     \caption{Performance measurement of the emulator before \texttt{getAddress} optimisation}
     \label{fig:performance-getaddress-before}
 \end{figure}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=8cm]{images/get-address-after.png}\\
+    \includegraphics[width=8cm]{images/get-address-after}\\
     \caption{Performance measurement of the emulator after \texttt{getAddress} optimisation}
     \label{fig:performance-getaddress-after}
 \end{figure}
@@ -805,7 +891,7 @@ protected ld_bc_hl(system: System) { // LD BC, (HL)
     \label{fig:cpu-driven-ld}
 \end{figure}
 
-Because this was already done in most emulators, I wanted to try another idea I had, that I hadn't seen anywhere else: keep the emulator "system-driven", and instead make the \gls{cpu} remember what state and \gls{mcyc} it's on and what micro-instruction it must execute next.
+Because this was already done in most emulators, I wanted to try another idea I had, that I hadn't seen anywhere else: keep the emulator ``system-driven'', and instead make the \gls{cpu} remember what state and \gls{mcyc} it's on and what micro-instruction it must execute next.
 
 This was done by splitting all the instructions into smaller chunks, that return each other, as arrow-functions. The \gls{cpu} now must simply store whatever the instruction returns: if it's \texttt{null} then it needs to fetch an instruction at the next cycle, otherwise it's a function and must be executed (and it's result stored for the next step). An advantage of this method is that the \gls{cpu} is still only responsible for executing instructions - it only needs the system to read/write to memory. See figures \ref{fig:system-driven-ld} and \ref{fig:system-driven-cpu-tick} for an example of this.
 
