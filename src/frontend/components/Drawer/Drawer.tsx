@@ -23,7 +23,7 @@ const Drawer: FunctionalComponent<DrawerProps> = ({ loadRom }) => (
         <DrawerSection title="watch expressions">
             <ExpressionDrawer />
         </DrawerSection>
-        <DrawerSection title="test roms">
+        <DrawerSection title="test ROMs">
             <TestDrawer loadRom={loadRom} />
         </DrawerSection>
         <DrawerSection title="memory">

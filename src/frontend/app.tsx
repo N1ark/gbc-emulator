@@ -173,6 +173,8 @@ const App: FunctionalComponent = () => {
 
             setGameboy(gbc);
 
+            let lastFrame = Date.now();
+
             /** Run the emulator (this is the "main loop") */
             const runEmulator = () => {
                 /**
@@ -190,8 +192,14 @@ const App: FunctionalComponent = () => {
                 if (currentInstance !== expectedInstance) return;
 
                 /** Run the emulator */
+                const now = Date.now();
+                const delta = now - lastFrame;
+                lastFrame = now;
+                const framesToRun = delta / (1000 / 60);
                 const speed = tripleSpeed.value ? 3 : 1;
-                const brokeExecution = gbc.drawFrame(speed, !emulatorRunning.value);
+                const frames = framesToRun * speed;
+                console.log("Running emulator", frames);
+                const brokeExecution = gbc.drawFrame(frames, !emulatorRunning.value);
 
                 /** Need to handle wait for a step to be made. */
                 if (brokeExecution) {
@@ -199,7 +207,8 @@ const App: FunctionalComponent = () => {
                     const waitForStep = () => {
                         if (canStep.value || emulatorRunning.value) {
                             canStep.value = false;
-                            runEmulator();
+                            lastFrame = Date.now();
+                            requestAnimationFrame(runEmulator);
                         } else {
                             requestAnimationFrame(waitForStep);
                         }
