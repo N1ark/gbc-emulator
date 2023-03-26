@@ -36,8 +36,8 @@ class GameBoyColor {
         options?: Partial<GameBoyColorOptions>
     ) {
         this.mode = modeStr === "DMG" ? ConsoleType.DMG : ConsoleType.CGB;
-        this.cpu = new CPU();
         this.system = new System(rom, input, output, this.mode);
+        this.cpu = new CPU(() => this.system.didStopInstruction());
         this.output = output;
         this.options = { ...DEFAULT_OPTIONS, ...options };
 
@@ -129,7 +129,7 @@ class GameBoyColor {
      */
     drawFrame(frames: number = 1, isDebugging: boolean = false): boolean {
         const cycleTarget = CYCLES_PER_FRAME * frames;
-
+        const interrupts = this.system.getInterrupts();
         const frameDrawStart = window.performance.now();
         while (this.cycles < cycleTarget) {
             const normalSpeedMode = this.system.getSpeedMode() === SpeedMode.Normal;
@@ -138,7 +138,8 @@ class GameBoyColor {
 
             // one CPU step, convert M-cycles to CPU cycles
             let cpuIsDone: boolean;
-            if (!this.cpuIsHalted) cpuIsDone = this.cpu.step(this.system, isDebugging);
+            if (!this.cpuIsHalted)
+                cpuIsDone = this.cpu.step(this.system, interrupts, isDebugging);
             else cpuIsDone = true;
 
             this.cpuIsHalted = this.system.tick(this.isFullCycle);

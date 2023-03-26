@@ -198,7 +198,6 @@ const App: FunctionalComponent = () => {
                 const framesToRun = delta / (1000 / 60);
                 const speed = tripleSpeed.value ? 3 : 1;
                 const frames = framesToRun * speed;
-                console.log("Running emulator", frames);
                 const brokeExecution = gbc.drawFrame(frames, !emulatorRunning.value);
 
                 /** Need to handle wait for a step to be made. */

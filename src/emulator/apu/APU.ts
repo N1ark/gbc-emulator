@@ -7,7 +7,6 @@ import SoundChannel1 from "./SoundChannel1";
 import SoundChannel2 from "./SoundChannel2";
 import SoundChannel3 from "./SoundChannel3";
 import SoundChannel4 from "./SoundChannel4";
-import Timer from "../Timer";
 
 const SAMPLE_RATE = 44100;
 
@@ -25,6 +24,7 @@ const NR52_CHAN2_ON = 1 << 1;
 const NR52_CHAN3_ON = 1 << 2;
 const NR52_CHAN4_ON = 1 << 3;
 
+const DIV_ADDRESS = 0xff04;
 const DIV_TICK_BIT = 1 << 4;
 
 /**
@@ -70,11 +70,11 @@ export class APU implements Addressable {
     /**
      * Ticks the APU system.
      */
-    tick(timer: Timer): void {
+    tick(system: Addressable): void {
         // Turned off
         if (!this.nr52.flag(NR52_APU_TOGGLE)) return;
 
-        const divBitState = (timer.read(0xff04) & DIV_TICK_BIT) === DIV_TICK_BIT;
+        const divBitState = (system.read(DIV_ADDRESS) & DIV_TICK_BIT) === DIV_TICK_BIT;
         const divChanged = !divBitState && this.oldDivBitState;
         this.oldDivBitState = divBitState;
 

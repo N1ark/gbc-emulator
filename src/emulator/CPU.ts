@@ -1,5 +1,6 @@
+import Interrupts from "./Interrupts";
+import { Addressable } from "./Memory";
 import { DoubleRegister, Register } from "./Register";
-import System from "./System";
 import { asSignedInt8, combine, high, low, wrap16, wrap8 } from "./util";
 
 const FLAG_ZERO = 1 << 7;
@@ -7,7 +8,7 @@ const FLAG_SUBSTRACTION = 1 << 6;
 const FLAG_HALFCARRY = 1 << 5;
 const FLAG_CARRY = 1 << 4;
 
-type InstructionMethod = (system: System) => InstructionReturn;
+type InstructionMethod = (system: Addressable, interrupts: Interrupts) => InstructionReturn;
 type InstructionReturn = InstructionMethod | null;
 
 /**
@@ -50,8 +51,15 @@ class CPU {
     // for debug purposes
     protected stepCounter: number = 0;
 
+    // STOP instruction - relies on the rest of the system to stop
+    protected stopInstruction: () => void;
+
+    constructor(stopInstruction: () => void) {
+        this.stopInstruction = stopInstruction;
+    }
+
     // Returns the next opcode
-    protected nextOpCode(system: System): number {
+    protected nextOpCode(system: Addressable): number {
         if (this.currentOpcode === null) {
             return system.read(this.regPC.inc());
         }
@@ -68,7 +76,7 @@ class CPU {
         address: number | (() => number),
         receiver: (value: number) => InstructionMethod
     ): InstructionMethod {
-        return (system: System) => {
+        return (system) => {
             const effectiveAddress = typeof address === "number" ? address : address();
             const value = system.read(effectiveAddress);
             return receiver(value);
@@ -80,7 +88,7 @@ class CPU {
      * Takes 1 cycle.
      */
     protected nextByte(receiver: (value: number) => InstructionMethod): InstructionMethod {
-        return (system: System) => {
+        return (system) => {
             const value = system.read(this.regPC.inc());
             return receiver(value);
         };
@@ -110,22 +118,25 @@ class CPU {
      * @returns true if the CPU is in a "set" state (ie. it's halted or just finished an
      * instruction), false if it is mid-instruction.
      */
-    step(system: System, verbose?: boolean): boolean {
+    step(system: Addressable, interrupts: Interrupts, verbose?: boolean): boolean {
         if (this.nextStep === null) {
-            const nextStep = this.loadNextOp(system, verbose);
+            const nextStep = this.loadNextOp(system, interrupts, verbose);
             if (nextStep === "halted") return true;
             this.nextStep = nextStep;
         }
 
-        this.nextStep = this.nextStep(system);
+        this.nextStep = this.nextStep(system, interrupts);
         if (this.nextStep === null) {
             this.currentOpcode = system.read(this.regPC.inc());
         }
         return this.nextStep === null;
     }
 
-    protected loadNextOp(system: System, verbose?: boolean): InstructionMethod | "halted" {
-        const interrupts = system.getInterrupts();
+    protected loadNextOp(
+        system: Addressable,
+        interrupts: Interrupts,
+        verbose?: boolean
+    ): InstructionMethod | "halted" {
         // Check if any interrupt is requested. This also stops HALTing.
         if (interrupts.hasPendingInterrupt) {
             this.halted = false;
@@ -182,12 +193,12 @@ class CPU {
         // NOP
         0x00: () => null,
         // STOP
-        0x10: (s) => {
-            s.didStopInstruction();
+        0x10: () => {
+            this.stopInstruction();
             return null;
         },
         // extended instructions
-        0xcb: this.nextByte((opcode) => (system) => {
+        0xcb: this.nextByte((opcode) => (system, interrupts) => {
             const instruction = this.extendedInstructionSet[opcode];
             if (instruction === undefined) {
                 throw Error(
@@ -196,7 +207,7 @@ class CPU {
                     ).toString(16)}`
                 );
             }
-            return instruction(system);
+            return instruction(system, interrupts);
         }),
         // LD BC/DE/HL/SP, d16
         ...this.generateOperation(
@@ -246,8 +257,14 @@ class CPU {
                 0x29: this.regHL,
                 0x39: this.regSP,
             },
-            (r) => () => () => {
-                this.addRToHL(r);
+            (register) => () => () => {
+                const hl = this.regHL.get();
+                const n = register.get();
+                const result = wrap16(hl + n);
+                this.regHL.set(result);
+                this.setFlag(FLAG_SUBSTRACTION, false);
+                this.setFlag(FLAG_HALFCARRY, (((hl & 0xfff) + (n & 0xfff)) & 0x1000) != 0);
+                this.setFlag(FLAG_CARRY, hl > 0xffff - n);
                 return null;
             }
         ),
@@ -263,7 +280,8 @@ class CPU {
                 0x3c: this.srA,
             },
             (r) => () => {
-                this.incSr(r);
+                const result = this.incN(r.get());
+                r.set(result);
                 return null;
             }
         ),
@@ -288,7 +306,8 @@ class CPU {
                 0x3d: this.srA,
             },
             (r) => () => {
-                this.decSr(r);
+                const result = this.decN(r.get());
+                r.set(result);
                 return null;
             }
         ),
@@ -730,8 +749,8 @@ class CPU {
         // RET
         0xc9: this.return(() => () => null),
         // RETI
-        0xd9: this.return((s) => {
-            s.getInterrupts().enableInterrupts();
+        0xd9: this.return((s, i) => {
+            i.enableInterrupts();
             return () => null;
         }),
         // RET Z/C/NZ/NC
@@ -849,17 +868,16 @@ class CPU {
             return () => null;
         },
         // DI / EI
-        0xf3: (s) => {
-            s.getInterrupts().disableInterrupts();
+        0xf3: (s, i) => {
+            i.disableInterrupts();
             return null;
         },
-        0xfb: (s) => {
-            s.getInterrupts().enableInterrupts();
+        0xfb: (s, i) => {
+            i.enableInterrupts();
             return null;
         },
         // HALT
-        0x76: (system) => {
-            const interrupts = system.getInterrupts();
+        0x76: (s, interrupts) => {
             this.halted = true;
             if (!interrupts.fastEnableInterrupts() && interrupts.hasPendingInterrupt) {
                 this.haltBug = true; // halt bug triggered on HALT when IME == 0 & IE&IF != 0
@@ -1032,10 +1050,6 @@ class CPU {
         this.setFlag(FLAG_HALFCARRY, (result & 0xf) < (n & 0xf));
         return result;
     }
-    /** Applies `incN` to a sub-register */
-    protected incSr(sr: Register) {
-        sr.set(this.incN(sr.get()));
-    }
 
     /** Decrements an 8bit value (wrapping), updates flags Z/1/H */
     protected decN(n: number): number {
@@ -1045,21 +1059,7 @@ class CPU {
         this.setFlag(FLAG_HALFCARRY, (result & 0xf) > (n & 0xf));
         return result;
     }
-    /** Applies `decN` to a sub-register */
-    protected decSr(sr: Register) {
-        sr.set(this.decN(sr.get()));
-    }
 
-    /** Add a register to HL, updates flags 0/H/CY */
-    protected addRToHL(register: DoubleRegister) {
-        const hl = this.regHL.get();
-        const n = register.get();
-        const result = wrap16(hl + n);
-        this.regHL.set(result);
-        this.setFlag(FLAG_SUBSTRACTION, false);
-        this.setFlag(FLAG_HALFCARRY, (((hl & 0xfff) + (n & 0xfff)) & 0x1000) != 0);
-        this.setFlag(FLAG_CARRY, hl > 0xffff - n);
-    }
     /** Adds a value to subregister A, updates flags Z/0/H/CY */
     protected addNToA(n: number, carry: boolean) {
         const a = this.srA.get();
@@ -1158,9 +1158,9 @@ class CPU {
      * Takes 3 cycles.
      */
     protected return(receiver: InstructionMethod): InstructionMethod {
-        return this.pop((value) => (s) => {
+        return this.pop((value) => (s, i) => {
             this.regPC.set(value);
-            return receiver(s);
+            return receiver(s, i);
         });
     }
     /**
@@ -1229,15 +1229,14 @@ class CPU {
      * @returns An object with the completed instructions
      */
     protected generateOperation<K extends number, T>(
-        items: { [key in K]: T },
+        items: Record<K, T>,
         execute: (r: T) => InstructionMethod
-    ): { [key in K]: InstructionMethod } {
-        return Object.fromEntries(
-            (Object.entries(items) as unknown as [K, T][]).map(([opcode, item]) => [
-                opcode,
-                execute(item),
-            ])
-        ) as Record<K, InstructionMethod>;
+    ): Record<K, InstructionMethod> {
+        const obj: Record<K, InstructionMethod> = {} as any;
+        for (const [opcode, item] of Object.entries(items) as any as [K, T][]) {
+            obj[opcode] = execute(item);
+        }
+        return obj;
     }
 
     /**
