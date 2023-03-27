@@ -159,14 +159,22 @@ class System implements Addressable {
             throw new Error(`Invalid address to read from ${pos.toString(16)}`);
 
         // Boot ROM
-        if (!this.bootRomLocked && pos < 0x100) return this.bootRom;
-        // (the CGB's boot rom extends to 0x900, but leaves a gap for the header)
-        if (!this.bootRomLocked && this.mode === ConsoleType.CGB && 0x200 <= pos && pos < 0x900)
-            return this.bootRom;
+        if (!this.bootRomLocked) {
+            if (pos < 0x100) return this.bootRom;
+            // (the CGB's boot rom extends to 0x900, but leaves a gap for the header)
+            if (this.mode === ConsoleType.CGB && 0x200 <= pos && pos < 0x900)
+                return this.bootRom;
+        }
 
         // Checking last nibble
         let addressable = this.addressesLastNibble[(pos >> 12) as Int4];
         if (addressable) return addressable;
+
+        // Registers
+        if ((pos & 0xff00) === 0xff00) {
+            addressable = this.addressesRegisters[pos & 0xff];
+            if (addressable) return addressable;
+        }
 
         // Echo RAM
         if (pos <= 0xfdff) return this.wram;
@@ -174,10 +182,6 @@ class System implements Addressable {
         if (pos <= 0xfe9f) return this.ppu;
         // Illegal Area
         if (pos <= 0xfeff) return Register00;
-
-        // Registers
-        addressable = this.addressesRegisters[pos & 0xff];
-        if (addressable) return addressable;
 
         console.debug(
             `Accessed unmapped area ${pos

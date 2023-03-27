@@ -46,7 +46,6 @@ const App: FunctionalComponent = () => {
     const effectivePalette = gameboy?.getMode() === "DMG" ? config.gbPalette : undefined;
 
     // Debug state
-    const cyclesPerSec = useRef<HTMLDivElement>(null);
     const stepCount = useRef<HTMLDivElement>(null);
     const millisPerFrame = useRef<HTMLDivElement>(null);
 
@@ -118,18 +117,6 @@ const App: FunctionalComponent = () => {
                 get debugTileset() {
                     return tilesetDebugger.current;
                 },
-                stepCount: (x) => {
-                    if (stepCount.current)
-                        stepCount.current.innerHTML = `${x.toLocaleString()} steps`;
-                },
-                cyclesPerSec: (x) => {
-                    if (cyclesPerSec.current)
-                        cyclesPerSec.current.innerHTML = `${x.toLocaleString()} cycles/s`;
-                },
-                frameDrawDuration: (x) => {
-                    if (millisPerFrame.current)
-                        millisPerFrame.current.innerHTML = `${x.toLocaleString()} ms/frame`;
-                },
             };
 
             /** Create the emulator (ensure it loads correctly.) */
@@ -195,14 +182,23 @@ const App: FunctionalComponent = () => {
                 const now = Date.now();
                 const delta = now - lastFrame;
                 lastFrame = now;
-                const framesToRun = delta / (1000 / 60);
+                const framesToRun = Math.min(3, delta / (1000 / 60)); // can't catch up more than 3 frames
                 const speed = tripleSpeed.value ? 3 : 1;
                 const frames = framesToRun * speed;
-                const brokeExecution = gbc.drawFrame(frames, !emulatorRunning.value);
+
+                const before = config.showStats ? performance.now() : 0;
+                const cycles = gbc.drawFrame(frames, !emulatorRunning.value);
+
+                if (config.showStats) {
+                    const millis = performance.now() - before;
+                    const cpuSteps = gbc["cpu"]["stepCounter"];
+
+                    stepCount.current!.innerHTML = `${cpuSteps.toLocaleString()} steps`;
+                    millisPerFrame.current!.innerText = `${millis.toLocaleString()} ms/frame`;
+                }
 
                 /** Need to handle wait for a step to be made. */
-                if (brokeExecution) {
-                    emulatorRunning.value = false;
+                if (!emulatorRunning.value) {
                     const waitForStep = () => {
                         if (canStep.value || emulatorRunning.value) {
                             canStep.value = false;
@@ -332,7 +328,6 @@ const App: FunctionalComponent = () => {
                         {config.showStats && (
                             <div id="emu-stats">
                                 <div ref={stepCount} />
-                                <div ref={cyclesPerSec} />
                                 <div ref={millisPerFrame} />
                             </div>
                         )}

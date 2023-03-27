@@ -25,8 +25,6 @@ class GameBoyColor {
     protected isFullCycle = true; // used for double speed mode
 
     protected output: GameBoyOutput;
-    protected breakpoints: (number | ((gbc: GameBoyColor) => boolean))[] = [];
-    protected cycleChrono: { count: number; time: number } = { count: 0, time: Date.now() };
 
     constructor(
         modeStr: "DMG" | "CGB",
@@ -124,13 +122,13 @@ class GameBoyColor {
      * to speed up emulation).
      * @param isDebugging whether the emulator is in debugging mode (goes CPU step by step,
      * prints verbose CPU logs).
-     * @returns true if emulation was stopped for a reason other than the frame being drawn
-     * (a breakpoint was hit, or emulation is being debugged).
+     * @returns the number of T-cycles executed.
      */
-    drawFrame(frames: number = 1, isDebugging: boolean = false): boolean {
+    drawFrame(frames: number = 1, isDebugging: boolean = false): number {
         const cycleTarget = CYCLES_PER_FRAME * frames;
         const interrupts = this.system.getInterrupts();
-        const frameDrawStart = window.performance.now();
+        const cyclesStart = this.cycles;
+
         while (this.cycles < cycleTarget) {
             const normalSpeedMode = this.system.getSpeedMode() === SpeedMode.Normal;
             const cycles = normalSpeedMode ? 4 : 2;
@@ -145,23 +143,14 @@ class GameBoyColor {
             this.cpuIsHalted = this.system.tick(this.isFullCycle);
 
             this.cycles += cycles;
-            this.cycleChrono.count += cycles;
 
-            // If instruction finished executing
-            if (cpuIsDone) {
-                if (isDebugging) return true; // going step by step?
-
-                for (const breakpoint of this.breakpoints) {
-                    if (typeof breakpoint === "number" && breakpoint === this.cpu.getPC()) {
-                        return true;
-                    }
-                    if (typeof breakpoint === "function" && breakpoint(this)) {
-                        return true;
-                    }
-                }
-            }
+            // If instruction finished executing and we're debugging
+            if (cpuIsDone && isDebugging) return this.cycles - cyclesStart;
         }
-        this.cycles %= cycleTarget; // keep leftover cycles
+
+        // Keep leftover cycles
+        const cyclesRan = this.cycles - cyclesStart;
+        this.cycles %= cycleTarget;
 
         // Read input
         this.system.readInput();
@@ -169,18 +158,7 @@ class GameBoyColor {
         // Output
         this.system.pushOutput(this.output);
 
-        // Debug output
-        this.output.frameDrawDuration &&
-            this.output.frameDrawDuration(window.performance.now() - frameDrawStart);
-        this.output.stepCount && this.output.stepCount(this.cpu.getStepCounts());
-        if (this.output.cyclesPerSec && Date.now() - this.cycleChrono.time >= 1000) {
-            const count = this.cycleChrono.count;
-            this.cycleChrono.time = Date.now();
-            this.cycleChrono.count = 0;
-            this.output.cyclesPerSec(count);
-        }
-
-        return false;
+        return cyclesRan;
     }
 }
 

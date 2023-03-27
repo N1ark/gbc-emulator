@@ -28,21 +28,6 @@ interface GameBoyOutput {
      * @param data the serial output of the Gameboy - called everytime a character is pushed.
      */
     serialOut?(data: number): void;
-
-    /**
-     * @param steps the number of instructions executed so far by the system.
-     */
-    stepCount?(steps: number): void;
-
-    /**
-     * @param cycles the number of clock cycles per second.
-     */
-    cyclesPerSec?(cycles: number): void;
-
-    /**
-     * @param ms the number of milliseconds taken between the two last frames.
-     */
-    frameDrawDuration?(ms: number): void;
 }
 
 export default GameBoyOutput;
