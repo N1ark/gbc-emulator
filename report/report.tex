@@ -18,6 +18,7 @@
 \usepackage{standalone}
 
 \usepackage{tikz}
+\usepackage{tikz-timing}
 \usepackage{packages/tikz-uml}
 
 
@@ -124,6 +125,13 @@
 	name={VRAM},
 	description={Video RAM},
 	first={Video RAM (VRAM)}
+}
+
+\newglossaryentry{wram}{
+	type=\acronymtype,
+	name={WRAM},
+	description={Work RAM},
+	first={Work RAM (WRAM)}
 }
 
 \newglossaryentry{dma}{
@@ -257,9 +265,7 @@ The frontend of the emulator may also contain additional quality of life feature
 
 An emulator is ``hardware or software that permits programs written for one computer to be run on another computer'' \cite{emulator_def}. The imitated computer is the \textit{guest}, and the one that imitates is the \textit{host}. Emulators are nowadays mainly found in the form of software, and have many different uses, from preservation to hardware development.
 
-Emulation was technically born with the first computers: the very first computer, the Colossus made in 1941, was built to imitate the Enigma machine \cite{emulator_origin}. However emulation was properly studied towards the end of the twentieth century, when computing power started to steadily increase. One of the earliest instances of emulation as an actual feature is with the IBM System/360. This computer supported emulation of previous models, such as the IBM 709, 7090, 7094 and 7094 II \cite{ibm_emulation}.
-
-Nowadays emulation is used when researching and creating new hardware - using virtual systems to design a system and look for errors is much more cost-effective \cite{emu_in_design}. The real system doesn't have to actually be produced, and if something goes wrong it is very simple to look for the error in the simulated system, through logging or stepping through the simulation.
+Emulation was technically born with the first computers: the very first computer, the Colossus made in 1941, was built to imitate the Enigma machine \cite{emulator_origin}. However emulation was properly studied towards the end of the twentieth century, when computing power started to steadily increase. One of the earliest instances of emulation as an actual feature is with the IBM System/360. This computer supported emulation of previous models, such as the IBM 709, 7090, 7094 and 7094 IIx \cite{ibm_emulation}.
 
 Emulation is also vital for preservation: as transistors and motherboards age, old systems become unusable, and with them the software they ran. Emulating these systems is often the only future-proof and sustainable way to keep this software usable.
 
@@ -455,7 +461,7 @@ Aside from it's registers, the \gls{cpu} needs to interact with system interrupt
 
 % TODO: Keep this for implementation?
 %
-% Each opcode (operation code) of the \gls{gb} is one byte long, meaning there could be $2^8=256$ different opcodes. However, there exist 16-bit opcodes, to allow the \gls{cpu} to perform more operations. These 16-bit opcodes always start with \texttt{0xCB}, with the second byte containing what operation is executed. There are also 11 values of the opcode that do nothing, and aren't used in any \glspl{rom}. This brings the total number of operations to $2^8 * 2 - 11 = 245$.
+% Each opcode (operation code) of the \gls{gb} is one byte long, meaning there could be $2^8=256$ different opcodes. However, there exist 16-bit opcodes, to allow the \gls{cpu} to perform more operations. These 16-bit opcodes always start with \texttt{0xCB}, with the second byte containing what operation is executed. There are also 11 values of the opcode that do nothing, and aren't used in any \glspl{rom}. This brings the total number of operations to $2^8 * 2 - 11 = 501$.
 
 \section{PPU, APU, Joypad}
 
@@ -476,9 +482,9 @@ Similarly as for the output, the emulator core will expose an interface to read 
     \label{fig:gb-front}
 \end{figure}
 
-\section{Memory Bus}
+\section{System Bus}
 
-Components withing the Gameboy need to communicate. To do this, components typically have a set of registers that control how they behave - for instance, the timer has a \texttt{TAC} register at \texttt{0xFF07} to control it's frequency. To allow this interaction without having all components directly depend on each other, a ``memory-bus'' component is created, responsible for handling all components and managing memory-addressing among them.
+Components withing the Gameboy need to communicate. To do this, components typically have a set of registers that control how they behave - for instance, the timer has a \texttt{TAC} register at \texttt{0xFF07} to control it's frequency. To allow this interaction without having all components directly depend on each other, a ``system bus'' component is created, responsible for handling all components and managing memory-addressing among them.
 
 This component, called \texttt{System}, is thus responsible for instantiating the other components, and providing them access to eachother, via a read and write method.
 
@@ -545,9 +551,6 @@ interface GameBoyOutput {
     debugBackground?(data: Uint32Array): void;
     debugTileset?(data: Uint32Array): void;
     serialOut?(data: number): void;
-    stepCount?(steps: number): void;
-    cyclesPerSec?(cycles: number): void;
-    frameDrawDuration?(ms: number): void;
 }
     \end{minted}
     \caption{\texttt{GameBoyOutput} interface methods}
@@ -698,93 +701,184 @@ The user can also customise their keybindings for the emulator, by mapping each 
     \label{fig:keybindings}
 \end{figure}
 
-\section{Emulator Backend}
+\section{CPU}
 
-To keep the logic of the hardware, divided in different components, the structure of the emulator has a similar format, with different classes implementing the behaviour of the different parts of the \glsdesc{gb}.
+The \gls{cpu} is the core of the emulator, and allows running the code from the \gls{rom} by reading the operation code (or opcode) and executing the matching action.
 
-\subsection{Addressable}
+\subsection{Instruction Set Decoding}
 
-The \texttt{Addressable} interface is implemented by most classes of the emulator: \texttt{System}, \texttt{Register}, \texttt{MBC}, etc. It is simple, and provides a read and a write method (see figure \ref{fig:addressable}). The advantage of using it is that when implementing adressing logic with large switch-statements I can simply return any type of components that adheres to the interface, and the receiving method is agnostic of if it's dealing with a register, memory, or a component.
+Because the \glsdesc{gb} is an 8-bit system, opcodes are 8 bits (or one byte) long, giving in theory a maximum of $2^8=256$ operations. However in the \gls{gb} the operation \texttt{0xCB} gives access to an extended instruction set, meaning that when reading \texttt{0xCB} the \gls{cpu} will read the next byte and use a different logic to execute the operation. This means there are now $2^8 - 1 + 2^8=511$ operations. The \gls{gb} also has 11 `unused' opcodes, that will lock the console when used\cite[CPU Comparison with Z80]{pandoc}, meaning there are in total $2^8 - 12 + 2^8 = 500$ operations to implement.
+
+Multiple techniques exist to handle this large number of operations:
+
+\begin{compactitem}
+    \item Have a large switch-statement for all possible operations. This is the most straight-forward option, but can result in quite large switch-statements, especialy for \glspl{cpu} with more opcodes. The \gls{gb} has comparatively few opcodes as it is an 8-bit system; the Gameboy Advance, the console that followed it, had 32-bit opcodes: way too many for a switch statement to be appropriate.
+    \item Decode the operation by reading specific parts of the opcode, and generate the instructions dynamically. This method is what is done for larger instruction sets, where opcodes can be split into separate parts to describe the operation's behaviour \cite[ARM CPU Reference]{gbatek}. It however comes with the cost of extra processing for each instruction, as it needs to be decoded. This method is applicable to the \gls{gb}, as many instructions follow a pattern - see, for instance the \texttt{LD} instructions, that all follow the same order of registers: \texttt{B}, \texttt{C}, \texttt{D}, \texttt{E}, \texttt{H}, \texttt{L}, \texttt{(HL)} (the byte at address \texttt{HL}) and \texttt{A}.
+    \item Have a map, that associates for each opcode a function to execute. This technique is also only viable for small numbers of opcodes, as the map can result quite large. An advantage of this method is that the map doesn't have to be explicitly written out entirely - generators can be used to populate some chunks of it, making it a hybrid of the two previous solutions: there is very little overhead to execute an instruction, as each opcode is associated to a function, but there is also no need to write out every instruction separately, as the map can be generated in parts or in its entirety (inducing a light setup cost).
+\end{compactitem}
+
+Initially, the emulator had a large map, with all the opcodes as keys. The functions associated would then execute the instruction and return the number of cycles taken by the instruction (see figure \ref{fig:instset-first}). This however proved quite repetitive and prone to errors. To solve this, a \textit{generator function} was created. To use it, two parameters must be given: a map of opcodes to values (of an arbitrary type), and a helper function that for each arbitrary value returns a function that executes the instruction (see figure \ref{fig:cpu-gen-function}). This allows generating repetitive instructions more easily, by only specifying what opcodes and objects are used, and not what the whole body of the instruction is (see figure \ref{fig:instset-second}). This method is used in other emulators - for instance, Sameboy has a map that has an opcode-function mapping for all opcodes, and uses macros to generate the different functions\ftnt{https://github.com/LIJI32/SameBoy/blob/master/Core/sm83\_cpu.c}.
 
 \begin{figure}[h]
     \begin{minted}{typescript}
-interface Addressable {
-    read(pos: number): number;
-    write(pos: number, data: number): void;
+protected instructionSet: Partial<Record<number, InstructionMethod>> = {
+    // NOP
+    0x00: () => 1,
+    // LD BC/DE/HL/SP, d16
+    0x01: (s) => { this.regBC.set(this.nextWord(s)); return 3; },
+    0x11: (s) => { this.regDE.set(this.nextWord(s)); return 3; },
+    0x21: (s) => { this.regHL.set(this.nextWord(s)); return 3; },
+    0x31: (s) => { this.regSP.set(this.nextWord(s)); return 3; },
+    ...
 }
     \end{minted}
-    \caption{\texttt{Addressable} interface method}
-    \label{fig:addressable}
+    \caption{Initial instruction set implementation}
+    \label{fig:instset-first}
 \end{figure}
 
-\subsection{System}
+\begin{figure}[h]
+    \begin{minted}{typescript}
+protected generateOperation<K extends number, T>(
+    items: Record<K, T>,
+    execute: (r: T) => InstructionMethod
+): Record<K, InstructionMethod> {
+    const obj: Record<K, InstructionMethod> = {};
+    for (const [opcode, item] of Object.entries(items)) {
+        obj[opcode] = execute(item);
+    }
+    return obj;
+}
+    \end{minted}
+    \caption{Generator function used for the CPU}
+    \label{fig:cpu-gen-function}
+\end{figure}
 
-The \texttt{System} class implements the motherboard, and the general connection between elements. It handles the ticking of the \gls{ppu}, timer and \gls{oam} \gls{dma}. Furthermore, it is the component that links all of the data together: whenever a component is ticked (any of the above or the \gls{cpu}), the \texttt{System} instance is passed, so that the components can read and write to the rest of the system. It does implement \texttt{Addressable}, and internally has a \texttt{getAdress} method that returns both an \texttt{Addressable} and a number (the index to read or write to). This way the addressing logic to determine what component is accessed depending on the address isn't duplicated.
+\begin{figure}[h]
+    \begin{minted}{typescript}
+protected instructionSet: Partial<Record<number, InstructionObject>> = {
+    // NOP
+    0x00: () => 1,
+    // LD BC/DE/HL/SP, d16
+    ...generateOperation(
+        {
+            0x01: this.regBC,
+            0x11: this.regDE,
+            0x21: this.regHL,
+            0x31: this.regSP,
+        }, 
+        (register) => (s) => {
+            register.set(this.nextWord(s));
+            return 3;
+        }
+    ),
+    ...
+}
+    \end{minted}
+    \caption{Improved instruction set implementation}
+    \label{fig:instset-second}
+\end{figure}
 
-\subsubsection{\texttt{getAddress} optimisation}
+\subsection{A cycle accurate CPU}
 
-Because \texttt{System} is a higly used component and is accessed for almost every read and write, the \texttt{getAddress} method is under a lot of pressure. As such, it was the source of a major re-write during development, which improved performances significantly.
+The Gameboy is a memory-bound system, meaning that it is limited by it's memory accesses. The \gls{cpu} can only execute either one read or one write per \gls{mcyc} \cite[CPU core timing]{gbctr}. The \gls{cpu} also needs to retrieve the opcode for each instruction, which takes an additional cycle, meaning an instruction performing no memory accesses lasts one cycle, and an instruction performing $n$ memory accesses lasts at least $n + 1$ cycles. Note also that the \gls{gb} overlaps the last cycle of the execution with the fetching cycle for the next opcode - this will thus be of importance when implementing the fetching of the opcode.
 
-Initially it was implemented as a list of if-statements for different ranges of the \gls{mmap}, as well as an object where the keys were different register-addresses. The code would first check if the key exists in the register object (it thus served as a map), and if not it would then go through a series of if-conditions (see figure \ref{fig:getaddress-before}).
+\begin{figure}[h]
+	\begin{center}	
+    \begin{tikztimingtable}[timing/wscale=0.8]
+      M-cycle & X 8D{M1} 8D{M2} 8D{M3} 8D{M4/M1} X \\
+      Instruction & ; [opacity=0.4] 9D{Previous} ; [opacity=1.0] 24D{LD rr, nn} ; [opacity=0.4] X \\
+      Mem R/W  & X 8D{R: opcode} 8D{R: lsb(nn)} 8D{R: msb(nn)} ; [opacity=0.4] 8D{R: next op} X \\
+      Mem addr & X 8D{PC} 8D{PC+1} 8D{PC+2} ; [opacity=0.4] 8D{PC+3} X \\
+    \end{tikztimingtable}
+    \end{center}
+    \caption{Timing of the \texttt{LD rr, nn} instruction (taken from GBCTR \cite[Sharp SM83 instruction set]{gbctr})}
+    \label{fig:ld-instr-timing}
+\end{figure}
 
-This proved quite costly, for three main reasons:
+
+The current implementation is not \gls{mcyc} accurate: the \gls{cpu} instruction is executed as one monolithic block, rather than in different smaller parts. This becomes crucial when the timer, \gls{oam} and \gls{ppu} are involved, as they run in parallel with the \gls{cpu}, so memory accesses to these components may return different values depending on the \gls{mcyc}.
+
+In all emulators that were found when researching for this project, \gls{mcyc} accuracy is reached by making the emulator ``\gls{cpu}-driven''. What this means is that inside each instruction, between each cycle, the \gls{cpu} is responsible for ticking the rest of the system - the main loop is then only responsible for continuously running the \gls{cpu}, and nothing else. This approach is probably the simplest and most straightforward one, as it is quite simple to implement - all one needs to do is call the system tick method when relevant (see figure \ref{fig:cpu-driven-ld}).
+
+Some emulator where this method was found:
 \begin{compactitem}
-    \item This code creates a new object every time it is called, when checking for the registers' addresses.
-    \item The if-conditions for the ranges of the biggest areas of memory (everything between \texttt{0x0000} and \texttt{0xffef}) happened after the register checks, which delayed response for these reads and writes.
-    \item Chaining if-conditions is unneficient, as the JS engine must step through all conditions and check the values each time. Furthermore, although having both the lower and upper bound of the memory section indicated in the condition (e.g. \texttt{0x0000 <= pos \&\& pos <= 0x7fff} for $[\texttt{0x0000}; \texttt{0x7fff}]$) makes the translation from \gls{mmap} to code easier, it is slower, since only the upper bound of the range is needed for the condition \textit{if} all the ranges below have already returned.
+	\item In Mooneye GB, this can be seen by the usage of the \texttt{CPUContext.tick\_cycle()} method when appropriate\footnote{See \url{https://github.com/Gekkio/mooneye-gb/blob/master/core/src/cpu.rs}}.
+	\item In accurateboy, the \texttt{Bus.tick()} method is called from within the instructions (or it is done implicitly by methods such as \texttt{Bus.read()})\footnote{See \url{https://github.com/Atem2069/accurateboy/blob/master/accurateboy/CPU.cpp}}.
+	\item In Sameboy, the \gls{cpu} uses functions like \texttt{cycle\_read} or \texttt{cycle\_no\_access} to tick the rest of the system\footnote{See \url{https://github.com/LIJI32/SameBoy/blob/master/Core/sm83\_cpu.c}}.
 \end{compactitem}
 
-My intial optimisation - and the one that had the most impact on this method - was fixing the last two points: removing these if-conditions, and moving these areas higher in the code.
-
-The way the addressing circuitry works is that addresses are not compared in their entirety: the circuit checks for small sections of the address, and then maps those to more precise locations. As such the main areas of memory can usually be identified by their \gls{msb} - usually the most significant nybble (see figure \ref{fig:memory-map-largest}).
 
 \begin{figure}[h]
-    \centering
-    \begin{tabular}{|l|l|l|}
-    \hline
-    \textbf{Start} & \textbf{End} & \textbf{Description} \\ \hline
-    0000 & 3FFF & 16 KiB ROM bank 00 \\ \hline
-    4000 & 7FFF & 16 KiB ROM Bank 01$\sim$NN \\ \hline
-    8000 & 9FFF & 8 KiB Video RAM (VRAM) \\ \hline
-    A000 & BFFF & 8 KiB External RAM \\ \hline
-    C000 & CFFF & 4 KiB Work RAM (WRAM) \\ \hline
-    D000 & DFFF & 4 KiB Work RAM (WRAM) \\ \hline
-    \end{tabular}\\
-    Source: Pandocs\ftnt{https://gbdev.io/pandocs/Memory_Map.html}
-    \caption{Memory map for the largest chunks of memory}
-    \label{fig:memory-map-largest}
+    \begin{minted}{typescript}
+protected ld_bc_hl(system: System) { // LD BC, (HL)
+    const lower = system.read(this.regPC.inc());
+    system.tick();
+    const upper = system.read(this.regPC.inc());
+    system.tick();
+    this.regBC.set(upper << 8 | lower);
+}
+    \end{minted}
+    \caption{CPU-driven \texttt{LD BC, (HL)}}
+    \label{fig:cpu-driven-ld}
 \end{figure}
 
-This means that for this area of memory we can simply isolate the last nybble, and then create a switch-statement over it to map directly to specific areas. This removes the need for the if-conditions, and is also faster as it is evaluated much earlier on (see figure \ref{fig:getaddress-after}).
+This solution however comes with the cost of coupling the \gls{cpu} to the system, or at least to a way of ticking said system. A particularity of this emulator is that the \gls{cpu} is almost autonomous, in that it doesn't interact with any other functionality of the system, except the interrupts. The only other interface it requires being an \texttt{Addressable}, to allow access to memory. This also means the emulator is no longer ``\gls{cpu}-driven'', since the \gls{cpu} \textit{cannot} tick the rest of the system. It is instead up to the root system to tick all of the components (including the \gls{cpu}). This is thus a code quality improvement, that isn't present in other emulators.
 
-I then ran a simple test to verify the performance improvement. I ran the first 25 million instructions of the \texttt{cpu\_instrs}\ftnt{https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs} test \gls{rom} - I chose this sample because it is considerably large, because the test itself requires around 25 million instructions to complete, and because this test checks for all instructions of the \gls{cpu}, meaning that it exercices most configurations of the \gls{cpu} and system. For the measurement, I used \texttt{window.performance.now()} before and after each drawn frame, and summed the values.
+This was done by splitting all the instructions into their respective steps, and have each step return the next step (or \texttt{null} if it's the last step). The \gls{cpu} now must simply store whatever the instruction returns: if it's \texttt{null} then it needs to fetch an instruction to prepare for the next cycle, otherwise it's a function and must be executed (and it's result stored for the next step). See figures \ref{fig:system-driven-ld} and \ref{fig:system-driven-cpu-tick} for an example of this.
 
-The result was the following: $33 955.9$ms before the change, and $20 039.1$ after the change. The relative difference is thus $\frac{20 039.1-33 955.9}{33 955.9}=-0.4098$, thus reducing time taken by $40.98\%$.
-
-Note that, although this may vary based on engine, switch statements aren't faster than if-conditions in JavaScript. This simple test-suite\ftnt{https://jsbench.me/qqlbqix93t/1} has a switch statement with 16 cases, along with an object with 16 keys and an if-statement with 16 clauses. On my browser (Google Chrome v108), the switch-statement proved the fastest, with the switch and if statements lagging behind by being respectively $69.81\%$ and $70.23\%$ slower. As such I suspect this improvement to be mainly due to the switch statement being moved at the beginning of the function, thus skipping the more expensive object creation.
-
-This also means that improvements to this method can still be done. Using the ``Performance'' tab of Chrome Developer Tools, I measured the performance of the whole emulator when running the first 10 million instructions of this same test. The results I got indicated that \texttt{getAddress} is still the third method with the higest \textbf{self-time} (see figures \ref{fig:performance-getaddress-before} and \ref{fig:performance-getaddress-after}). Here self-time refers to the time taken inside the method itself, and total time is the time taken by the method and the methods it calls. Note how \texttt{getAddress} still has the third highest self-time, meaning that the content of the method itself takes time (although this value dropped from $40.7\%$ to $7.7\%$). The increase is self-time percentage (not time!) for all other methods is simply due to the fact that by making \texttt{getAddress} faster the self-time of these other methods (that all call \texttt{getAddress}) gets proportionally higher compared to their total time.
+In the final version of the \gls{cpu}'s tick method, a method \texttt{loadNextOp} is implemented. It not only handles getting an instruction associated with the desired opcode, but it also is responsible for checking if an interrupt was raised (in which case the interrupt handling procedure occurs \cite[Interrupts]{pandoc}), and for ensuring the \gls{cpu} isn't halted before running an instruction.
 
 \begin{figure}[h]
-    \centering
-    \includegraphics[width=8cm]{images/get-address-before}\\
-    \caption{Performance measurement of the emulator before \texttt{getAddress} optimisation}
-    \label{fig:performance-getaddress-before}
+    \begin{minted}{typescript}
+protected ld_bc_hl(system: Addressable) { // LD BC, d16
+    const lower = system.read(this.regPC.inc());
+    return () => {
+        const upper = system.read(this.regPC.inc());
+        return () => {
+            this.regBC.set(upper << 8 | lower);
+            return null;
+        }
+    }
+}
+    \end{minted}
+    \caption{System-driven \texttt{LD BC, d16}}
+    \label{fig:system-driven-ld}
 \end{figure}
 
 \begin{figure}[h]
-    \centering
-    \includegraphics[width=8cm]{images/get-address-after}\\
-    \caption{Performance measurement of the emulator after \texttt{getAddress} optimisation}
-    \label{fig:performance-getaddress-after}
+    \begin{minted}{typescript}
+step(system: Addressable, interrupts: Interrupts) {
+    if (this.nextStep === null) {
+        // looks up opcode in instruction table
+        const nextStep = this.loadNextOp(system, interrupts, verbose);
+        if (nextStep === "halted") return true;
+        this.nextStep = nextStep;
+    }
+    this.nextStep = this.nextStep(system, interrupts);
+    if (this.nextStep === null) {
+        // opcode is fetched on the last cycle of execution
+        this.currentOpcode = system.read(this.regPC.inc());
+    }
+}
+    \end{minted}
+    \caption{System-driven step of the \gls{cpu}. Note how the opcode is fetched directly when the next instruction is over, to emulate the overlap between the fetch and the execute steps.}
+    \label{fig:system-driven-cpu-tick}
 \end{figure}
+
+
+\section{System}
+
+The \texttt{System} class implements the system bus, as well as the ticking of all other components. It handles the ticking of the \gls{ppu}, timer, \gls{apu} and interrupt logic. Furthermore, it is the component that links all of the data together: whenever a component is ticked (any of the above or the \gls{cpu}), the \texttt{System} instance is passed, so that the components can read and write to the rest of the system. It implements \texttt{Addressable} (see \ref{fig:addressable}), and internally has a \texttt{getAdress} method that returns the \texttt{Addressable} at this specific address, to be accessed in the \texttt{read} and \texttt{write} methods. This ensures that the logic used to determine what component is accessed depending on the address isn't duplicated.
+
+\subsection{\texttt{getAddress} optimisation}
+
+Because \texttt{System} is a higly used component and is accessed for almost every read and write, the \texttt{getAddress} method is under a lot of pressure: for a game like `The Legend of Zelda: Link's Awakening DX', the method is called around 650,000 times per second. For a more complex and resource-intensive game such as `Alone in the Dark: The New Nightmare', around 1,900,000 calls are made. This intensity in usage can easily be explained, as the \gls{gb} is a memory-bound system: almost all interactions between components occur through memory reads and write. \texttt{getAddress} must thus be optimised as much as possible, as it is one of the main bottle-necks of the emulator.
+
+An initial implementation of \texttt{getAddress} used the combination of a list of if-statements for different ranges of the \gls{mmap}, as well as a map where all register addresses where mapped to the component responsible for them. The code would first check if the key exists in this map,,and if not it would then go through a series of if-conditions  (see figure \ref{fig:getaddress-before}). It would not return a tuple, containing both \texttt{Addressable} to use and the address within in - this was needed as some components had a particular mapping to memory. This is the case for the \gls{wram}, who's memory starts at \texttt{0xC000} and ends at \texttt{0xFDFF} (spanning over 15.5KB bytes) despite it only being 8KB long, because the last 7.5KB of its address range map back to the beginning of it (this is called the Echo RAM \cite{memorymap}).
 
 \begin{figure}[h]
     \begin{minted}{typescript}
 protected getAddress(pos: number): AddressData {
-    if (pos < 0x0000 || pos > 0xffff)
-        throw new Error(`Invalid address to read from ${pos.toString(16)}`);
-
     const register = {
         0xff00: this.joypad,
         ...
@@ -804,128 +898,134 @@ protected getAddress(pos: number): AddressData {
     \label{fig:getaddress-before}
 \end{figure}
 
+This proved quite costly:
+\begin{compactitem}
+    \item This code creates a new map every time it is called, when checking for the registers' addresses.
+    \item Having to return both an \texttt{Addressable} and an address is quite costly, as a new array with two items must be created every time. It also adds unecessary complexity to the method, as the system bus shouldn't be responsible for handling the details of address mapping, and instead simply delegate the task to the appropriate component.
+    \item The if-conditions for the ranges of the biggest areas of memory (everything between \texttt{0x0000} and \texttt{0xEFFF}) happened after the register checks, which delayed response for these reads and writes. This is all the more important that this range represents $\frac{\texttt{0xEFFF}}{\texttt{0xFFFF}+1} \approx 93\%$ of the total address space.
+    \item Chaining if-conditions is unneficient, as the JS engine must step through all conditions and check the values each time. Furthermore, although having both the lower and upper bound of the memory section indicated in the condition (e.g. \texttt{0x0000 <= pos \&\& pos <= 0x7FFF} for $[\texttt{0x0000}; \texttt{0x7FFF}]$) makes the translation from \gls{mmap} to code easier, it is slower, since only the upper bound of the range is needed for the condition if all the ranges below have already returned.
+\end{compactitem}
+
+First, we may move the fine-grained addressing logic to sub-components like the \gls{wram}. This removes the need to return an address from the method: only an \texttt{Addressable} is enough, as that component will then be responsible for decoding the address further. 
+
+The last two points may then be addressed, by removing the use of if-conditions, and moving this part of the code to the beginning of the function.
+
+With the memory map of the console (see figure \ref{fig:memory-map-largest}) we can notice how the largest chunks of memory all end with the last three nibbles of the address as \texttt{0xFFF}. This means that the component mapped to an address can be determined by simply looking at the first nibble of said address. This is probably done to simplify the circuitry responsible for addressing, as only the most significant 4 bits need to be compared. The emulator can take advantage of this.
+
+\begin{figure}[h]
+    \centering
+    \caption{Memory map for the largest chunks of memory \cite{memorymap}}
+    \begin{tabular}{|l|l|l|}
+    \hline
+    \textbf{Start} & \textbf{End} & \textbf{Description} \\ \hline
+    \texttt{0000} & \texttt{3FFF} & 16 KB ROM bank 00 \\ \hline
+    \texttt{4000} & \texttt{7FFF} & 16 KB ROM Bank 01$\sim$NN \\ \hline
+    \texttt{8000} & \texttt{9FFF} & 8 KB Video RAM (VRAM) \\ \hline
+    \texttt{A000} & \texttt{BFFF} & 8 KB External RAM \\ \hline
+    \texttt{C000} & \texttt{CFFF} & 4 KB Work RAM (WRAM) \\ \hline
+    \texttt{D000} & \texttt{DFFF} & 4 KB Work RAM (WRAM) \\ \hline
+    \texttt{E000} & \texttt{FDFF} & Mirror of \texttt{0xC000}$\sim$\texttt{0xDDFF} \\ \hline
+    \end{tabular}
+\end{figure}
+
+For this area of memory (\texttt{0x000}-\texttt{0xEFFF}) the system bus may simply isolate the most significant nibble, and then use a map to associate each address block to a component. Only if the address corresponds to \texttt{0xF-{}-{}-} do we try matching it to a register address. This removes the need for the if-conditions, and is also faster as it is evaluated much earlier on (see figure \ref{fig:getaddress-after}). The map can be created on instantiation and kept for later use, to avoid unnecessary memory allocations.
+
 \begin{figure}[h]
     \begin{minted}{typescript}
-protected getAddress(pos: number): AddressData {
-    if (pos < 0x0000 || pos > 0xffff)
-        throw new Error(`Invalid address to read from ${pos.toString(16)}`);
+protected getAddress(pos: number): Addressable {
+    // Checking last nibble
+    let addressable = this.addressesLastNibble[pos >> 12];
+    if (addressable) return addressable;
 
-    switch ((pos >> 12) as Int4) {
-        case 0x0:
-            return [this.rom, pos]; // ROM
-        ...
-        case 0xe:
-            return [this.wram, pos & (WRAM_SIZE - 1)]; // ECHO RAM
-        case 0xf:
-            break; // fall through - ECHO RAM + registers
+    // Registers
+    if((address & 0xff00) === 0xff00) {
+        addressable = this.addressesRegisters[pos & 0xff];
+        if (addressable) return addressable;
     }
 
-    const register = {
-        0xff00: this.joypad,
-        ...
-        0xffff: this.intEnable,
-    }[pos];
-    ... rest is unchanged
+    if (pos <= 0xfdff) return this.wram;  // Echo RAM
+    if (pos <= 0xfe9f) return this.ppu;   // OAM
+    if (pos <= 0xfeff) return Register00; // Illegal Area
+
+    return RegisterFF; // fake register
 }
     \end{minted}
     \caption{Optimised implementation of \texttt{getAddress}}
     \label{fig:getaddress-after}
 \end{figure}
 
-\clearpage
-\subsection{CPU}
+To ensure placing the ``main block'' first was the best choice, measurements have been taken of four different \gls{gb} games. The emulator would log all memory accesses by groups of $100\,000\,000=10^8$, and categorise them by address ``blocks'': the main block, the \gls{oam} block, the illegal block (called like this because this area of memory is restricted by Nintendo, and only returns \texttt{0x00}) and the register block. This separation is justified by the fact these are the five chunks of memory that must be checked separately, due to their irregular boundaries. The \textit{second} set of $10^8$ accesses was then used to gather the statistics of what blocks are used the most. The first $10^8$ accesses aren't used, as they may include setup operations that only happen when the game loads, and as such don't represent what the average execution will look like. See figure \ref{fig:access-rates} for the results. 
 
-The \gls{cpu} is the most important part of the emulator, and allows running the code from the \gls{rom} by reading the operation code (or opcode) and executing the matching action.
-
-\subsubsection{Initial Instruction Set}
-
-Because the \glsdesc{gb} is an 8-bit system, opcodes are 8 bits (or one byte) long, giving in theory a maximum of $2^8=256$ operations. However in the \gls{gb} the operation \texttt{0xCB} gives access to an extended instruction set, meaning that when reading \texttt{0xCB} the \gls{cpu} will read the next byte and use a different logic to execute the operation. This means there are now $2^8 - 1 + 2^8=511$ operations. The \gls{gb} also has 11 forbidden opcodes (the console will lock itself if they are executed), meaning there are in total $2^8 - 12 + 2^8 = 500$ operations to implement.
-
-Multiple techniques exist to handle this large number of operations:
-
-\begin{compactitem}
-    \item Have a large switch-statement for all operations
-    \item Have a map, that maps an opcode to a function to execute
-    \item Decode the operation by reading specific parts of the byte, and generate the instructions dynamically
-\end{compactitem}
-
-I initially had a large object, with all the opcodes as keys, that would then contains a simple function that returns the number of cycles taken by the instruction (see figure \ref{fig:instset-first}). This however proved quite repetitive and prone to errors. Furthermore, this wasn't \gls{mcyc} accurate: the \gls{cpu} instruction was executed as one monolithic block, when in reality all reads and writes are executed at a separate \gls{mcyc} - this becomes very important when the timer, \gls{oam} and \gls{ppu} are involved, as they run in parallel with the \gls{cpu}, so memory accesses to these components may return different values depending on the \gls{mcyc}.
+% Data of the table:
+% Alone in the Dark: { "most": 88_868_727, "echo": 0, "oam": 00_001_431, "illegal": 00_000_517, "registers": 11_129_325 }
+% Link's Awakening DX: { "most": 95679115, "echo": 0, "oam": 0, "illegal": 0, "registers": 4320885 }
+% Tetris: { "most": 84289047, "echo": 0, "oam": 0, "illegal": 0, "registers": 15710953 }
+% Pokemon Silver: { "most": 95739934, "echo": 0, "oam": 0, "illegal": 0, "registers": 4260066 }
 
 \begin{figure}[h]
-    \begin{minted}{typescript}
-protected instructionSet: Partial<Record<number, InstructionObject>> = {
-    // NOP
-    0x00: () => 1,
-    // LD BC/DE/HL/SP, d16
-    0x01: (s) => { this.regBC.set(this.nextWord(s)); return 3; },
-    0x11: (s) => { this.regDE.set(this.nextWord(s)); return 3; },
-    0x21: (s) => { this.regHL.set(this.nextWord(s)); return 3; },
-    0x31: (s) => { this.regSP.set(this.nextWord(s)); return 3; },
-    // INC BC/DE/HL/SP
-    0x03: () => { this.regBC.inc(); return 2; },
-    0x13: () => { this.regDE.inc(); return 2; },
-    0x23: () => { this.regHL.inc(); return 2; },
-    0x33: () => { this.regSP.inc(); return 2; },
-    ...
-}
-    \end{minted}
-    \caption{Initial instruction set implementation}
-    \label{fig:instset-first}
+    \centering
+    \caption{Rounded access rate per memory blocks, for the second set of 10,000,000 accesses of 4 different games. Games are, respectively, ``Alone in the Dark: The New Nightmare'', ``The Legend of Zelda: Link's Awakening DX'', ``Tetris'' and ``Pokémon Silver''.}
+    \begin{tabular}{|l|l|l|l|l|l|}
+    \hline
+    \textbf{Name} & \textbf{Memory Area} & \textbf{Game 1} & \textbf{Game 2} & \textbf{Game 3} & \textbf{Game 4}  \\ \hline
+    Main Block & \texttt{0x0000}-\texttt{0xEFFF} 
+    & 88.869\% 
+    & 95.679\%
+    & 84.289\% 
+    & 95.740\% \\ \hline
+
+    Echo RAM & \texttt{0xF000}-\texttt{0xFDFF} 
+    & 0.000\% 
+    & 0.000\%  
+    & 0.000\% 
+    & 0.000\% \\ \hline
+    
+    OAM Block & \texttt{0xFE00}-\texttt{0xFE9F} 
+    & 0.001\% 
+    & 0.000\%  
+    & 0.000\% 
+    & 0.000\% \\ \hline
+    
+    Illegal Block & \texttt{0xFEA0}-\texttt{0xFEFF} 
+    & 0.001\% 
+    & 0.000\%  
+    & 0.000\% 
+    & 0.000\% \\ \hline
+    
+    Register Block & \texttt{0xFF00}-\texttt{0xFFFF} 
+    & 11.129\% 
+    & 4.321\% 
+    & 15.711\% 
+    & 4.260\% \\ \hline
+    \end{tabular}
+    \label{fig:access-rates}
 \end{figure}
 
-\subsubsection{Becoming M-Cycle accurate}
+As we can see, the great majority of memory accesses go to the main part of memory, with almost all of the rest going to the ``register area'', the last 256 bytes of the address space. This can easily be explained by the fact all registers that allow interaction with other components (the \gls{ppu}, the \gls{apu}, the timer, etc.) are in this narrow range, so it is bound to have a high usage. It is also quite interesting to note that neither the Echo RAM or the OAM block are used at all, except very rarely for one of the tested games. It is thus safe to assume that the conditions responsible for mapping these areas can be left at the end of the function, as they will rarely match an address.
 
-In most (if not all) emulators I looked, the way \gls{mcyc} accuracy is reached is by making the emulator \textbf{\gls{cpu}-driven}. What this means is that inside each instruction, between each \gls{mcyc}, the \gls{cpu} is responsible for ticking the rest of the system - the main loop is then only responsible for continuously running the \gls{cpu}, and nothing else. This approach is probably the simplest and most straightforward one, as it is quite simple to implement - all one needs to do is call the system tick method when relevant (see figure \ref{fig:cpu-driven-ld}) .
+\subsection{Evaluating the \texttt{getAddress} optimisation}
 
-\begin{figure}[h]
-    \begin{minted}{typescript}
-protected ld_bc_hl(system: System) { // LD BC, (HL)
-    const lower = system.read(this.regPC.inc());
-    system.tick();
-    const upper = system.read(this.regPC.inc());
-    system.tick();
-    this.regBC.set(upper << 8 | lower);
-}
-    \end{minted}
-    \caption{CPU-driven \texttt{LD BC, (HL)}}
-    \label{fig:cpu-driven-ld}
-\end{figure}
+A simple experiment was then run, to verify the performance improvement. The first 25 million instructions of the \texttt{cpu\_instrs}\ftnt{https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs} test \gls{rom} were run. This sample was chosen because it is considerably large, because the test itself requires around 25 million instructions to complete. For the measurement, \texttt{window.performance.now()}\ftnt{https://developer.mozilla.org/en-US/docs/Web/API/Performance/now} was used before and after each drawn frame, and the values were then summed.
 
-Because this was already done in most emulators, I wanted to try another idea I had, that I hadn't seen anywhere else: keep the emulator ``system-driven'', and instead make the \gls{cpu} remember what state and \gls{mcyc} it's on and what micro-instruction it must execute next.
+The result was the following: $33\,955.9$ms before the change, and $20\,039.1$ after the change. The relative difference is thus $\frac{20\,039.1-33\,955.9}{33\,955.9}=-0.4098$, thus reducing time taken by $40.98\%$. By measuring the time spent within \texttt{getAddress} for these 25 million instructions, we get a total spent time in the method of $0.000\,151$ms on average, showing that this method is no longer a bottleneck for the system, as its impact on performance is minimal.
 
-This was done by splitting all the instructions into smaller chunks, that return each other, as arrow-functions. The \gls{cpu} now must simply store whatever the instruction returns: if it's \texttt{null} then it needs to fetch an instruction at the next cycle, otherwise it's a function and must be executed (and it's result stored for the next step). An advantage of this method is that the \gls{cpu} is still only responsible for executing instructions - it only needs the system to read/write to memory. See figures \ref{fig:system-driven-ld} and \ref{fig:system-driven-cpu-tick} for an example of this.
+\section{Emulator Backend}
+
+To keep the logic of the hardware, divided in different components, the structure of the emulator has a similar format, with different classes implementing the behaviour of the different parts of the \glsdesc{gb}.
+
+\subsection{Addressable}
+
+The \texttt{Addressable} interface is implemented by most classes of the emulator: \texttt{System}, \texttt{Register}, \texttt{MBC}, etc. It is simple, and provides a read and a write method (see figure \ref{fig:addressable}). The advantage of using it is that when implementing adressing logic with large switch-statements I can simply return any type of components that adheres to the interface, and the receiving method is agnostic of if it's dealing with a register, memory, or a component.
 
 \begin{figure}[h]
     \begin{minted}{typescript}
-protected ld_bc_hl(system: System) { // LD BC, (HL)
-    const lower = system.read(this.regPC.inc());
-    return () => {
-        const upper = system.read(this.regPC.inc());
-        return () => {
-            this.regBC.set(upper << 8 | lower);
-            return null;
-        }
-    }
+interface Addressable {
+    read(pos: number): number;
+    write(pos: number, data: number): void;
 }
     \end{minted}
-    \caption{System-driven \texttt{LD BC, (HL)}}
-    \label{fig:system-driven-ld}
-\end{figure}
-
-\begin{figure}[h]
-    \begin{minted}{typescript}
-step(system: System) {
-    if (this.nextStep === null) {
-        // Execute next instruction
-        const opcode = this.nextByte(system);
-        const instruction = this.instructionSet[opcode];
-        this.nextStep = instruction;
-    }
-    this.nextStep = this.nextStep(system);
-}
-    \end{minted}
-    \caption{System-driven step of the \gls{cpu}}
-    \label{fig:system-driven-cpu-tick}
+    \caption{\texttt{Addressable} interface method}
+    \label{fig:addressable}
 \end{figure}
 
 \subsection{Timer}
@@ -940,6 +1040,7 @@ step(system: System) {
 \clearpage
 
 \printnoidxglossary[type=\acronymtype]
+
 \printnoidxglossary[type=main]
 
 \printbibliography
