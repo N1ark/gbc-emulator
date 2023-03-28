@@ -16,7 +16,6 @@ class GameBoyColor {
     protected options: GameBoyColorOptions;
     protected mode: ConsoleType;
 
-    protected isRunning = false;
     protected cpu: CPU;
     protected system: System;
 

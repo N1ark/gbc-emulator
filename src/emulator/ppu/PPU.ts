@@ -613,19 +613,27 @@ class PPU implements Addressable {
         }
     }
 
-    drawBackground() {
+    /**
+     * Handles drawing a single line of the screen, for the background and window.
+     * @param startX The X position to start drawing at.
+     * @param y The Y position to draw at.
+     * @param locationFlag The flag to use to determine the tilemap location.
+     * @param scrollOffsetX The X offset to use for scrolling.
+     * @param getX The function to use to get the X position of the tile.
+     */
+    drawLayer(
+        startX: number,
+        y: number,
+        locationFlag: number,
+        scrollOffsetX: number,
+        getX: (x: number) => number
+    ) {
         // Global BG priority bit (CGB only)
         const bgPrioCgb = this.lcdControl.flag(LCDC_BG_WIN_PRIO);
 
         // The tilemap used (a map of tile *pointers*)
-        const tileMapLoc = this.lcdControl.flag(LCDC_BG_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
+        const tileMapLoc = this.lcdControl.flag(locationFlag) ? 0x9c00 : 0x9800;
 
-        // The top-left corner of the 160x144 view area
-        const viewX = this.screenX.get();
-        const viewY = this.screenY.get();
-
-        // The currently read Y pixel of the bg map
-        const y = wrap8(viewY + this.lcdY.get());
         // The currently read Y position of the corresponding tile (one tile is 8 pixels long)
         const tileY = Math.floor(y / 8);
         // The currently read Y position *inside* the tile
@@ -634,11 +642,9 @@ class PPU implements Addressable {
         // Start of video buffer for this line
         const bufferStart = this.lcdY.get() * SCREEN_WIDTH;
 
-        const scrollOffsetX = viewX % 8;
-
-        for (let i = 0; i < SCREEN_WIDTH + scrollOffsetX; i += 8) {
-            // The currently read X pixel of the bg map
-            const x = wrap8(viewX + i);
+        for (let i = startX; i < SCREEN_WIDTH + scrollOffsetX; i += 8) {
+            // The currently read X pixel of the tile map
+            const x = getX(i);
             // The currently read X position of the corresponding tile
             // this determines the tile of the next 8 pixels
             const tileX = Math.floor(x / 8);
@@ -667,7 +673,7 @@ class PPU implements Addressable {
             const tileData = this.vramControl.getTile(tileDataAddress, vramBank);
 
             for (let innerX = 0; innerX < 8; innerX++) {
-                let posX = i + innerX - scrollOffsetX;
+                const posX = i + innerX - scrollOffsetX;
                 if (posX < 0) continue;
 
                 const arrayX = flipX ? 7 - innerX : innerX;
@@ -676,6 +682,9 @@ class PPU implements Addressable {
                 // Get the RGBA color, and draw it!
                 const colorId = tileData[arrayX][arrayY];
                 this.videoBuffer[bufferStart + posX] = palette[colorId];
+
+                // Update priorities
+                this.bgPriorities[posX] = 0;
                 if (colorId > 0) {
                     if (!this.isCgbMode) {
                         this.bgPriorities[posX] = 1;
@@ -688,80 +697,42 @@ class PPU implements Addressable {
         }
     }
 
+    drawBackground() {
+        // The top-left corner of the 160x144 view area
+        const viewX = this.screenX.get();
+        const viewY = this.screenY.get();
+        // Current Y position in the map
+        const y = wrap8(viewY + this.lcdY.get());
+        // The offset of the current line in the map
+        const scrollOffsetX = viewX % 8;
+
+        this.drawLayer(
+            0, // start x
+            y, // y
+            LCDC_BG_TILE_MAP_AREA, // location flag
+            scrollOffsetX, // scroll offset x
+            (x) => wrap8(x + viewX) // get x
+        );
+    }
+
     drawWindow() {
         // The top-left corner of the 160x144 view area
         const windowX = this.windowX.get() - 7;
         const windowY = this.windowY.get();
 
+        // If the window is not visible, return
         if (this.lcdY.get() < windowY || windowX >= SCREEN_WIDTH) return;
 
-        // Global BG priority bit (CGB only)
-        const bgPrioCgb = this.lcdControl.flag(LCDC_BG_WIN_PRIO);
-
-        // The tilemap used (a map of tile *pointers*)
-        const tileMapLoc = this.lcdControl.flag(LCDC_WIN_TILE_MAP_AREA) ? 0x9c00 : 0x9800;
-        // The currently read Y pixel of the bg map
+        // The currently read Y pixel of the window map
         const y = this.windowLineCounter++;
-        // The currently read Y position of the corresponding tile (one tile is 8 pixels long)
-        const tileY = Math.floor(y / 8);
-        // The currently read Y position *inside* the tile
-        const tileInnerY = y % 8;
 
-        // Start of video buffer for this line
-        const bufferStart = this.lcdY.get() * SCREEN_WIDTH;
-
-        for (let i = windowX; i < SCREEN_WIDTH; i += 8) {
-            // The currently read X pixel of the bg map
-            const x = i - windowX;
-            // The currently read X position of the corresponding tile
-            // this determines the tile of the next 8 pixels
-            const tileX = Math.floor(x / 8);
-
-            // Index of the tile in the current tile data
-            const tileIndex = tileMapLoc + tileX + tileY * 32;
-
-            // On CGB, the attributes of the tile
-            // Note we can do this even in DMG mode, because VRAM2 in DMG is just a 00 register,
-            // and all the 0 attributes match the normal behaviour of the DMG
-            const tileAttributes = this.vramControl.readBank1(tileIndex);
-            const bgToOamPrio = (tileAttributes & VRAM2_ATTR_BG_OAM_PRIORITY) !== 0;
-            const flipX = (tileAttributes & VRAM2_ATTR_H_FLIP) !== 0;
-            const flipY = (tileAttributes & VRAM2_ATTR_V_FLIP) !== 0;
-            const vramBank = (tileAttributes & VRAM2_ATTR_VRAM_BANK) !== 0 ? 1 : 0;
-            const tilePalette = (tileAttributes & VRAM2_ATTR_PALETTE) as Int3;
-
-            // Map of colors for each shade
-            const palette = this.colorControl.getBgPalette(tilePalette);
-
-            // The ID (pointer) of the tile
-            const tileAddress = this.vramControl.readBank0(tileIndex);
-            // Convert the ID to the actual address
-            const tileDataAddress = this.getTileAddress(tileAddress);
-            // Get the tile data
-            const tileData = this.vramControl.getTile(tileDataAddress, vramBank);
-
-            for (let innerX = 0; innerX < 8; innerX++) {
-                const posX = i + innerX;
-                if (posX < 0) continue;
-
-                // Get the RGBA color, and draw it!
-                const arrayX = flipX ? 7 - innerX : innerX;
-                const arrayY = flipY ? 7 - tileInnerY : tileInnerY;
-
-                const colorId = tileData[arrayX][arrayY];
-                this.videoBuffer[bufferStart + posX] = palette[colorId];
-
-                this.bgPriorities[posX] = 0;
-                if (colorId > 0) {
-                    if (!this.isCgbMode) {
-                        this.bgPriorities[posX] = 1;
-                    } else {
-                        if (bgPrioCgb) this.bgPriorities[posX] += 2;
-                        if (bgToOamPrio) this.bgPriorities[posX] += 1;
-                    }
-                }
-            }
-        }
+        this.drawLayer(
+            windowX, // start x
+            y, // y
+            LCDC_WIN_TILE_MAP_AREA, // location flag
+            0, // scroll offset x
+            (x) => wrap8(x - windowX) // get x
+        );
     }
 
     drawObjects() {
