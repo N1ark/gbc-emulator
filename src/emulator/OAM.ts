@@ -103,8 +103,9 @@ class OAM implements Addressable {
     }));
 
     getSprites(): Readonly<Sprite>[] {
-        this.spriteCache.forEach((sprite, index) => {
-            if (!sprite.valid) {
+        this.spriteCache
+            .filter((x) => !x.valid)
+            .forEach((sprite, index) => {
                 const address = index << 2;
                 const attribs = this.data.read(address + 3);
                 sprite.y = this.data.read(address + 0) - 16;
@@ -117,8 +118,7 @@ class OAM implements Addressable {
                 sprite.cgbPaletteNumber = (attribs & ATTRIB_CGB_PALETTE_NUM) as Int3;
                 sprite.cgbVramBank = ((attribs >> ATTRIB_CGB_VRAM_BANK_IDX) & 1) as Int1;
                 sprite.valid = true;
-            }
-        });
+            });
         return this.spriteCache;
     }
 }

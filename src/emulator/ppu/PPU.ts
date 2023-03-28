@@ -365,28 +365,28 @@ class PPU implements Addressable {
             // Height of objects in pixels
             const objHeight = this.lcdControl.flag(LCDC_OBJ_SIZE) ? 16 : 8;
             // This is only relevant in GBC: priority by position or by index
-            const objPriorityMode = this.objPriorityMode.read(0) & 1 ? "coordinate" : "index";
+            let objPrioritySort: (a: [Sprite, number], b: [Sprite, number]) => number;
+            if (this.objPriorityMode.read(0) & 1) {
+                // priority by X position, then by index
+                objPrioritySort = ([spriteA, indexA], [spriteB, indexB]) =>
+                    spriteA.x !== spriteB.x ? spriteA.x - spriteB.x : indexA - indexB;
+            } else {
+                // priority only by index
+                objPrioritySort = ([spriteA, indexA], [spriteB, indexB]) => indexA - indexB;
+            }
             // We select the sprites the following way:
             // - must be visible
             // - max 10 per line
             // - sorted, first by X position then by index
             this.readSprites = this.oam
                 .getSprites()
-                .filter(
-                    // only get selected sprites
-                    (sprite) => sprite.y <= y && y < sprite.y + objHeight
-                )
-                .slice(0, 10) // only 10 sprites per scanline, lower index first
+                // only get selected sprites
+                .filter((sprite) => sprite.y <= y && y < sprite.y + objHeight)
+                // only 10 sprites per scanline, lower index first
+                .slice(0, 10)
+                // need to add the index, for sorting
                 .map((sprite, index) => [sprite, index] as [Sprite, number])
-                // sort by x then index
-                .sort(
-                    ([spriteA, indexA], [spriteB, indexB]) =>
-                        objPriorityMode === "coordinate"
-                            ? spriteA.x === spriteB.x // first by coordinate then by index
-                                ? indexA - indexB
-                                : spriteA.x - spriteB.x
-                            : indexA - indexB // only by index
-                )
+                .sort(objPrioritySort)
                 .map(([sprite]) => sprite);
         }
     }
