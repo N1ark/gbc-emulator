@@ -1,6 +1,6 @@
-import { Addressable, RAM } from "./Memory";
-import { Register } from "./Register";
-import { Int1, Int3 } from "./util";
+import { Addressable, RAM } from "../Memory";
+import { Register } from "../Register";
+import { Int1, Int3 } from "../util";
 
 export type Sprite = {
     x: number;

@@ -10,7 +10,7 @@ import { Addressable } from "../Memory";
 import { MaskRegister, RegisterFF, Register } from "../Register";
 import { asSignedInt8, Int3, wrap8 } from "../util";
 import GameBoyOutput from "../GameBoyOutput";
-import OAM, { Sprite } from "../OAM";
+import OAM, { Sprite } from "./OAM";
 import { CGBColorControl, ColorController, DMGColorControl } from "./ColorController";
 import { VRAMController, CGBVRAMController, DMGVRAMController } from "./VRAMController";
 import Interrupts from "../Interrupts";

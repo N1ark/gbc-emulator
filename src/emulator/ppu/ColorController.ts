@@ -1,8 +1,8 @@
 import { CGBMode } from "../constants";
 import { Addressable, RAM } from "../Memory";
-import { Sprite } from "../OAM";
+import { Sprite } from "./OAM";
 import { Register, MaskRegister } from "../Register";
-import { Int2, Int3 } from "../util";
+import { Int3 } from "../util";
 
 export type ColorPalette = [number, number, number, number];
 
