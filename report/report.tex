@@ -14,13 +14,14 @@
 \usepackage{enumitem}
 \usepackage{xltabular}
 \usepackage{dirtree}
-\usepackage{minted}
 \usepackage{standalone}
 
 \usepackage{tikz}
 \usepackage{tikz-timing}
 \usepackage{packages/tikz-uml}
 
+\usepackage{minted}
+\setminted{linenos, tabsize=4}
 
 % setup bibliography
 \usepackage[style=ieee]{biblatex}
@@ -413,7 +414,7 @@ In emulators, the different components are usually split in three parts:
 	\item A memory system, that handles addressing within the console. This part is essential to ensure components are communicating between each other properly, since different addresses may map to different components.
 \end{compactitem}
 
-Because the emulator should not rely on the environment it is running it to work, the functionality of the project can be split into two parts: the emulator core, that is responsible for simulating the Gameboy, and the emulator's frontend, that allows interfacing with the user, and may be changed to work for different platforms (see \ref{fig:emu-back-front-split-uml}).
+Because the emulator should not rely on the environment it is running it to work, the functionality of the project can be split into two parts: the emulator core, that is responsible for simulating the Gameboy, and the emulator's frontend, that allows interfacing with the user, and may be changed to work for different platforms (see figure~\ref{fig:emu-back-front-split-uml}).
 
 \begin{figure}[h]
     \centering
@@ -431,6 +432,7 @@ Because the emulator should not rely on the environment it is running it to work
     \centering
     \includegraphics{diagrams/emulator-comp-diagram.drawio.pdf}
     \caption{Simplified design of the emulator's core}
+    Note utility classes have been excluded for readability purposes
     \label{fig:emu-core-components}
 \end{figure}
 
@@ -536,8 +538,8 @@ The project is divided into two parts:
     \item  The \texttt{emulator/} directory contains the actual \gls{gb} emulator. Although most classes and interfaces used are exported, only three elements are needed to properly interact with the emulator:
     \begin{compactitem}
         \item \texttt{GameBoyColor.ts} handles the core loop of the system. It contains the \texttt{GameBoyColor} class, the emulator. Instantiating the emulator creates all the necessary sub-components, and calling the \texttt{drawFrame()} method runs the emulator for one frame (0.16 seconds).
-        \item \texttt{GameBoyOutput.ts} contains a simple interface, with optional methods to receive any output produced by the emulator (see figure \ref{fig:gameboyoutput}). The two main methods of this are \texttt{receiveGraphics} and \texttt{receiveSound}, which use the output of the actual console.
-        \item \texttt{GameBoyInput.ts} contains a simple interface with a required \texttt{read()} method that returns an object with the current inputs for the console (see figure \ref{fig:gameboyinput}).
+        \item \texttt{GameBoyOutput.ts} contains a simple interface, with optional methods to receive any output produced by the emulator (see figure~\ref{fig:gameboyoutput}). The two main methods of this are \texttt{receiveGraphics} and \texttt{receiveSound}, which use the output of the actual console.
+        \item \texttt{GameBoyInput.ts} contains a simple interface with a required \texttt{read()} method that returns an object with the current inputs for the console (see figure~\ref{fig:gameboyinput}).
     \end{compactitem}
 \end{compactitem}
 
@@ -612,8 +614,8 @@ In the side drawer, the first tab is ``Settings''. It contains general settings 
 	\item the size of the emulator's screen, allowing resizing to two or four times larger.
 	\item a slider to change the volume of the emulator's audio output.
 	\item a palette selector, to change the four hues of the \gls{dmg}'s screen.
-	\item miscellaneous togglable settings, grouped together: 
-	\begin{compactitem} 
+	\item miscellaneous togglable settings, grouped together:
+	\begin{compactitem}
 		\item an option to play with or without the initial boot \gls{rom} of the emulator.
 		\item a toggle to enable frame-blending, meaning for every new frame the output is mixed with the previous frame. This is a nice addition to have, because certain games made certain objects flicker on screen to make them appear translucent (since the flicker wasn't visible to the eye).
 		\item a button to show the performance statistics of the emulator. This is mainly useful when developing the emulator to make sure it is still efficient.
@@ -637,7 +639,7 @@ In the side drawer, the first tab is ``Settings''. It contains general settings 
 
 \subsection{Watch Expressions}
 
-The second drawer allows the user to define custom JavaScript functions to inspect the state of the emulator regularly (see \ref{fig:watch-expressions}). This requires knowledge of the inner structure of the emulator, as the field names need to be used, but is quite useful when needing to inspect parts of the console that aren't the memory, like internal counters used for components, or register values. 
+The second drawer allows the user to define custom JavaScript functions to inspect the state of the emulator regularly (see \ref{fig:watch-expressions}). This requires knowledge of the inner structure of the emulator, as the field names need to be used, but is quite useful when needing to inspect parts of the console that aren't the memory, like internal counters used for components, or register values.
 
 To implement this, the \texttt{Function}\ftnt{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function} constructor is used, which takes in a string with the function's code. This allows the user to dynamically change the expression, and the component will simply update the function, without needing to reload the whole application. These expressions are also automatically saved to \texttt{localStorage}\ftnt{https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage}, meaning they will be kept between sessions.
 
@@ -714,10 +716,10 @@ Multiple techniques exist to handle this large number of operations:
 \begin{compactitem}
     \item Have a large switch-statement for all possible operations. This is the most straight-forward option, but can result in quite large switch-statements, especialy for \glspl{cpu} with more opcodes. The \gls{gb} has comparatively few opcodes as it is an 8-bit system; the Gameboy Advance, the console that followed it, had 32-bit opcodes: way too many for a switch statement to be appropriate.
     \item Decode the operation by reading specific parts of the opcode, and generate the instructions dynamically. This method is what is done for larger instruction sets, where opcodes can be split into separate parts to describe the operation's behaviour \cite[ARM CPU Reference]{gbatek}. It however comes with the cost of extra processing for each instruction, as it needs to be decoded. This method is applicable to the \gls{gb}, as many instructions follow a pattern - see, for instance the \texttt{LD} instructions, that all follow the same order of registers: \texttt{B}, \texttt{C}, \texttt{D}, \texttt{E}, \texttt{H}, \texttt{L}, \texttt{(HL)} (the byte at address \texttt{HL}) and \texttt{A}.
-    \item Have a map, that associates for each opcode a function to execute. This technique is also only viable for small numbers of opcodes, as the map can result quite large. An advantage of this method is that the map doesn't have to be explicitly written out entirely - generators can be used to populate some chunks of it, making it a hybrid of the two previous solutions: there is very little overhead to execute an instruction, as each opcode is associated to a function, but there is also no need to write out every instruction separately, as the map can be generated in parts or in its entirety (inducing a light setup cost).
+    \item Create a dispatch table a map that associates each opcode to a function to execute \cite{dispatch_table}. This technique is also only viable for small numbers of opcodes, as the map can result quite large. An advantage of this method is that the map doesn't have to be explicitly written out entirely - generators can be used to populate some chunks of it, making it a hybrid of the two previous solutions: there is very little overhead to execute an instruction, as each opcode is associated to a function, but there is also no need to write out every instruction separately, as the map can be generated in parts or in its entirety (inducing a light setup cost).
 \end{compactitem}
 
-Initially, the emulator had a large map, with all the opcodes as keys. The functions associated would then execute the instruction and return the number of cycles taken by the instruction (see figure \ref{fig:instset-first}). This however proved quite repetitive and prone to errors. To solve this, a \textit{generator function} was created. To use it, two parameters must be given: a map of opcodes to values (of an arbitrary type), and a helper function that for each arbitrary value returns a function that executes the instruction (see figure \ref{fig:cpu-gen-function}). This allows generating repetitive instructions more easily, by only specifying what opcodes and objects are used, and not what the whole body of the instruction is (see figure \ref{fig:instset-second}). This method is used in other emulators - for instance, Sameboy has a map that has an opcode-function mapping for all opcodes, and uses macros to generate the different functions\ftnt{https://github.com/LIJI32/SameBoy/blob/master/Core/sm83\_cpu.c}.
+Initially, the emulator had a large map, with all the opcodes as keys. The functions associated would then execute the instruction and return the number of cycles taken by the instruction (see figure~\ref{fig:instset-first}). This however proved quite repetitive and prone to errors. To solve this, a \textit{generator function} was created. To use it, two parameters must be given: a map of opcodes to values (of an arbitrary type), and a helper function that for each arbitrary value returns a function that executes the instruction (see figure~\ref{fig:cpu-gen-function}). This allows generating repetitive instructions more easily, by only specifying what opcodes and objects are used, and not what the whole body of the instruction is (see figure~\ref{fig:instset-second}). This method is used in other emulators - for instance, Sameboy has a map that has an opcode-function mapping for all opcodes, and uses macros to generate the different functions\ftnt{https://github.com/LIJI32/SameBoy/blob/master/Core/sm83\_cpu.c}.
 
 \begin{figure}[h]
     \begin{minted}{typescript}
@@ -765,7 +767,7 @@ protected instructionSet: Partial<Record<number, InstructionObject>> = {
             0x11: this.regDE,
             0x21: this.regHL,
             0x31: this.regSP,
-        }, 
+        },
         (register) => (s) => {
             register.set(this.nextWord(s));
             return 3;
@@ -783,22 +785,23 @@ protected instructionSet: Partial<Record<number, InstructionObject>> = {
 The Gameboy is a memory-bound system, meaning that it is limited by it's memory accesses. The \gls{cpu} can only execute either one read or one write per \gls{mcyc} \cite[CPU core timing]{gbctr}. The \gls{cpu} also needs to retrieve the opcode for each instruction, which takes an additional cycle, meaning an instruction performing no memory accesses lasts one cycle, and an instruction performing $n$ memory accesses lasts at least $n + 1$ cycles. Note also that the \gls{gb} overlaps the last cycle of the execution with the fetching cycle for the next opcode - this will thus be of importance when implementing the fetching of the opcode.
 
 \begin{figure}[h]
-	\begin{center}	
+	\centering
     \begin{tikztimingtable}[timing/wscale=0.8]
       M-cycle & X 8D{M1} 8D{M2} 8D{M3} 8D{M4/M1} X \\
       Instruction & ; [opacity=0.4] 9D{Previous} ; [opacity=1.0] 24D{LD rr, nn} ; [opacity=0.4] X \\
       Mem R/W  & X 8D{R: opcode} 8D{R: lsb(nn)} 8D{R: msb(nn)} ; [opacity=0.4] 8D{R: next op} X \\
       Mem addr & X 8D{PC} 8D{PC+1} 8D{PC+2} ; [opacity=0.4] 8D{PC+3} X \\
     \end{tikztimingtable}
-    \end{center}
-    \caption{Timing of the \texttt{LD rr, nn} instruction (taken from GBCTR \cite[Sharp SM83 instruction set]{gbctr})}
+
+    \caption{Timing of the \texttt{LD rr, nn} instruction}
+    Taken from GBCTR \cite[Sharp SM83 instruction set]{gbctr}
     \label{fig:ld-instr-timing}
 \end{figure}
 
 
 The current implementation is not \gls{mcyc} accurate: the \gls{cpu} instruction is executed as one monolithic block, rather than in different smaller parts. This becomes crucial when the timer, \gls{oam} and \gls{ppu} are involved, as they run in parallel with the \gls{cpu}, so memory accesses to these components may return different values depending on the \gls{mcyc}.
 
-In all emulators that were found when researching for this project, \gls{mcyc} accuracy is reached by making the emulator ``\gls{cpu}-driven''. What this means is that inside each instruction, between each cycle, the \gls{cpu} is responsible for ticking the rest of the system - the main loop is then only responsible for continuously running the \gls{cpu}, and nothing else. This approach is probably the simplest and most straightforward one, as it is quite simple to implement - all one needs to do is call the system tick method when relevant (see figure \ref{fig:cpu-driven-ld}).
+In all emulators that were found when researching for this project, \gls{mcyc} accuracy is reached by making the emulator ``\gls{cpu}-driven''. What this means is that inside each instruction, between each cycle, the \gls{cpu} is responsible for ticking the rest of the system - the main loop is then only responsible for continuously running the \gls{cpu}, and nothing else. This approach is probably the simplest and most straightforward one, as it is quite simple to implement - all one needs to do is call the system tick method when relevant (see figure~\ref{fig:cpu-driven-ld}).
 
 Some emulator where this method was found:
 \begin{compactitem}
@@ -874,7 +877,7 @@ The \texttt{System} class implements the system bus, as well as the ticking of a
 
 Because \texttt{System} is a higly used component and is accessed for almost every read and write, the \texttt{getAddress} method is under a lot of pressure: for a game like `The Legend of Zelda: Link's Awakening DX', the method is called around 650,000 times per second. For a more complex and resource-intensive game such as `Alone in the Dark: The New Nightmare', around 1,900,000 calls are made. This intensity in usage can easily be explained, as the \gls{gb} is a memory-bound system: almost all interactions between components occur through memory reads and write. \texttt{getAddress} must thus be optimised as much as possible, as it is one of the main bottle-necks of the emulator.
 
-An initial implementation of \texttt{getAddress} used the combination of a list of if-statements for different ranges of the \gls{mmap}, as well as a map where all register addresses where mapped to the component responsible for them. The code would first check if the key exists in this map,,and if not it would then go through a series of if-conditions  (see figure \ref{fig:getaddress-before}). It would not return a tuple, containing both \texttt{Addressable} to use and the address within in - this was needed as some components had a particular mapping to memory. This is the case for the \gls{wram}, who's memory starts at \texttt{0xC000} and ends at \texttt{0xFDFF} (spanning over 15.5KB bytes) despite it only being 8KB long, because the last 7.5KB of its address range map back to the beginning of it (this is called the Echo RAM \cite{memorymap}).
+An initial implementation of \texttt{getAddress} used the combination of a list of if-statements for different ranges of the \gls{mmap}, as well as a map where all register addresses where mapped to the component responsible for them. The code would first check if the key exists in this map,,and if not it would then go through a series of if-conditions  (see figure~\ref{fig:getaddress-before}). It would not return a tuple, containing both \texttt{Addressable} to use and the address within in - this was needed as some components had a particular mapping to memory. This is the case for the \gls{wram}, who's memory starts at \texttt{0xC000} and ends at \texttt{0xFDFF} (spanning over 15.5KB bytes) despite it only being 8KB long, because the last 7.5KB of its address range map back to the beginning of it (this is called the Echo RAM \cite{memorymap}).
 
 \begin{figure}[h]
     \begin{minted}{typescript}
@@ -906,11 +909,11 @@ This proved quite costly:
     \item Chaining if-conditions is unneficient, as the JS engine must step through all conditions and check the values each time. Furthermore, although having both the lower and upper bound of the memory section indicated in the condition (e.g. \texttt{0x0000 <= pos \&\& pos <= 0x7FFF} for $[\texttt{0x0000}; \texttt{0x7FFF}]$) makes the translation from \gls{mmap} to code easier, it is slower, since only the upper bound of the range is needed for the condition if all the ranges below have already returned.
 \end{compactitem}
 
-First, we may move the fine-grained addressing logic to sub-components like the \gls{wram}. This removes the need to return an address from the method: only an \texttt{Addressable} is enough, as that component will then be responsible for decoding the address further. 
+First, we may move the fine-grained addressing logic to sub-components like the \gls{wram}. This removes the need to return an address from the method: only an \texttt{Addressable} is enough, as that component will then be responsible for decoding the address further.
 
 The last two points may then be addressed, by removing the use of if-conditions, and moving this part of the code to the beginning of the function.
 
-With the memory map of the console (see figure \ref{fig:memory-map-largest}) we can notice how the largest chunks of memory all end with the last three nibbles of the address as \texttt{0xFFF}. This means that the component mapped to an address can be determined by simply looking at the first nibble of said address. This is probably done to simplify the circuitry responsible for addressing, as only the most significant 4 bits need to be compared. The emulator can take advantage of this.
+With the memory map of the console (see figure~\ref{fig:memory-map-largest}) we can notice how the largest chunks of memory all end with the last three nibbles of the address as \texttt{0xFFF}. This means that the component mapped to an address can be determined by simply looking at the first nibble of said address. This is probably done to simplify the circuitry responsible for addressing, as only the most significant 4 bits need to be compared. The emulator can take advantage of this.
 
 \begin{figure}[h]
     \centering
@@ -928,7 +931,7 @@ With the memory map of the console (see figure \ref{fig:memory-map-largest}) we 
     \end{tabular}
 \end{figure}
 
-For this area of memory (\texttt{0x000}-\texttt{0xEFFF}) the system bus may simply isolate the most significant nibble, and then use a map to associate each address block to a component. Only if the address corresponds to \texttt{0xF-{}-{}-} do we try matching it to a register address. This removes the need for the if-conditions, and is also faster as it is evaluated much earlier on (see figure \ref{fig:getaddress-after}). The map can be created on instantiation and kept for later use, to avoid unnecessary memory allocations.
+For this area of memory (\texttt{0x000}-\texttt{0xEFFF}) the system bus may simply isolate the most significant nibble, and then use a map to associate each address block to a component. Only if the address corresponds to \texttt{0xF-{}-{}-} do we try matching it to a register address. This removes the need for the if-conditions, and is also faster as it is evaluated much earlier on (see figure~\ref{fig:getaddress-after}). The map can be created on instantiation and kept for later use, to avoid unnecessary memory allocations.
 
 \begin{figure}[h]
     \begin{minted}{typescript}
@@ -954,7 +957,7 @@ protected getAddress(pos: number): Addressable {
     \label{fig:getaddress-after}
 \end{figure}
 
-To ensure placing the ``main block'' first was the best choice, measurements have been taken of four different \gls{gb} games. The emulator would log all memory accesses by groups of $100\,000\,000=10^8$, and categorise them by address ``blocks'': the main block, the \gls{oam} block, the illegal block (called like this because this area of memory is restricted by Nintendo, and only returns \texttt{0x00}) and the register block. This separation is justified by the fact these are the five chunks of memory that must be checked separately, due to their irregular boundaries. The \textit{second} set of $10^8$ accesses was then used to gather the statistics of what blocks are used the most. The first $10^8$ accesses aren't used, as they may include setup operations that only happen when the game loads, and as such don't represent what the average execution will look like. See figure \ref{fig:access-rates} for the results. 
+To ensure placing the ``main block'' first was the best choice, measurements have been taken of four different \gls{gb} games. The emulator would log all memory accesses by groups of $100\,000\,000=10^8$, and categorise them by address ``blocks'': the main block, the \gls{oam} block, the illegal block (called like this because this area of memory is restricted by Nintendo, and only returns \texttt{0x00}) and the register block. This separation is justified by the fact these are the five chunks of memory that must be checked separately, due to their irregular boundaries. The \textit{second} set of $10^8$ accesses was then used to gather the statistics of what blocks are used the most. The first $10^8$ accesses aren't used, as they may include setup operations that only happen when the game loads, and as such don't represent what the average execution will look like. see figure~\ref{fig:access-rates} for the results.
 
 % Data of the table:
 % Alone in the Dark: { "most": 88_868_727, "echo": 0, "oam": 00_001_431, "illegal": 00_000_517, "registers": 11_129_325 }
@@ -968,34 +971,34 @@ To ensure placing the ``main block'' first was the best choice, measurements hav
     \begin{tabular}{|l|l|l|l|l|l|}
     \hline
     \textbf{Name} & \textbf{Memory Area} & \textbf{Game 1} & \textbf{Game 2} & \textbf{Game 3} & \textbf{Game 4}  \\ \hline
-    Main Block & \texttt{0x0000}-\texttt{0xEFFF} 
-    & 88.869\% 
+    Main Block & \texttt{0x0000}-\texttt{0xEFFF}
+    & 88.869\%
     & 95.679\%
-    & 84.289\% 
+    & 84.289\%
     & 95.740\% \\ \hline
 
-    Echo RAM & \texttt{0xF000}-\texttt{0xFDFF} 
-    & 0.000\% 
-    & 0.000\%  
-    & 0.000\% 
+    Echo RAM & \texttt{0xF000}-\texttt{0xFDFF}
+    & 0.000\%
+    & 0.000\%
+    & 0.000\%
     & 0.000\% \\ \hline
-    
-    OAM Block & \texttt{0xFE00}-\texttt{0xFE9F} 
-    & 0.001\% 
-    & 0.000\%  
-    & 0.000\% 
+
+    OAM Block & \texttt{0xFE00}-\texttt{0xFE9F}
+    & 0.001\%
+    & 0.000\%
+    & 0.000\%
     & 0.000\% \\ \hline
-    
-    Illegal Block & \texttt{0xFEA0}-\texttt{0xFEFF} 
-    & 0.001\% 
-    & 0.000\%  
-    & 0.000\% 
+
+    Illegal Block & \texttt{0xFEA0}-\texttt{0xFEFF}
+    & 0.001\%
+    & 0.000\%
+    & 0.000\%
     & 0.000\% \\ \hline
-    
-    Register Block & \texttt{0xFF00}-\texttt{0xFFFF} 
-    & 11.129\% 
-    & 4.321\% 
-    & 15.711\% 
+
+    Register Block & \texttt{0xFF00}-\texttt{0xFFFF}
+    & 11.129\%
+    & 4.321\%
+    & 15.711\%
     & 4.260\% \\ \hline
     \end{tabular}
     \label{fig:access-rates}
@@ -1009,30 +1012,329 @@ A simple experiment was then run, to verify the performance improvement. The fir
 
 The result was the following: $33\,955.9$ms before the change, and $20\,039.1$ after the change. The relative difference is thus $\frac{20\,039.1-33\,955.9}{33\,955.9}=-0.4098$, thus reducing time taken by $40.98\%$. By measuring the time spent within \texttt{getAddress} for these 25 million instructions, we get a total spent time in the method of $0.000\,151$ms on average, showing that this method is no longer a bottleneck for the system, as its impact on performance is minimal.
 
-\section{Emulator Backend}
+\section{PPU}
 
-To keep the logic of the hardware, divided in different components, the structure of the emulator has a similar format, with different classes implementing the behaviour of the different parts of the \glsdesc{gb}.
+The \glsfirst{ppu} is the component responsible for rendering the game onto the Gameboy's screen. It is one of the most complex components of the \gls{gb}, with intricate timings, and a behaviour that changes between the \gls{dmg} and the \gls{gbc}, due to the addition of colour-support, as well as \glsfirst{vram} banking.
 
-\subsection{Addressable}
+\subsection{Presentation}
 
-The \texttt{Addressable} interface is implemented by most classes of the emulator: \texttt{System}, \texttt{Register}, \texttt{MBC}, etc. It is simple, and provides a read and a write method (see figure \ref{fig:addressable}). The advantage of using it is that when implementing adressing logic with large switch-statements I can simply return any type of components that adheres to the interface, and the receiving method is agnostic of if it's dealing with a register, memory, or a component.
+The screen rendering is divided intro three layers, drawn on top of each other. From bottom to top, these are:
+
+\begin{compactitem}
+	\item The background, a $256 \times 256$ image loaded into memory that support scrolling on both axis.
+	\item The window, similar to the background, is a $256 \times 256$ image that can be moved around the screen, and is toggleable. It however doesn't support scrolling.
+	\item The objects, that are drawn at the very top, are smaller $8 \times 8$ tiles. These can be moved freely, and support some transformations, such as horizontal or vertical flipping. Their data is stored in the \glsfirst{oam}.
+\end{compactitem}
+
+It renders onto the screen line by line, meaning it will draw a 1-pixel wide line (the scanline) from left to right, and then proceed to the line below. Drawing an entire line takes 114 M-cycles, and there is an 1140 M-cycle delay when the bottom of the screen is reached. The advantage of having per-line rendering is that by modifying the position of the background between each drawn line, complex visual effects can be obtained quite easily \cite{gameboy_talk}, see figure~\ref{fig:background-transform} for an example.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=8cm]{images/background-transform}\\
+    \caption{Visual effects made by scrolling the background}
+    Gameboy output (right), and loaded background data (right)
+    \label{fig:background-transform}
+\end{figure}
+
+One of the main characteristics of the \gls{ppu} is that it operates in modes. During each mode, it perform a different set of operations, and can only be interacted with in certain way \cite[LCD Status Registers]{pandoc}. These four modes are:
+
+\begin{compactitem}
+	\item Mode 2: the \gls{ppu} looks through the \gls{oam}, to look for all the sprites to draw. During this time, the \gls{oam} is not accessible.
+	\item Mode 3: the \gls{ppu} reads both the \gls{vram} and \gls{oam}, and draws the line. None of the video data is accessible here.
+	\item Mode 0: the \gls{ppu} does nothing for a short length of time after each line. An interrupt is raised at the start of this period, allowing the \gls{cpu} to be notified now is the time to update what's rendered if necessary. This is called the horizontal blank, or HBlank.
+	\item Mode 1: the \gls{ppu} does nothing for a long length of time after the bottom of the screen is loaded. This is usually where the bulk of the graphics update go, as it lasts a considerable amount of time (1140 \glspl{mcyc}). An interrupt is also raised here, to notify the \gls{cpu}. This is called the vertical blank, or VBlank.
+\end{compactitem}
+
+Rendering of the line is thus done during mode 3, when no graphics data is accessible, using a FIFO queue (First In First Out) of pixels that can be pushed in and out as the data is read. Some of the registers are still writable, but most games don't use them during this mode because they would require very precise timing. An example of a game relying on this is ``Prehistorik Man'', that changes the colour palette registers during the scanline in its intro-scene \cite[Tricky-to-emulate games]{gbdev_wiki}.
+
+Since this is only the case for a minority of games, we can go past this inaccuracy. We'll thus take advantage of this to simplify greatly the rendering logic and make the renderer ``scanline based'', drawing an entire line all at once. This shortcut is commonly used by emulators that aren't too accuracy-oriented.
+
+To handle each mode separately, we have four distinct ``mode'' objects of type \texttt{PPUMode}, that hold some basic information on the operation of the mode: it's length, it's flag for the \texttt{STAT} register and the name of the method in \texttt{PPU} responsible for ticking said mode (see figure~\ref{fig:stat-mode-type}). Note \texttt{KeyForType<T, V>} is the union of all keys \texttt{k} of \texttt{T} such that \texttt{T[k]} is of type \texttt{V}.
+
 
 \begin{figure}[h]
     \begin{minted}{typescript}
-interface Addressable {
-    read(pos: number): number;
-    write(pos: number, data: number): void;
-}
+type PPUMode = {
+    doTick: KeyForType<PPU, (interrupts: Interrupts) => void>;
+    flag: number;
+    cycles: number;
+};
     \end{minted}
-    \caption{\texttt{Addressable} interface method}
-    \label{fig:addressable}
+    \caption{Type definition of \texttt{PPUMode}}
+    \label{fig:stat-mode-type}
 \end{figure}
 
-\subsection{Timer}
-\subsection{PPU}
-\subsection{OAM and OAM DMA}
-\subsection{APU}
-\subsection{MBCs and ROMs}
+\subsection{Rendering Logic}
+
+The first step needed to render the game is to select and order all the sprites to be shown on screen. One of the limitations of the \gls{gb} is that despite having enough space in memory for 40 sprites, only 10 may be rendered at a time in a scanline \cite[OAM]{pandoc}. The sprites are selected during mode 2 - as such, during the last cycle of mode 2, the emulator will look through the available sprites in the \gls{oam}, and select the appropriate ones. This can be done quite elegantly in a functional manner, using an array (see figure~\ref{fig:sprite-select}).
+
+\begin{figure}[h]
+    \begin{minted}{typescript}
+this.readSprites = this.oam
+    .getSprites()
+    .filter((sprite) => sprite.y <= y && y < sprite.y + objHeight)
+    .slice(0, 10)
+    .map((sprite, index) => [sprite, index])
+    .sort(objPrioritySort)
+    .map(([sprite]) => sprite);
+    \end{minted}
+    \caption{Retrieve the selected sprites for the scanline}
+    \label{fig:sprite-select}
+\end{figure}
+
+First, we retrieve the sprites from the \gls{oam}. Internally, sprite data is cached between scanlines and invalidated when written to - \texttt{getSprites()} updates the dirty tiles in the cache and returns them. This avoid decoding the sprite every line if it doesn't receive changes, while also ensuring excess decoding isn't done if the sprite is modified twice between scanlines. We then select the first 10 sprites to be part of the scanline - this selection is done based on index: the \gls{ppu} looks through the \gls{oam} sequentially to find matching sprites \cite[OAM]{pandoc}. Finally, a re-ordering of the sprites needs to be done, to determine which sprite goes above which - this may depend on the sprite's position in the \gls{oam}, or on it's X coordinate. This is handled in \texttt{objPrioritySort}. To allow sorting based on both attributes, the sprites must be briefly remapped to a tuple with the sprite and it's index (as JavaScript doesn't expose the indices of elements when ordering them). These sprites are then stored in the \gls{ppu} object, to be used when rendering at the end of mode 3.
+
+The \gls{ppu} uses a form of indirect addressing to handle data. It has an area in \gls{vram} that stores image data (tiles), $8 \times 8$ images. Whenever one of these tiles needs to be used, for the background, or for an object, the identifier of the tile needs to be used - this identifier being derived from the tile's address. This allows for the very simple re-use of tiles, which is particularly relevant for backgrounds where they may be repeated a lot. This background data is stored in a \textit{tile map}, a $256 \times 256$ map of 1-byte indices to the actual tile data. The \gls{gb} has two such maps, and both the background and window can display either of them - this is controlled via a flag in the \texttt{LCDC} register.
+
+To render the scanline, the layers need to be drawn on top of each other: background, then window, then objects. Due to the similarities between background and window, a \texttt{drawLayer} method can be shared to handle the bulk of the work.
+
+This method will loop over all tiles it needs to draw in the current scanline. It first needs to determine the tile's index. This index can be used to the retrieve the tile's address in \gls{vram}. It can also be used to fetch the attributes of the tile; this is a \gls{gbc}-exclusive feature, that allows transforming tiles (for instance, flipping them, or selecting a different palette for the tile). These attributes are stored in the second bank of \gls{vram}, at the same address, in a single byte of data. The \gls{dmg}/\gls{gbc} distinction isn't needed however, because the attributes for a \texttt{0x00} value match the attributes used by the \gls{dmg}. This means that instead of having two different branches to split the console versions, we can setup the \gls{dmg} emulator to always return \texttt{0x00} for the second bank of \gls{vram}, and keep the \gls{gbc} handling of attributes.
+
+Once the tile index has been acquired, the \gls{ppu} may retrieve the tile data address from \gls{vram}. This one-byte address needs to be converted to a valid address in the tile data range of \gls{vram}, as it contains two partially overlapping tile data areas - a flag in the \texttt{LCDC} register controls this. Once the address where the tile data (ie. it's texture) is obtained, the \gls{ppu} may finally retrieve said data, and draw it in the scanline.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics{diagrams/ppu-logic.drawio.pdf}
+    \caption{PPU logic to obtain tile data}
+	This applies to the DMG - the CGB has two VRAM banks, thus having twice as many tile textures, and an additional tile attribute map.
+    \label{fig:emu-core-components}
+\end{figure}
+
+This tile data, an $8 \times 8$ images where each pixel can be one of four shades is encoded in 16 bytes. Because tile data is rarely changed and the procedure to extract the image data from these 16 bytes is quite complex and requires some bit manipulation, tiles are cached.
+
+
+\subsection{Subcomponents}
+
+Although it is present to the system as a unit, the \gls{ppu} is implemented as multiple smaller-components, that handle different parts of the screen logic. This is all the more important that the \gls{ppu} is extremely complex, so care is needed to ensure the code remains maintainable.
+
+The \glsfirst{oam} is the memory area in the \gls{ppu} that stores object data. This small 160-byte long area has a feature called \gls{oam} \glsfirst{dma}, allowing for direct transfers from ROM or RAM to the \gls{oam}. Because this transfer runs in parallel to the other components, the \gls{oam} itself is its own component, contained inside the \gls{ppu}. This allows for a better separation of concerns between the two - the \gls{ppu} handles rendering, the \gls{oam} handles OAM DMA and sprite storing and decoding.
+
+The colour management of the \gls{ppu} also requires some extra logic that can be extracted into its own class. Although on the \gls{dmg} this is limited to splitting a byte into 4 shades of 2 bits (white, light gray, dark gray and black), the \gls{gbc} has a 16 palettes of 4 colours, 8 palettes for the background and window, and 8 for sprites \cite[Palettes]{pandoc}. As such, a \texttt{ColorController} class was created - it implements \texttt{Addressable}, and has a method to retrieve the palette for the background, and a method to retrieve the palette of a sprite. This class is extended by a \texttt{DMGColorController}, and a \texttt{CGBColorController}. The \texttt{PPU} picks one of the two on instantiation, based on the emulated console, and can then use both, without needing to know if the screen is monochrome or coloured.
+
+Similarly, the \gls{vram} behaves slightly different between the \gls{dmg} and the \gls{gbc}: the latter's \gls{vram} has two banks it can switch between, via an additional register, and also supports \gls{vram} \gls{dma} transfers, similar to what is possible with the \gls{oam}. A \texttt{VRAMController} class is created - it also implements \texttt{Addressable}, and has a few extra methods, to allow getting tiles from it, and reading each bank individually (see figure~\ref{fig:vramcontroller-interface}).
+
+\begin{figure}[h]
+    \begin{minted}{typescript}
+abstract class VRAMController implements Addressable {
+    read(pos: number): number;
+    write(address: number, value: number): void;
+
+    tick(system: Addressable, isInHblank: boolean, isLcdOn: boolean): boolean;
+
+    getTile(tileAddress: number, bankId: 0 | 1): Int2[][];
+    readBank0(pos: number): number;
+    readBank1(pos: number): number;
+}
+    \end{minted}
+    \caption{Interface of \texttt{VRAMController}}
+    \label{fig:vramcontroller-interface}
+\end{figure}
+
+
+\section{APU}
+
+The \glsfirst{apu} is the component responsible for producing the sounds and music of the \gls{gb}. It's output is the combination of four different channels, each with their own properties: two square channels, a wave channel and a noise channel \cite[Audio]{pandoc}. These channels run independently, can be turned on or off individually, and are merged to form the output.
+
+ Most features of the channels can be derived to a timer, that ticks down from a value and has an effect when reaching 0. And although they differ in output, all channels have some attributes in common. For example, they all have a \textit{length timer}, that turns off the channel when it reaches 0. Channels 1, 2 and 4 also have an \textit{envelope}, that allows updating the volume of the channel at a set frequency. To have these behaviours work across all channels, an abstract class \texttt{SoundChannel} was created. It holds the registers all channels have in common, as well as methods like \texttt{tickLengthTimer} to handle common mechanisms across all channels.
+
+To return their output, all channels have a \texttt{getSample} method that returns the current output value of the channel, a value between 0 and 15. This output can then be combined, and output to the frontend to handle. It is of interest to note that the \gls{gb} is always outputting sound, with a resolution of 1 \gls{mcyc}, ie. $2^{20}\text{Hz} \approx 1.05\text{MHz}$. This is significantly more than the sample rate computers usually use, $44.1\text{Hz}$. To fit to this standard, the emulator's \gls{apu} has an internal counter that ticks down and only produces a sample every $\frac{2^20}{44.1*10^3}=23.7$ cycles. This isn't the most accurate way of producing the audio data, but is far simpler and faster than downsampling the audio. An example of very accurate emulator that does downsampling is SameBoy\footnote{See Accuracy, \url{https://sameboy.github.io/features/}}.
+
+\section{MBCs and ROMs}
+
+A majority of \gls{gb} cartridges came shipped with a \glsfirst{mbc}. This was done to circumvent the memory limit of the \gls{gb}: due to it's 16-bit addresses, only memory in \texttt{0x0000}-\texttt{0x7FFF} is mapped to the \gls{rom}, limiting it's size to 32KB. \glspl{mbc} provided a way of extending this memory limit, by doing \textit{bank switching} \cite[MBCs]{pandoc}. The cartridge holds more data than it can address, and the \gls{cpu} can modify which part of the memory it's accessing by writing to a register in the \gls{mbc}. Because \glspl{rom} are read-only, the write-operations can be safely re-used to instead write to these built-in registers.
+
+On top of more memory space, \glspl{mbc} would sometimes come with additional features, such as external RAM, a battery (to be able to keep the state of the RAM between sessions, which allows saving the game), a rumble motor, or a battery-backed real time clock, for example. The most common \glspl{mbc} found were the MBC1, with space for a maximum of 2MB \cite[MBC1]{pandoc}, and the MBC5 - the only \gls{mbc} to officially support the \gls{gbc}'s double speed mode \cite{mbc5_only_double}. see figure~\ref{fig:stats-mbc} for statistics of the usage of different \glspl{mbc}.
+
+\begin{figure}[h]
+    \centering
+    \caption{Statistics of different MBCs \cite{gb_rom_db}}
+    \begin{tabular}{|l|l|l|}
+    \hline
+    \textbf{Name} & \textbf{Count} & \textbf{Percentage} \\ \hline
+    No MBC & 2150 & 23.0\% \\ \hline
+    MBC1   & 4010 & 43.0\% \\ \hline
+    MBC2   &  227 &  2.4\% \\ \hline
+    MBC3   &  367 &  3.9\% \\ \hline
+    MBC5   & 2532 & 27.1\% \\ \hline
+    Others &   53 &  0.6\% \\ \hline
+    \end{tabular}
+    \label{fig:stats-mbc}
+\end{figure}
+
+To ensure the emulator can run as many games as possible, the main \glspl{mbc} have been implemented: MBC1, MBC2, MBC3 and MBC5 (although support for the MBC3's real time clock hasn't been added). Since the \gls{gb} interacts with the cartridge in the exact same way whether there is an \gls{mbc} or not, the choice of making a \texttt{MBC} abstract class came quite naturally: it's interface is that of \texttt{Addressable}, and it also supports a \texttt{save} and \texttt{load} method, for save files.
+
+To decide which \gls{mbc} to use, we have a \texttt{GameCartridge} class, that wraps around \texttt{MBC}. It's role is decoding the cartridge's header, contained in \texttt{0x0100}-\texttt{0x014F} \cite[The Cartridge Header]{pandoc}, to decide on which \gls{mbc} to use, as well as some of the properties of the cartridge: does it have RAM, is it battery backed (in which case it supports saving), what's the game's title and identifier.
+
+The \texttt{read} and \texttt{write} methods received an optimisation similar to what was done with \texttt{System.getAddress} - because the internal addressing logic of the \glspl{mbc} only relies on the most significant nibble, a simple switch statement can be made (see figure~\ref{fig:mbc-read-switch}).
+
+\begin{figure}[h]
+    \begin{minted}{typescript}
+read(pos: number): number {
+    switch (pos >> 12) {
+        case 0x0: // ROM bank 00
+        case 0x1:
+        case 0x2:
+        case 0x3:
+        	return this.data[pos & addressMask];
+        case 0x4: // ROM bank 01-ff
+        case 0x5:
+        case 0x6:
+        case 0x7: {
+            const address =
+                (pos & ((1 << 14) - 1)) |
+                (this.romBankLower8.get() << 14) |
+                (this.romBankUpper1.get() << 22);
+            return this.data[address & addressMask];
+        }
+        case 0xa: // ERAM
+        case 0xb: {
+            if (this.ramEnable.get() !== RAM_ENABLED) return 0xff;
+            const address = this.resolveERAMAddress(pos);
+            return this.ram.read(address);
+        }
+    }
+    throw new Error(`Invalid address`);
+}
+    \end{minted}
+    \caption{\texttt{read} method of \texttt{MBC5} \cite[MBC5]{pandoc}}
+    \label{fig:mbc-read-switch}
+\end{figure}
+
+Internally, the \texttt{MBC}s have a \texttt{ROM} instance to store the cartridge data (this is obtained from the \gls{rom} uploaded by the user), as well as an optional RAM. This RAM is what the game can edit. If it is battery backed, memory is kept when the \gls{gb} is turned off, allowing data like scoreboards and progress to be saved. To replicate this saving behaviour, the emulator exposes a \texttt{save} and \texttt{load} method, that respectively return and set the data in the RAM. The emulator's core is thus not responsible for handling these saves, and the frontend can decide freely how to store them.
+
+In the implemented frontend, this is done by saving the RAM data in the browser's available storage, using the ``localForage'' library\ftnt{https://github.com/localForage/localForage}. When a \gls{rom} is loaded, the frontend checks if a save for this game exists, by using the \gls{rom}'s identifier decoded in the \texttt{GameCartridge} class. If it does, the save is then loaded. Similarly, when changing \glspl{rom}, closing the window, or pressing the ``Save'' button, the frontend retrieves the RAM data from the emulator and saves it, by setting the key of the entry in the local storage to the identifier of the \gls{rom}.
+
+\section{Timer}
+
+The timer is a component in the \gls{gb} that ticks regularly. It allows the control of two independent mechanisms \cite[Timer and Divider Registers]{pandoc}.
+
+First is the \textit{divider counter}, accessed and controlled via the \texttt{DIV} register. This counter is internally 16-bits, although only the upper 8-bits can be accessed. It is incremented every machine cycle (ie. increased by 4 every \gls{mcyc}), can be read, and writing to the divider resets the counter (see figure~\ref{fig:div-timer}).
+
+\begin{figure}[h]
+    \begin{minted}{typescript}
+protected divider = new DoubleRegister(0xab00);
+protected addresses: Record<number, Register> = {
+	0xff04: this.divider.h, // we only ever read the upper 8 bits
+	...
+};
+
+tick(interrupts: Interrupts): void {
+	const newDivider = wrap16(this.divider.get() + 4);
+	this.divider.set(newDivider);
+	...
+}
+
+write(pos: number, data: number): void {
+    if (pos === 0xff04) { // Writing anything to DIV clears it.
+        this.divider.set(0);
+        return;
+    }
+    ...
+}
+    \end{minted}
+    \caption{Implementation of divider counter}
+    \label{fig:div-timer}
+\end{figure}
+
+The second, more complex part of the timer is a customisable timer. It is made of three registers:
+\begin{compactitem}
+	\item \texttt{TIMA}: the timer counter.  Every time a falling edge is detected on one of the bits of \texttt{DIV}, this register is incremented. What bit is inspected can be controlled via the \texttt{TAC} register, effectively changing the frequency of the timer. When this register overflows (is incremented when equal to \texttt{0xFF}), an interrupt is raised.
+	\item \texttt{TAC}: the timer control register. It allows enabling or disabling the timer, and changing the inspected bit of \texttt{DIV}.
+	\item \texttt{TMA}: the timer modulo. It defines what value \texttt{TIMA} is reset to when overflowing.
+\end{compactitem}
+
+Although it is a seemingly simple system made of 3 registers, the behaviour of this system is quite complex, as it has multiple edge cases \cite[Timer obscure behaviour]{pandoc}. The code that handles the increase of \texttt{TIMA} is thus quite long, and required some re-factoring to be easily readable (see figure~\ref{fig:tima-increase}). As can be seen from this implementation, the \texttt{TIMA} register can actual be incremented for multiple reasons (lines~19--22). A falling edge on the inspected bit of \texttt{DIV} is one of the reasons (when \texttt{bitStateBefore==0} and \texttt{bitStateAfter!=0}, and the timer is enabled), but if the timer is disabled while the bit was in a high position then the register is also incremented. It is also of interest to note that \texttt{TIMA} is not set to the value of \texttt{TMA} when overflowing - this is actually done the following cycle (lines~2--9). This logic requires some extra fields to be present, recording the values of the registers on the previous tick. Some additional logic is required in the \texttt{write} method, because writes to \texttt{TIMA} are ignored when the timer overflows.
+
+\begin{figure}[h]
+    \begin{minted}{typescript}
+tick(interrupts: Interrupts): void {
+    this.previousTimerOverflowed = false;
+	if (this.timerOverflowed) {
+        const modulo = this.timerModulo.get();
+        this.timerCounter.set(modulo);
+        interrupts.requestInterrupt(IFLAG_TIMER);
+        this.timerOverflowed = false;
+        this.previousTimerOverflowed = true;
+    }
+    
+    const timerControl = this.timerControl.get();
+    const speedMode = (timerControl & 0b11);
+    const checkedBit = TIMER_CONTROLS[speedMode];
+
+    const bitStateBefore = (this.previousDivider >> checkedBit) & 1;
+    const bitStateAfter = (newDivider >> checkedBit) & 1;
+    const timerIsEnabled = timerControl & TIMER_ENABLE_FLAG;
+
+    if (
+        bitStateBefore &&
+        (timerIsEnabled ? !bitStateAfter : this.timerWasEnabled)
+    ) {
+        const result = (this.timerCounter.get() + 1) & 0xff;
+        this.timerCounter.set(result);
+        if (result === 0) this.timerOverflowed = true;
+    }
+    
+    this.timerWasEnabled = timerIsEnabled;
+    this.previousDivider = newDivider;
+}
+    \end{minted}
+    \caption{Code to manage the \texttt{TIMA} increments}
+    \label{fig:tima-increase}
+\end{figure}
+
+\section{Helpful Components}
+
+To avoid repeating logic throughout the main components, small classes have been written. One of these is the \texttt{Register} class - it holds a single integer, that can be read or written. It also comes with a \texttt{flag} method, that returns whether a given flag is set in the register, as this is a frequent operation.
+
+This class is extended by \texttt{MaskRegister}, a class to support registers of which all bits aren't used. This is the case for instance for \texttt{TAC}: bits 0--2 control the timer, and bits 3--7 are hardwired to~1, and cannot be reset. A \texttt{MaskRegister} allows defining this behaviour directly in the register, avoiding needing additional logical in the class using the register (here, \texttt{Timer}). On instantiation, a \textit{mask} is passed as an argument, and is applied whenever the value of the register needs to be changed (see figure~\ref{fig:mask-register}).
+
+\begin{figure}[h]
+    \begin{minted}{typescript}
+class MaskRegister extends Register {
+    protected mask: number;
+
+    constructor(mask: number, value: number = 0) {
+        super(value | mask);
+        this.mask = mask;
+    }
+
+    override set(value: number): void {
+        super.set(value | this.mask);
+    }
+}
+    \end{minted}
+    \caption{Implementation of \texttt{MaskRegister}}
+    \label{fig:mask-register}
+\end{figure}
+
+To accomodate the 16-bit registers of the \gls{cpu}, a \texttt{DoubleRegister} class was implemented. It is made of two \texttt{Register} instances, and provides methods to get and set its value as if it held a 16-bit number (despite being implemented as two 8-bit numbers). This provides flexibility to the \gls{cpu}, enabling both 16-bit arithmetic and 8-bit arithmetic, without having to manage the way the register is implemented.
+
+Classes to manage memory were also created, to avoid having high-level components access data structures directly. For instance, a \texttt{ROM} class was made. It is backed by a \texttt{UInt8Array}\ftnt{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array}, and implements \texttt{Addressable}. It is extended by \texttt{RAM}, to allow \texttt{write} operations. 
+
+To simplify the operation of certain components, a \texttt{CircularRAM} class was also created. It extends \texttt{RAM}, and must be provided an \textit{offset} on creation. When reading or writing to it, the offset is substracted from the address, and the modulo of the RAM's length is then applied to it (see figure~\ref{fig:circular-ram}). This allows this part of memory to handle addressing in an independent way: the high-level component simply has to provide it with it's address on creation.
+
+\begin{figure}[h]
+    \begin{minted}{typescript}
+class CircularRAM extends RAM {
+    protected offset: number;
+
+    constructor(size: number, offset: number, data?: Uint8Array) {
+        super(size, data);
+        this.offset = offset;
+    }
+    override read(pos: number): number {
+        return super.read((pos - this.offset) % this.size);
+    }
+    override write(pos: number, data: number): void {
+        super.write((pos - this.offset) % this.size, data);
+    }
+}
+    \end{minted}
+    \caption{Implementation of \texttt{CircularRAM}}
+    \label{fig:circular-ram}
+\end{figure}
+
+This can be used to implement the \gls{wram}. It can be addressed from \texttt{0xC000} to \texttt{0xFDFF}, but \texttt{0xE000}--\texttt{0xFDFF} maps back to \texttt{0xC000}--\texttt{DDFF}. As such, a \texttt{CircularRAM} with an offset of \texttt{0xC000} and a length of \texttt{0x2000} will properly wrap address in the \texttt{0xE000}--\texttt{0xFDFF} range back to the beginning of its memory. This avoids handling this logic in high-level components, and provides a generic solution to this kind of memory component. Other places where this class is used include the wave RAM of the \gls{apu}, and the \gls{vram} of the \gls{ppu}.
 
 \chapter{Evaluation}
 
