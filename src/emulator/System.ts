@@ -5,7 +5,7 @@ import PPU from "./ppu/PPU";
 import JoypadInput from "./JoypadInput";
 import { CircularRAM, RAM, Addressable } from "./Memory";
 import { MaskRegister, Register00, RegisterFF, Register } from "./Register";
-import ROM from "./ROM";
+import GameCartridge from "./GameCartridge";
 import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
 import { Int4, rangeObject } from "./util";
@@ -29,7 +29,7 @@ class System implements Addressable {
 
     // Memory
     protected bootRom: Addressable;
-    protected rom: ROM;
+    protected cartridge: GameCartridge;
     protected wram: Addressable;
     protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
 
@@ -77,7 +77,7 @@ class System implements Addressable {
     ) {
         this.mode = mode;
         this.bootRom = BootROM(mode);
-        this.rom = new ROM(rom);
+        this.cartridge = new GameCartridge(rom);
         this.ppu = new PPU(mode);
         this.wram = mode === ConsoleType.DMG ? new DMGWRAM() : new GBCWRAM();
         this.joypad = new JoypadInput(input);
@@ -89,9 +89,9 @@ class System implements Addressable {
         };
 
         this.addressesLastNibble = {
-            ...rangeObject(0x0, 0x7, this.rom),
+            ...rangeObject(0x0, 0x7, this.cartridge),
             ...rangeObject(0x8, 0x9, this.ppu),
-            ...rangeObject(0xa, 0xb, this.rom),
+            ...rangeObject(0xa, 0xb, this.cartridge),
             ...rangeObject(0xc, 0xe, this.wram), // wram and echo
             0xf: undefined, // handled separately
         };
@@ -256,27 +256,27 @@ class System implements Addressable {
      * @returns if the system supports saving
      */
     supportsSaves(): boolean {
-        return this.rom.supportsSaves();
+        return this.cartridge.supportsSaves();
     }
 
     /** Saves the current ROM state (null if no save support). */
     save(): Uint8Array | null {
-        return this.rom.save();
+        return this.cartridge.save();
     }
 
     /** Loads the given ROM data. */
     load(data: Uint8Array): void {
-        this.rom.load(data);
+        this.cartridge.load(data);
     }
 
     /** Returns the title of the current ROM. */
     getTitle(): string {
-        return this.rom.getTitle();
+        return this.cartridge.getTitle();
     }
 
     /** Returns the identifier of the current ROM */
     getIdentifier(): string {
-        return this.rom.getIdentifier();
+        return this.cartridge.getIdentifier();
     }
 }
 

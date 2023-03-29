@@ -7,9 +7,9 @@ interface Addressable {
 }
 
 /**
- * Simple abstract memory object.
+ * Simple read only memory object.
  */
-class AbstractMemory implements Addressable {
+class ROM implements Addressable {
     size: number;
     protected data: Uint8Array;
 
@@ -23,7 +23,7 @@ class AbstractMemory implements Addressable {
     }
 
     write(pos: number, data: number): void {
-        throw new Error("write is not implemented for this object.");
+        throw new Error("Can't write to ROM.");
     }
 
     /**
@@ -46,7 +46,7 @@ class AbstractMemory implements Addressable {
 /**
  * Live memory, that can be read from and written to.
  */
-class RAM extends AbstractMemory {
+class RAM extends ROM {
     write(pos: number, data: number) {
         this.data[pos] = data;
     }
@@ -75,4 +75,4 @@ class CircularRAM extends RAM {
 }
 
 export type { Addressable };
-export { AbstractMemory, RAM, CircularRAM };
+export { ROM, RAM, CircularRAM };

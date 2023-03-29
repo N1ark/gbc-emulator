@@ -2,9 +2,7 @@ import { Addressable } from "./Memory";
 import { wrap16 } from "./util";
 
 /**
- * Half of a register, containing an 8bit value.
- * Note all additions/substractions to the register wrap (ie. 255 + 1 = 0).
- *
+ * A register, containing an 8bit value.
  * For convenience's sake, a register implements `Addressable`. Calling `read` will simply
  * return the value (ignoring the position), and calling `write` will simply set the value,
  * ignoring the position too.
@@ -45,9 +43,8 @@ class Register implements Addressable {
 }
 
 /**
- * A PaddedSubRegister is similar to a SubRegister but it only uses a set given of bits. All
+ * A MaskRegister is similar to a Register but it only uses a set given of bits. All
  * other bits are hard-wired to 1, and can't be changed.
- * e.g. writing 0x02 to a PaddedSubRegister that has a 10000001 mask will actually write 0x83
  */
 class MaskRegister extends Register {
     protected mask: number;

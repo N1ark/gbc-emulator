@@ -35,7 +35,7 @@ class MBC2 extends MBC {
             case 0x1:
             case 0x2:
             case 0x3: {
-                return this.data[pos];
+                return this.rom.read(pos);
             }
             case 0x4:
             case 0x5:
@@ -43,7 +43,7 @@ class MBC2 extends MBC {
             case 0x7: {
                 const addressMask = this.size - 1; // works for powers of 2
                 const address = (pos & ((1 << 14) - 1)) | (this.romBank.get() << 14);
-                return this.data[address & addressMask];
+                return this.rom.read(address & addressMask);
             }
             case 0xa:
             case 0xb: {

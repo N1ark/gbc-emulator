@@ -28,13 +28,7 @@ class MBC1 extends MBC {
 
     constructor(data: Uint8Array, { hasRam, hasBattery }: MBC1Params) {
         super(data, hasBattery);
-
-        // Indicated in header https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size
-        const ramSizeCode = this.data[0x0149];
-        const ramSize = MBC.RAM_SIZES[ramSizeCode];
-        if (ramSize === undefined)
-            throw new Error(`Invalid RAM size header value: ${ramSizeCode.toString(16)}`);
-        this.ram = new RAM(ramSize);
+        this.ram = this.createRAM();
         this.hasRam = hasRam && this.ram.size > 0;
     }
 
@@ -63,7 +57,7 @@ class MBC1 extends MBC {
             case 0x2:
             case 0x3: {
                 const address = mode === 0 ? pos : (this.ramBank.get() << 19) | pos;
-                return this.data[address & addressMask];
+                return this.rom.read(address & addressMask);
             }
             case 0x4:
             case 0x5:
@@ -73,7 +67,7 @@ class MBC1 extends MBC {
                     (pos & ((1 << 14) - 1)) |
                     (this.romBank.get() << 14) |
                     (this.ramBank.get() << 19);
-                return this.data[address & addressMask];
+                return this.rom.read(address & addressMask);
             }
             case 0xa:
             case 0xb: {

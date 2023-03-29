@@ -15,13 +15,13 @@ const IDENTIFIER_END = 0x14f;
 const CARTRIDGE_TYPE = 0x147;
 
 /**
- * The ROM of the game boy, containing the cartridge data. This class is a wrapper around the
+ * The game cartridge of the game boy. This class is a wrapper around the
  * different Memory Bank Controllers (MBCs), and is responsible for choosing the right MBC and
  * parsing some of the meta data from the cartridge header.
  * @link https://gbdev.io/pandocs/MBCs.html
  * @link https://gbdev.io/pandocs/The_Cartridge_Header.html
  */
-class ROM implements Addressable {
+class GameCartridge implements Addressable {
     /** The MBC to handle addressing etc. */
     protected mbc: MBC;
 
@@ -70,9 +70,9 @@ class ROM implements Addressable {
             0x1e: () => new MBC5(data, { hasRam: true, hasRumble: true, hasBattery: true }),
         }[mbcType];
         if (mbcInstance === undefined)
-            throw new Error(`[ROM] Invalid cartridge type: ${mbcType.toString(16)}`);
+            throw new Error(`Invalid cartridge type: ${mbcType.toString(16)}`);
         this.mbc = mbcInstance();
-        console.debug(`(ROM) Saved data for game "${this.title}": `, data);
+        console.debug(`Saved data for game "${this.title}": `, data);
     }
 
     write(pos: number, data: number): void {
@@ -104,4 +104,4 @@ class ROM implements Addressable {
     }
 }
 
-export default ROM;
+export default GameCartridge;

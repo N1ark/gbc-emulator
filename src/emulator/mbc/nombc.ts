@@ -7,7 +7,7 @@ class NoMBC extends MBC {
 
     read(pos: number): number {
         if (0xa000 <= pos && pos <= 0xbfff) return 0xff; // eram
-        return this.data[pos];
+        return this.rom.read(pos);
     }
 
     write(pos: number, data: number): void {
