@@ -27,7 +27,7 @@ class Timer implements Addressable {
     protected timerControl = new MaskRegister(0b1111_1000);
 
     protected previousDivider = this.divider.get();
-    protected previousTimerControl = this.timerControl.get();
+    protected timerWasEnabled: number = 0;
     protected timerOverflowed: boolean = false;
     protected previousTimerOverflowed: boolean = false;
 
@@ -60,26 +60,24 @@ class Timer implements Addressable {
         const bitStateBefore = (this.previousDivider >> checkedBit) & 1;
         const bitStateAfter = (newDivider >> checkedBit) & 1;
         const timerIsEnabled = timerControl & TIMER_ENABLE_FLAG;
-        const timerWasEnabled = (this.previousTimerControl & TIMER_ENABLE_FLAG) !== 0;
 
         // Cases when timer should increase:
         if (
             bitStateBefore &&
             (timerIsEnabled
                 ? !bitStateAfter // Regular falling edge, while toggled
-                : timerWasEnabled) // Bit is set, and timer went from enabled to disabled
+                : this.timerWasEnabled) // Bit is set, and timer went from enabled to disabled
         ) {
-            const result = this.timerCounter.get() + 1;
+            const result = (this.timerCounter.get() + 1) & 0xff;
+            this.timerCounter.set(result);
+
             // overflow, need to warn for reset + interrupt
-            if (result > 0xff) {
-                this.timerCounter.set(0);
+            if (result === 0) {
                 this.timerOverflowed = true;
-            } else {
-                this.timerCounter.set(result);
             }
         }
 
-        this.previousTimerControl = timerControl;
+        this.timerWasEnabled = timerIsEnabled;
         this.previousDivider = newDivider;
     }
 
