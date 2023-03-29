@@ -1,7 +1,7 @@
-import { WRAM_SIZE } from "./constants";
 import { Addressable, CircularRAM } from "./Memory";
 import { MaskRegister } from "./Register";
 
+const WRAM_SIZE = 0x2000;
 const WRAM_BANK_INDEX = 0b111;
 const WRAM_BANK_SIZE = 0x1000;
 

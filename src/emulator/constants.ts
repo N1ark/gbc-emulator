@@ -9,7 +9,6 @@ export const SCREEN_HEIGHT = 144;
 
 // Memory
 export const HRAM_SIZE = 352;
-export const WRAM_SIZE = 8 * 1024;
 
 // Interrupt flags
 export const IFLAG_VBLANK = 1 << 0;
