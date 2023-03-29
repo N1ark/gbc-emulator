@@ -252,6 +252,13 @@ class System implements Addressable {
         this.ppu.pushOutput(output);
     }
 
+    /**
+     * @returns if the system supports saving
+     */
+    supportsSaves(): boolean {
+        return this.rom.supportsSaves();
+    }
+
     /** Saves the current ROM state (null if no save support). */
     save(): Uint8Array | null {
         return this.rom.save();

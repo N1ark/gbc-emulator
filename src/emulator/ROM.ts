@@ -91,6 +91,10 @@ class ROM implements Addressable {
         return this.identifier;
     }
 
+    supportsSaves(): boolean {
+        return this.mbc.supportsSaves();
+    }
+
     save(): Uint8Array | null {
         return this.mbc.save();
     }

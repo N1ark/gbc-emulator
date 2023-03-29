@@ -630,15 +630,12 @@ class PPU implements Addressable {
     ) {
         // Global BG priority bit (CGB only)
         const bgPrioCgb = this.lcdControl.flag(LCDC_BG_WIN_PRIO);
-
         // The tilemap used (a map of tile *pointers*)
         const tileMapLoc = this.lcdControl.flag(locationFlag) ? 0x9c00 : 0x9800;
-
         // The currently read Y position of the corresponding tile (one tile is 8 pixels long)
         const tileY = Math.floor(y / 8);
         // The currently read Y position *inside* the tile
         const tileInnerY = y % 8;
-
         // Start of video buffer for this line
         const bufferStart = this.lcdY.get() * SCREEN_WIDTH;
 
@@ -648,12 +645,11 @@ class PPU implements Addressable {
             // The currently read X position of the corresponding tile
             // this determines the tile of the next 8 pixels
             const tileX = Math.floor(x / 8);
-
             // Index of the tile in the current tile data
             const tileIndex = tileMapLoc + tileX + tileY * 32;
 
             // On CGB, the attributes of the tile
-            // Note we can do this even in DMG mode, because VRAM2 in DMG is just a 00 register,
+            // Note we can do this even in DMG mode, because VRAM2 in DMG is filled with 0x00,
             // and all the 0 attributes match the normal behaviour of the DMG
             const tileAttributes = this.vramControl.readBank1(tileIndex);
             const bgToOamPrio = (tileAttributes & VRAM2_ATTR_BG_OAM_PRIORITY) !== 0;
@@ -664,7 +660,6 @@ class PPU implements Addressable {
 
             // Map of colors for each shade
             const palette = this.colorControl.getBgPalette(tilePalette);
-
             // The ID (pointer) of the tile
             const tileAddress = this.vramControl.readBank0(tileIndex);
             // Convert the ID to the actual address

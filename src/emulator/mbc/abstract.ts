@@ -18,6 +18,11 @@ abstract class MBC extends AbstractMemory {
         this.hasSaves = hasSaves;
     }
 
+    /** Returns true if this ROM supports saves, false otherwise. */
+    supportsSaves(): boolean {
+        return this.hasSaves;
+    }
+
     /** Returns this ROMs data if it supports saves, null otherwise. */
     save(): Uint8Array | null {
         return this.hasSaves && this.ram ? this.ram.rawData() : null;
@@ -29,7 +34,8 @@ abstract class MBC extends AbstractMemory {
 
         if (data.length !== this.ram.size)
             throw new Error(
-                `[MBC] Save data is not the same size as the RAM! Got ${data.length} bytes, expected ${this.ram.size} bytes.`
+                `[MBC] Save data is not the same size as the RAM! ` +
+                    `Got ${data.length} bytes, expected ${this.ram.size} bytes.`
             );
 
         this.ram.rawSet(data);

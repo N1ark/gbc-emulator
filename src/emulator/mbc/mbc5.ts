@@ -55,13 +55,13 @@ class MBC5 extends MBC {
     read(pos: number): number {
         const addressMask = this.size - 1; // works for powers of 2
         switch (pos >> 12) {
-            case 0x0: // ROM bank 0
+            case 0x0: // ROM bank 00
             case 0x1:
             case 0x2:
             case 0x3: {
                 return this.data[pos & addressMask];
             }
-            case 0x4: // ROM bank 1-ff
+            case 0x4:
             case 0x5:
             case 0x6:
             case 0x7: {

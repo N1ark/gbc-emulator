@@ -138,10 +138,11 @@ const App: FunctionalComponent = () => {
             addAlert(`Loaded game '${gbc.getTitle()}'`);
 
             /** Load a save (if one exists) */
-            localforage.getItem<Uint8Array>(
-                SAVE_CACHE_KEY + gbc.getIdentifier(),
-                (err, save) => {
-                    if (save) {
+            if (gbc.supportsSaves()) {
+                localforage.getItem<Uint8Array>(
+                    SAVE_CACHE_KEY + gbc.getIdentifier(),
+                    (err, save) => {
+                        if (!save) return;
                         try {
                             gbc.load(save);
                             console.log(
@@ -155,8 +156,8 @@ const App: FunctionalComponent = () => {
                             );
                         }
                     }
-                }
-            );
+                );
+            }
 
             setGameboy(gbc);
 
@@ -316,10 +317,15 @@ const App: FunctionalComponent = () => {
                     />
 
                     <IconButton
-                        title="Save Game"
+                        title={
+                            gameboy?.supportsSaves() === false
+                                ? "Game doesn't support saves "
+                                : "Save Game"
+                        }
                         onClick={() => saveGame()}
                         Icon={Save}
                         showTooltip
+                        disabled={!gameboy || !gameboy.supportsSaves()}
                     />
                 </div>
 

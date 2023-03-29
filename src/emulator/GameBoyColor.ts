@@ -90,6 +90,13 @@ class GameBoyColor {
         }
     }
 
+    /**
+     * @returns whether the emulator supports saving the current ROM state.
+     */
+    supportsSaves(): boolean {
+        return this.system.supportsSaves();
+    }
+
     /** Saves the current ROM state (null if no save support). */
     save(): Uint8Array | null {
         return this.system.save();
