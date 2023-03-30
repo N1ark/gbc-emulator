@@ -27,10 +27,10 @@ const App: FunctionalComponent = () => {
     const emulatorRunning = useSignal(true);
     const canStep = useSignal(true);
     const [config, setConfig] = useConfig();
-    const volume = useSignal(config.volume);
+    const configPtr = useSignal(config);
     useEffect(() => {
-        volume.value = config.volume;
-    }, [config.volume]);
+        configPtr.value = config;
+    }, [config]);
     const soundOutput = useSignal<AudioPlayer | undefined>(undefined);
     const joypadInput = useSignal<undefined | GameBoyInput>(undefined);
 
@@ -53,7 +53,11 @@ const App: FunctionalComponent = () => {
         const audioEnabled = !config.audioEnabled;
         setConfig({ audioEnabled });
         if (audioEnabled) {
-            soundOutput.value = new AudioPlayer(volume);
+            soundOutput.value = new AudioPlayer({
+                get value() {
+                    return configPtr.value.volume;
+                },
+            });
         } else {
             soundOutput.value?.delete();
             delete soundOutput.value;
@@ -187,15 +191,15 @@ const App: FunctionalComponent = () => {
                 const speed = tripleSpeed.value ? 3 : 1;
                 const frames = framesToRun * speed;
 
-                const before = config.showStats ? performance.now() : 0;
-                const cycles = gbc.drawFrame(frames, !emulatorRunning.value);
+                const before = configPtr.value.showStats ? performance.now() : 0;
+                gbc.drawFrame(frames, !emulatorRunning.value);
 
-                if (config.showStats) {
+                if (configPtr.value.showStats && stepCount.current && millisPerFrame.current) {
                     const millis = performance.now() - before;
                     const cpuSteps = gbc["cpu"]["stepCounter"];
 
-                    stepCount.current!.innerHTML = `${cpuSteps.toLocaleString()} steps`;
-                    millisPerFrame.current!.innerText = `${millis.toLocaleString()} ms/frame`;
+                    stepCount.current.innerHTML = `${cpuSteps.toLocaleString()} steps`;
+                    millisPerFrame.current.innerText = `${millis.toLocaleString()} ms/frame`;
                 }
 
                 /** Need to handle wait for a step to be made. */
