@@ -2,8 +2,14 @@
     #drawer {
         order: 2;
         width: calc(100vw - 2em) !important;
+        max-width: calc(100vw - 2em) !important;
+        min-width: calc(100vw - 2em) !important;
         overflow-x: hidden;
         overflow-y: unset;
+    }
+
+    #drawer .resizer {
+        display: none;
     }
 
     #emulator {

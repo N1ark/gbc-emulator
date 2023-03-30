@@ -132,7 +132,8 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
             <div className="drawer-section-title">
                 <div>Settings:</div>
                 <IconButton
-                    title="Testing"
+                    title="Test"
+                    showTooltip
                     Icon={FileQuestion}
                     disabled={testsRunning.value}
                     onClick={() => {
@@ -145,6 +146,7 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
                 />
                 <IconButton
                     title="Select/Unselect All"
+                    showTooltip
                     Icon={BoxSelect}
                     disabled={testsRunning.value}
                     onClick={() =>

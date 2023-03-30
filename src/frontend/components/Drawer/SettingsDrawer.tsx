@@ -112,14 +112,16 @@ const SettingsDrawer: FunctionalComponent = () => {
                 <div>Console:</div>
                 <IconButton
                     id="dmg-mode"
-                    title="Gameboy (DMG)"
+                    title="Classic (DMG)"
+                    showTooltip
                     toggled={console === "dmg"}
                     Icon={Gamepad}
                     onClick={() => setConfig({ console: "dmg" })}
                 />
                 <IconButton
                     id="cgb-mode"
-                    title="Gameboy Color (CGB)"
+                    title="Color (CGB)"
+                    showTooltip
                     toggled={console === "cgb"}
                     Icon={Palette}
                     onClick={() => setConfig({ console: "cgb" })}
@@ -131,6 +133,7 @@ const SettingsDrawer: FunctionalComponent = () => {
                 {availableFilters.map(({ name, filter, icon }) => (
                     <IconButton
                         title={name}
+                        showTooltip
                         toggled={filter === currentFilter}
                         Icon={icon}
                         onClick={() => setConfig({ filter })}
@@ -141,19 +144,22 @@ const SettingsDrawer: FunctionalComponent = () => {
             <div className="drawer-section-title">
                 <div>Scale:</div>
                 <IconButton
-                    title="Scale x1"
+                    title="100%"
+                    showTooltip
                     toggled={scale === 0}
                     Icon={Dice1}
                     onClick={() => setConfig({ scale: 0 })}
                 />
                 <IconButton
-                    title="Scale x2"
+                    title="200%"
+                    showTooltip
                     toggled={scale === 1}
                     Icon={Dice2}
                     onClick={() => setConfig({ scale: 1 })}
                 />
                 <IconButton
-                    title="Scale x4"
+                    title="400%"
+                    showTooltip
                     toggled={scale === 2}
                     Icon={Dice4}
                     onClick={() => setConfig({ scale: 2 })}
