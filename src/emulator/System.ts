@@ -3,13 +3,12 @@ import { CGBMode, ConsoleType, HRAM_SIZE, SpeedMode } from "./constants";
 import GameBoyInput from "./GameBoyInput";
 import PPU from "./ppu/PPU";
 import JoypadInput from "./JoypadInput";
-import { CircularRAM, RAM, Addressable } from "./Memory";
+import { CircularRAM, RAM, Addressable, ROM } from "./Memory";
 import { MaskRegister, Register00, RegisterFF, Register } from "./Register";
 import GameCartridge from "./GameCartridge";
 import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
 import { Int4, rangeObject } from "./util";
-import BootROM from "./BootROM";
 import { DMGWRAM, GBCWRAM } from "./WRAM";
 import Interrupts from "./Interrupts";
 
@@ -28,7 +27,7 @@ class System implements Addressable {
     protected interrupts: Interrupts = new Interrupts();
 
     // Memory
-    protected bootRom: Addressable;
+    protected bootRom: ROM;
     protected cartridge: GameCartridge;
     protected wram: Addressable;
     protected hram: RAM = new CircularRAM(HRAM_SIZE, 0xff80);
@@ -76,7 +75,7 @@ class System implements Addressable {
         mode: ConsoleType
     ) {
         this.mode = mode;
-        this.bootRom = BootROM(mode);
+        this.bootRom = new ROM(mode === ConsoleType.DMG ? 0x100 : 0x900);
         this.cartridge = new GameCartridge(rom);
         this.ppu = new PPU(mode);
         this.wram = mode === ConsoleType.DMG ? new DMGWRAM() : new GBCWRAM();
@@ -224,6 +223,14 @@ class System implements Addressable {
 
     getInterrupts(): Interrupts {
         return this.interrupts;
+    }
+
+    /**
+     * Sets the boot ROM data. This will be used on the start up of the system, if the boot ROM
+     * is not skipped.
+     */
+    loadBootRom(data: Uint8Array): void {
+        this.bootRom.rawSet(data);
     }
 
     /**

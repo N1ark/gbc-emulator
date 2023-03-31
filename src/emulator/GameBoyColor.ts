@@ -5,11 +5,11 @@ import System from "./System";
 import GameBoyOutput from "./GameBoyOutput";
 
 export type GameBoyColorOptions = {
-    bootRom: "none" | "real";
+    bootRom: null | Uint8Array;
 };
 
 const DEFAULT_OPTIONS: GameBoyColorOptions = {
-    bootRom: "none",
+    bootRom: null,
 };
 
 class GameBoyColor {
@@ -42,8 +42,18 @@ class GameBoyColor {
     }
 
     protected setup() {
+        if (this.options.bootRom !== null) {
+            if (this.mode === ConsoleType.DMG && this.options.bootRom.length !== 256) {
+                throw new Error("DMG boot ROM must be 256 bytes long");
+            }
+            if (this.mode === ConsoleType.CGB && this.options.bootRom.length !== 2304) {
+                throw new Error("CGB boot ROM must be 2304 bytes long");
+            }
+            this.system.loadBootRom(this.options.bootRom);
+        }
+
         // Setup registers as if the boot ROM was executed
-        if (this.options.bootRom === "none") {
+        else {
             // CPU
             if (this.mode === ConsoleType.DMG) {
                 this.cpu["regAF"].set(0x01b0);

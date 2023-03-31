@@ -63,6 +63,25 @@ const isPaletteEquivalent = (palette1: DMGPalette, palette2: DMGPalette) => {
     return true;
 };
 
+function loadFileWithInput(id: string, callback: (data: Uint8Array) => void): void {
+    const input = document.getElementById(id) as HTMLInputElement;
+    input.click();
+    input.onchange = () => {
+        if (input.files) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = () => {
+                console.log("reader", reader);
+                if (reader.result) {
+                    const buffer = reader.result as ArrayBuffer;
+                    callback(new Uint8Array(buffer));
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    };
+}
+
 const availablePalettes = [
     {
         name: "monochrome",
@@ -103,9 +122,12 @@ const SettingsDrawer: FunctionalComponent = () => {
             volume,
             showStats,
             showDebugScreens,
+            bootRomDmg,
+            bootRomCgb,
         },
         setConfig,
     ] = useConfig();
+
     return (
         <>
             <div className="drawer-section-title">
@@ -191,6 +213,39 @@ const SettingsDrawer: FunctionalComponent = () => {
                         showTooltip
                     />
                 ))}
+            </div>
+
+            <div className="drawer-section-title">
+                <div>Boot ROM Upload:</div>
+
+                <input type="file" id="upload-boot-rom" style="display: none" />
+                <IconButton
+                    title="DMG"
+                    Icon={Gamepad}
+                    onClick={() =>
+                        loadFileWithInput("upload-boot-rom", (bootRomDmg) => {
+                            if (bootRomDmg.length !== 0x0100)
+                                alert(`Boot ROM of the DMG must be ${0x100} bytes long!`);
+                            else setConfig({ bootRomDmg });
+                        })
+                    }
+                    toggled={bootRomDmg !== null}
+                    showTooltip
+                />
+                <IconButton
+                    title="CGB"
+                    Icon={Palette}
+                    onClick={() =>
+                        loadFileWithInput("upload-boot-rom", (bootRomCgb) => {
+                            window.console.log(bootRomCgb);
+                            if (bootRomCgb.length !== 0x0900)
+                                alert(`Boot ROM of the DMG must be ${0x900} bytes long!`);
+                            else setConfig({ bootRomCgb });
+                        })
+                    }
+                    toggled={bootRomCgb !== null}
+                    showTooltip
+                />
             </div>
 
             <div className="drawer-section-title">

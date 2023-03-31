@@ -123,6 +123,12 @@ const App: FunctionalComponent = () => {
                 },
             };
 
+            let bootRom: Uint8Array | null = null;
+            if (config.bootRom === "real") {
+                if (config.console === "dmg") bootRom = config.bootRomDmg;
+                else bootRom = config.bootRomCgb;
+            }
+
             /** Create the emulator (ensure it loads correctly.) */
             let gbc: GameBoyColor;
             try {
@@ -132,7 +138,7 @@ const App: FunctionalComponent = () => {
                     gameIn,
                     gbOut,
                     {
-                        bootRom: config.bootRom,
+                        bootRom,
                     }
                 );
             } catch (e) {

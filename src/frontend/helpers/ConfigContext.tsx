@@ -15,6 +15,9 @@ export type Configuration = {
     showStats: boolean;
     showDebugScreens: boolean;
 
+    bootRomDmg: Uint8Array | null;
+    bootRomCgb: Uint8Array | null;
+
     controlArrowUp: string;
     controlArrowDown: string;
     controlArrowLeft: string;
@@ -25,13 +28,31 @@ export type Configuration = {
     controlSelect: string;
 };
 
-const IdentitySave = { to: (v: any) => v, from: (v: any) => v };
+type ConfigLoader<T> = {
+    to: (v: T) => string;
+    from: (v: string) => T;
+};
+
+const IdentitySave: ConfigLoader<any> = { to: (v) => v, from: (v) => v };
+
+/** Not very memory efficient, but the sizes of the boot ROMs are small enough that it's acceptable */
+const Uint8ArrayStringSave: ConfigLoader<Uint8Array | null> = {
+    to: (v) =>
+        v === null
+            ? "0"
+            : Array.from(v)
+                  .map((x) => x.toString(16).padStart(2, "0"))
+                  .join(""),
+    from: (v) =>
+        v === "0"
+            ? null
+            : new Uint8Array(v.length / 2).map((_, i) =>
+                  Number.parseInt(v.substring(i * 2, i * 2 + 2), 16)
+              ),
+};
 
 const configLoaders: {
-    [k in keyof Configuration]: null | {
-        to: (v: Configuration[k]) => string;
-        from: (v: string) => Configuration[k];
-    };
+    [k in keyof Configuration]: null | ConfigLoader<Configuration[k]>;
 } = {
     scale: IdentitySave,
     filter: {
@@ -46,6 +67,9 @@ const configLoaders: {
     volume: IdentitySave,
     showStats: IdentitySave,
     showDebugScreens: IdentitySave,
+
+    bootRomDmg: Uint8ArrayStringSave,
+    bootRomCgb: Uint8ArrayStringSave,
 
     controlArrowUp: IdentitySave,
     controlArrowDown: IdentitySave,
@@ -68,6 +92,9 @@ const defaultConfig: Configuration = {
     volume: 0.5,
     showStats: false,
     showDebugScreens: false,
+
+    bootRomDmg: null,
+    bootRomCgb: null,
 
     controlArrowUp: "ArrowUp",
     controlArrowDown: "ArrowDown",
