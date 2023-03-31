@@ -8,6 +8,7 @@
 \usepackage{graphicx}
 \usepackage{paralist}
 \usepackage{multicol}
+\usepackage{multirow}
 \usepackage{tabularx}
 \usepackage{adjustbox}
 \usepackage[acronym,toc,nonumberlist,nogroupskip]{glossaries}
@@ -653,8 +654,9 @@ The user-defined function is then repeatedly invoked, and the result output belo
 \end{figure}
 
 \subsection{Test ROMs}
+\label{sec:testing-ui}
 
-To ensure emulators work properly, a variety of test \glspl{rom} have been made, that test most aspects of the \gls{gb} (see \ref{sec:gb-test-roms}). The front-end of the emulator supports running a large number of them in an automated way (see \ref{fig:}). The user can select the group of tests desired, and they will run internally (without receiving any input our outputting anything directly). The status of each individual test is displayed, and the user can click on the test name to run it on the main emulator, for further debugging or inspection.
+To ensure emulators work properly, a variety of test \glspl{rom} have been made, that test most aspects of the \gls{gb} (see \ref{sec:gb-test-roms}). The front-end of the emulator supports running a large number of them in an automated way (see \ref{fig:}). The user can select the group of tests desired by ticking the associated, or select/unselect everything by pressing the top right button. They can then run them by pressing the ``Test'' button, making them run internally (without receiving any input our outputting anything directly). The status of each individual test is displayed, and the user can click on the test name to run it on the main emulator, for further debugging or inspection.
 
 \begin{figure}[h]
     \centering
@@ -917,7 +919,6 @@ With the memory map of the console (see figure~\ref{fig:memory-map-largest}) we 
 
 \begin{figure}[h]
     \centering
-    \caption{Memory map for the largest chunks of memory \cite{memorymap}}
     \begin{tabular}{|l|l|l|}
     \hline
     \textbf{Start} & \textbf{End} & \textbf{Description} \\ \hline
@@ -929,6 +930,7 @@ With the memory map of the console (see figure~\ref{fig:memory-map-largest}) we 
     \texttt{D000} & \texttt{DFFF} & 4 KB Work RAM (WRAM) \\ \hline
     \texttt{E000} & \texttt{FDFF} & Mirror of \texttt{0xC000}$\sim$\texttt{0xDDFF} \\ \hline
     \end{tabular}
+    \caption{Memory map for the largest chunks of memory \cite{memorymap}}
 \end{figure}
 
 For this area of memory (\texttt{0x000}-\texttt{0xEFFF}) the system bus may simply isolate the most significant nibble, and then use a map to associate each address block to a component. Only if the address corresponds to \texttt{0xF-{}-{}-} do we try matching it to a register address. This removes the need for the if-conditions, and is also faster as it is evaluated much earlier on (see figure~\ref{fig:getaddress-after}). The map can be created on instantiation and kept for later use, to avoid unnecessary memory allocations.
@@ -967,7 +969,6 @@ To ensure placing the ``main block'' first was the best choice, measurements hav
 
 \begin{figure}[h]
     \centering
-    \caption{Rounded access rate per memory blocks, for the second set of 10,000,000 accesses of 4 different games. Games are, respectively, ``Alone in the Dark: The New Nightmare'', ``The Legend of Zelda: Link's Awakening DX'', ``Tetris'' and ``Pokémon Silver''.}
     \begin{tabular}{|l|l|l|l|l|l|}
     \hline
     \textbf{Name} & \textbf{Memory Area} & \textbf{Game 1} & \textbf{Game 2} & \textbf{Game 3} & \textbf{Game 4}  \\ \hline
@@ -1001,6 +1002,8 @@ To ensure placing the ``main block'' first was the best choice, measurements hav
     & 15.711\%
     & 4.260\% \\ \hline
     \end{tabular}
+    \caption{Access rate per memory blocks, for the second set of 10,000,000 accesses of 4 different games.}
+    Games are, respectively, ``Alone in the Dark: The New Nightmare'', ``The Legend of Zelda: Link's Awakening DX'', ``Tetris'' and ``Pokémon Silver''.
     \label{fig:access-rates}
 \end{figure}
 
@@ -1147,7 +1150,6 @@ On top of more memory space, \glspl{mbc} would sometimes come with additional fe
 
 \begin{figure}[h]
     \centering
-    \caption{Statistics of different MBCs \cite{gb_rom_db}}
     \begin{tabular}{|l|l|l|}
     \hline
     \textbf{Name} & \textbf{Count} & \textbf{Percentage} \\ \hline
@@ -1158,6 +1160,7 @@ On top of more memory space, \glspl{mbc} would sometimes come with additional fe
     MBC5   & 2532 & 27.1\% \\ \hline
     Others &   53 &  0.6\% \\ \hline
     \end{tabular}
+       \caption{Statistics of different MBCs \cite{gb_rom_db}}
     \label{fig:stats-mbc}
 \end{figure}
 
@@ -1307,7 +1310,7 @@ class MaskRegister extends Register {
     \label{fig:mask-register}
 \end{figure}
 
-To accomodate the 16-bit registers of the \gls{cpu}, a \texttt{DoubleRegister} class was implemented. It is made of two \texttt{Register} instances, and provides methods to get and set its value as if it held a 16-bit number (despite being implemented as two 8-bit numbers). This provides flexibility to the \gls{cpu}, enabling both 16-bit arithmetic and 8-bit arithmetic, without having to manage the way the register is implemented.
+To accomodate the 16-bit registers of the \gls{cpu}, a \texttt{DoubleRegister} class was implemented. It is made of two \texttt{Register} instances, and provides methods to get and set its value as if it held a 16-bit number (despite being implemented as two 8-bit numbers). This provides flexibility to the \gls{cpu}, enabling both 16-bit and 8-bit arithmetic, without having to manage the way the register is implemented.
 
 Classes to manage memory were also created, to avoid having high-level components access data structures directly. For instance, a \texttt{ROM} class was made. It is backed by a \texttt{UInt8Array}\ftnt{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array}, and implements \texttt{Addressable}. It is extended by \texttt{RAM}, to allow \texttt{write} operations. 
 
@@ -1338,6 +1341,226 @@ This can be used to implement the \gls{wram}. It can be addressed from \texttt{0
 
 \chapter{Evaluation}
 
+Evaluation of this emulator allows verifying it simulates the guest console (the Gameboy) properly. This can be done via test \glspl{rom}, that verify the behaviour of parts of the console. In this chapter, we will both look at how the emulator performs by itself, and how it performs compared to other \gls{gb} emulators.
+
+\section{Absolute Accuracy}
+
+To measure the \textit{absolute accuracy} of the emulator (how accurate it is, independently of other emulators), we will run different test \glspl{rom} and see what aspects of the emulator pass what tests. This will help us guarantee that specific parts are functional, and can be relied on.
+
+Note that although on a functioning system test \glspl{rom} help diagnose issues, if the system is faulty then they may be false positives. Indeed, the test \gls{rom} is still a \gls{rom} that runs on the system, and relies on it somewhat working. For instance, a faulty \gls{cpu} might make a test seem like it passes, despite it actually being wrong. As such, results should be taken with a grain of salt.
+
+Using the ``Test ROMs'' panel from the emulator frontend, we can run a total of 191 tests automatically. Because each test focuses on a specific characteristic of a component, we can group them, to see the \textit{success rate} this particular component has; see figure \ref{fig:stats-tests-absolute}.
+
+\begin{figure}[h]
+    \centering
+    \begin{tabular}{|l|l|l|l|l|}
+    \hline
+    \textbf{Component} & \textbf{Category} & \textbf{Test count} & \textbf{Tests passed} & \textbf{Success rate} \\ \hline
+	\multirow{3}{*}{\textbf{CPU}}
+    & Instructions & 20 & 19 &  95.0\% \\
+    &       Timing & 23 & 23 & 100.0\% \\\cline{2-5}
+    &          Sum & 43 & 42 &  97.7\% \\\hline
+	\multirow{4}{*}{\textbf{PPU}}
+    &    Rendering &  2 &  2 & 100.0\% \\
+    &       Timing & 12 &  5 &  41.6\% \\
+    &          DMA & 12 &  7 &  58.3\% \\\cline{2-5}
+    &          Sum & 26 & 14 &  53.8\% \\\hline
+    \multicolumn{2}{|l|}{\textbf{Timer}} & 13 & 13 & 100.0\% \\\hline
+   	\multirow{4}{*}{\textbf{MBCs}}
+    &         MBC1 & 12 & 12 & 100.0\% \\
+    &         MBC2 &  7 &  7 & 100.0\% \\
+    &         MBC5 &  8 &  8 & 100.0\% \\\cline{2-5}
+    &          Sum & 27 & 27 & 100.0\% \\\hline
+   	\multirow{6}{*}{\textbf{APU}}
+    &      General & 17 &  3 &  17.6\% \\
+    &    Channel 1 & 21 &  0 &   0.0\% \\
+    &    Channel 2 & 15 &  0 &   0.0\% \\
+    &    Channel 3 & 16 &  2 &  12.5\% \\
+    &    Channel 4 & 13 &  0 &   0.0\% \\\cline{2-5}
+    &          Sum & 82 &  5 &   6.1\% \\\hline
+    \multicolumn{2}{|l|}{\textbf{All}} & 191 & 101 & 52.8\% \\\hline
+    \end{tabular}
+    \caption{Results of the test ROMs on different components}
+    \label{fig:stats-tests-absolute}
+\end{figure}
+
+We first may notice from this table that the accuracy of the \gls{cpu} is great - the only test failing being \texttt{ie\_push}\ftnt{https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/interrupts/ie\_push.s}, a test verifying an edge-case of interrupt handling. This is essential, since of course all tests run on the \gls{cpu} and rely on it functioning to operate properly.
+
+The \gls{ppu}'s accuracy is good in terms of rendering, but the timings of it are wrong. When analyzing the test \glspl{rom} further to understand what goes wrong, we can notice that some of the modes of the \gls{ppu} are one cycle too long. This can be seen by inspect the test's output (see figure \ref{fig:failed-ppu-timing-test}), and noticing the error is in the \texttt{D} register, that has a value of \texttt{0x02} instead of \texttt{0x01}. The part of the code responsible for this is in lines~35--40 of the test's source\ftnt{https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/ppu/intr\_2\_mode3\_timing.s}. Although the timing of the emulator could be modified to make this test pass, the change makes other \gls{ppu} timing tests fail; as such, it is reasonable to suspect the fault is in the logic itself of the \texttt{PPU} class and not the number of cycles only. Many modifications have been attempted to improve the accuracy of the timing, to no avail - more research would thus be needed to fix this.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=5cm]{images/failed-ppu-timing-test}\\
+    \caption{Output of PPU timing test \texttt{ppu\_intr\_2\_mode3\_timing}}
+    \label{fig:failed-ppu-timing-test}
+\end{figure}
+
+The timer and \glspl{mbc} have great accuracy, and don't have any problems as far as the tests can tell. This is important, in particular for the timer, because multiple timing tests rely on the timer functioning. As such, having this part of the emulator work reliable is vital to ensuring the other tests work properly.
+
+Finally, the \gls{apu} performs very poorly. This is firstly due to the complexity of the different channels - they all have several mechanisms working separately, and if only one of them behaves wrongly then the whole set of tests will fail. Furthermore, the majority of these tests come from the SameSuite\ftnt{https://github.com/LIJI32/SameSuite} test suite. These tests differ from other because they use the \texttt{PCM12} and \texttt{PCM34} registers of the \gls{gbc}, to directly inspect the output of each channel \cite[Audio Details]{pandoc}. These allows the tests to check with much more precision that the emulator works, making the test significantly more stringent. Although this is an obvious indicator that the \gls{apu} needs to be reworked and fixed, this doesn't impact the user experience, or at least not that of a casual user, as the audio of the game doesn't sound off when being used.
+
+Seeing the total of tests passed is also of interest. The total success rate is 52.8\%, but is value is strongly influenced by the fact almost half of the tests are for the fauly \gls{apu} (82 tests out of 191). If these tests are filtered out, we get a total of 109 tests, of which 96 pass, giving a success rate of 88\%. A really good result, given the emulator was written in a short period of time with no prior experience.
+
+\section{Relative Accuracy}
+
+After verifying the accuracy of the emulator by itself, using automated tests, we may also want to compare it to other existing \gls{gb} emulators, and see how it does in contrast with them.
+
+Thankfully, a tool for this already exists: ``GBEmulatorShootout''\ftnt{https://github.com/daid/GBEmulatorShootout}. It automatically tests \gls{gb} emulators, and displays their results in a large table, allowing for the comparison of emulators' accuracy. 
+
+The way the tool works is that each emulator it supports must have a matching file, to allow downloading the emulator's executable and running it with a given test \gls{rom}. The program then regularly screenshots the emulator's window, and compares it with the expected visual output of the test. This means the tool expects the emulator's window to only contain the graphical output of the emulator.
+
+This means that adding this emulator to the tool required changes to the tool's source code. Indeed, this emulator has two notable distinctions to other emulators tested by the tool. First and foremost, this emulator is not based on an executable - it is instead \textit{browser based}, meaning that simply running the emulator's file is not possible. The second difference is that the emulator's output doesn't cover the whole window, as there is an additional UI around it. We must thus instead find a way to extract the emulator's output from the window.
+
+To do this, we will use web development techniques to automate the tests. Selenium\ftnt{https://www.selenium.dev/} is a tool that allows programmatically opening a browser and running actions on it, mimicking those of a user. In this case, these actions would be opening the emulator's website, and uploading the \gls{rom} to the emulator, as a user would do. Because the rest of the tool is written in Python\ftnt{https://www.python.org/}, we will use the \texttt{selenium} Python package\ftnt{https://pypi.org/project/selenium/}. See figure \ref{fig:selenium-testing} for the code to setup the emulator, and the code to run a \gls{rom} on it. Opening the window and accessing the emulator is quite simple (see lines~2--6), as we must just open the window at a given URL. We may note the script also does two additional actions: the first is enabling ``triple speed mode'' (line 5), to make the tests run faster. We also open the ``Settings'' tab of the sidebar (line~6), as this is where the console selection (\gls{dmg} or \gls{gbc}) is done. This is relevant because some tests are designed for a console in particular, and the only way to switch the console on this emulator is via this UI.
+
+\begin{figure}[h]
+    \begin{minted}{python}
+class Emmy(Emulator):
+    def setup(self):
+        self.driver = webdriver.Chrome("emu/chromedriver_win32/chromedriver.exe")
+        self.driver.get("https://emmy-gbc.vercel.app/")
+        self.driver.find_element(value="emu-speed").click()
+        self.driver.find_element(value="drawer-section-settings").click()
+
+    def startProcess(self, rom, *, model, required_features):
+        model_btn_id = {DMG: "dmg-mode", CGB: "cgb-mode"}.get(model)
+        if model_btn_id is None: # console not supported
+            return None
+        self.driver.find_element(value=model_btn_id).click()
+        rom_path = os.path.abspath(rom)
+        self.driver.find_element(value="rom-input").send_keys(rom_path)
+        try: # if an alert appeared, it means the rom is incompatible
+            self.driver.switch_to.alert.accept()
+            return None
+        except: # no alert, so error thrown, so the rom is compatible
+            return self.driver
+    \end{minted}
+    \caption{Setup and run code to automate emulator testing}
+    \label{fig:selenium-testing}
+\end{figure}
+
+Once the emulator is setup, the test \gls{rom} must be handled. First, the desired console model is checked, and the appropriate console is selected in the UI (lines~9--12). This is done my matching the model ID to the ID of the button that selects said console, and clicking the button with that ID. The test \gls{rom} may then be uploaded, by pressing the ``Import a ROM'' button, and entering the \gls{rom}'s path. We must also check if an alert is raised in the browser (lines~15--19) - this occurs if an error occurs when reading a \gls{rom}, usually because the \gls{mbc} is not supported.
+
+The second part of automated testing requires monitoring the emulator, and verifying if the test succeeded or failed. GBEmulatorShootout requires taking screenshots of the emulator frequently, and comparing the screenshot to an image of the expected result. This method implies storing an additional image for each test \gls{rom}, but comes with the advantage that no complex code is required to look into the emulator's state for other indicators of success (like what was done in this project's frontend, see subsection \ref{sec:testing-ui}).
+
+To do this, we must extract the image from the \texttt{<canvas/>} element the emulator's frontend draws in, and convert it to an appropriate Python object (see figure \ref{fig:selenium-screenshot}). We first fetch the output canvas by it's ID, and execute a small JavaScript function to retrieve the image inside the canvas, in a PNG format. This data is then decoded, and used to create an image, that is resized to the correct size (as the emulator's screen may be upscaled by the browser).
+
+\begin{figure}[h]
+    \begin{minted}{python}
+def getScreenshot(self):
+    canvas = self.driver.find_element(value="emulator-frame")
+    canvas_base64 = self.driver.execute_script(
+    	"return arguments[0].toDataURL('image/png').substring(21);", 
+    	canvas
+    )
+    canvas_png = base64.b64decode(canvas_base64)
+    large_image = PIL.Image.open(io.BytesIO(canvas_png))
+    small_image = large_image.resize((160, 144), PIL.Image.NEAREST)
+    return small_image
+    \end{minted}
+    \caption{Code to get the emulator's output with Selenium}
+    \label{fig:selenium-screenshot}
+\end{figure}
+
+After other minor tweaks to GBEmulatorShootout's code to support web-based emulators, the test script can be run to compile the results and be able to finale compare our emulator to others. The results are accessible online at \url{https://n1ark.github.io/GBEmulatorShootout/} (see~figure \ref{fig:gb-shootout}). The website to access the results is made of a large table, with on the X axis the emulator running the test \gls{rom}, and on the Y axis the name of the test \gls{rom}. Emulators are ordered from most accurate (most tests passed) to least accurate, from left to right. The tool currently supports 239 test \glspl{rom}, for 14 emulators.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=15cm]{images/gb-shootout}\\
+    \caption{Screenshot of the UI of \texttt{GBEmulatorShootout}}
+    \label{fig:gb-shootout}
+\end{figure}
+
+We may first notice that the present emulator passes 118 out of 236 tests (3 tests are skipped because the emulator doesn't support the ``Super Game Boy''), ranking it 9th of the 14 tested emulators. It is relevant here to note that most of these other emulators have existed for several years now, and have been worked on by many people.
+
+We may also want to use this table to compare the performance of this emulator to others, by looking at its success rate for tests of different components compared to others (see figure \ref{fig:stats-tests-relative}). Note that if an emulator cannot run a test (because it doesn't support a feature needed by the test), the test is skipped, rather than counted as failed. This explains why ``VisualBoyAdvance-M'' has a success rate of 57.1\% but is ranked lower than Emmy.
+
+\begin{figure}[h]
+    \centering
+    \begin{tabular}{|l|l|l|l|l|l|l|l|}
+    \hline
+    \textbf{Emulator} & \textbf{Tests Run} & \textbf{CPU} & \textbf{PPU} & \textbf{Timer} & \textbf{MBCs} & \textbf{APU} & \textbf{All} \\ \hline
+	
+	\textbf{SameBoy} & 239 & 100.0\% & 91.9\% & 100.0\% & 100.0\% & 100.0\% & 98.7\% \\
+	\textbf{Emulicious} & 237 & 98.5\% & 100.0\% & 100.0\% & 100.0\% & 100.0\% & 99.6\% \\
+	\textbf{Beaten Dying Moon} & 239 & 100.0\% & 97.3\% & 100.0\% & 97.1\% & 85.9\% & 94.1\% \\
+	\textbf{bgb} & 239 & 74.6\% & 91.9\% & 100.0\% & 97.1\% & 82.4\% & 84.9\% \\
+	\textbf{GambatteSpeedrun} & 182 & 98.5\% & 81.1\% & 100.0\% & 57.1\% & 100.0\% & 87.4\% \\
+	\textbf{binjgb} & 236 & 84.6\% & 63.9\% & 92.3\% & 74.3\% & 29.4\% & 60.6\% \\
+	\textbf{ares} & 239 & 82.1\% & 51.4\% & 38.5\% & 80.0\% & 29.4\% & 56.1\% \\
+	\textbf{mGBA} & 233 & 83.1\% & 52.8\% & 92.3\% & 90.6\% & 20.0\% & 57.1\% \\
+	
+	\hline	
+	\textbf{Emmy} & 236 & 76.9\% & 45.9\% & 100.0\% & 79.4\% & 10.6\% & 50.0\% \\
+	\hline
+	
+	\textbf{VisualBoyAdvance-M} & 182 & 53.7\% & 45.9\% & 76.9\% & 62.9\% & 60.7\% & 57.1\% \\
+	\textbf{PyBoy} & 143 & 32.1\% & 17.2\% & 38.5\% & 90.6\% & 0.0\% & 40.6\% \\
+	\textbf{Goomba} & 232 & 30.8\% & 8.6\% & 7.7\% & 59.4\% & 3.5\% & 20.7\% \\
+	\textbf{no\$gmb} & 236 & 35.4\% & 22.2\% & 0.0\% & 20.0\% & 2.4\% & 17.8\% \\
+	\textbf{KiGB} & 231 & 29.2\% & 20.0\% & 0.0\% & 12.9\% & 2.4\% & 14.7\% \\\hline
+		
+    \end{tabular}
+    \caption{Success rate of emulators for different components, sorted by total passed tests}
+    \label{fig:stats-tests-relative}
+\end{figure}
+
+This table is a good indicator of where our emulator, Emmy, performs well and where it doesn't, compared to other \gls{gb} emulators. For instance, it has a really accurate timer, compared to emulators ranked around it. This also emphasizes the fact that its \gls{cpu} is of an accuracy similar to that of the higher accuracy emulators, passing almost 80\% of tests. It also helps see that only very high accuracy emulators manage to pass the \gls{apu} tests. The only outliar seems to be VisualBoyAdvance-M, with an \gls{apu} success rate of 60.7\%. However, when inspecting the test results, we notice that most of the \gls{apu} tests weren't run on it - this is because it doesn't have support for the \texttt{PCM12} and \texttt{PCM34} registers these tests use. If we add the un-run tests to the percentage, we end with 17 tests passed out of 85, or a 20\% success rate, in line with the success rate of similar emulators. This further shows that getting creating an accurate \gls{apu} is challenging, especially given the standards of the used test \glspl{rom}.
+
+\section{Performance and Usability}
+
+Aside from accuracy, we may want to measure how performant the emulator is, and how usable it is. The former is important, because most emulators offer a ``turbo mode'', allowing the emulator to run the \gls{gb} faster. The latter is important because many emulators tend to be inconvenient, as they are oriented towards experienced user.
+
+To measure performance, the most relevant metric is frame time: the time needed in milliseconds to draw a frame (this, of course, includes the rendering of the frame but also all the processing that goes before). The emulator's frontend already comes with a measure of frame time - as such, we just need to select on what \gls{rom} the test will be performed, and how the measure will be taken.
+
+For the \gls{rom}, the performance will be measured on 4 distinct \glspl{rom}, all outlining different uses of the emulator. These \glspl{rom} are:
+
+\begin{compactitem}
+	\item ``The Legend of Zelda: Link's Awakening'', a \gls{dmg} game. It is quite simple and shouldn't be too memory intensive. It will help outline the average performance on the \gls{dmg}.
+	\item The \texttt{cpu\_instrs} test \gls{rom}. It's advantage is that it is quite long, and it's purpose is to test the entirety of the \gls{cpu}, meaning it will be very processor-intensive.
+	\item ``The Legend of Zelda: Oracle of Ages'', a \gls{gbc} game. It is similar to the previous Zelda \gls{rom}, but was built for the \gls{gbc}, meaning it likely requires more resources to run.
+	\item ``Alone in the Dark: The New Nightmare'', a \gls{gbc} game. This is a very complex game released for the \gls{gbc}, that supports ``3D-scenes'', and very regularly changes the color palette registers\cite[Tricky-to-emulate games]{gbdev_wiki}. Both of these properties combined should make this \gls{rom} slower, making it a hypothetical ``upper-bound'' on frame time.
+\end{compactitem}
+
+As for how to measure the frame time, the frame time of every frame will be summed and average, over the first 10 million cycles, to give a more accurate measure. See figure \ref{fig:frame-time-results} for the results.
+
+From this table we can notice two things. First, it is that \gls{dmg} games run faster than \gls{gbc} games. This can be due to the double speed mode, that forces the emulator to run twice as many instructions, or to the fact that the \gls{ppu} logic with colour is more complex and needs to be optimised. Secondly we may look at the average frame times of these \glspl{rom}. 
+
+The \gls{gb} runs at 60 frames per second, meaning a frame must last at most $\frac{1}{60}=16.6\text{ms}$. We may calculate the maximum speed increase attainable for a frame time via the formula~$\frac{1000}{\text{frame time} * 60}$. For instance, for ``The Legend of Zelda: Link's Awakening'', the maximum speed up could be of $\times 3.79$.
+
+\begin{figure}[h]
+    \centering
+    \begin{tabular}{|l|l|l|l|}
+    \hline
+    \textbf{Console} & \textbf{ROM} & \textbf{Frame time} (ms) & \textbf{Speed increase} \\ \hline
+
+	\multirow{2}{*}{\textbf{\gls{dmg}}} 
+	& The Legend of Zelda: Link's Awakening & 4.39 & 3.79 \\\cline{2-4}
+	& \texttt{cpu\_instrs} & 5.43 & 3.07 \\\hline
+	\multirow{2}{*}{\textbf{\gls{gbc}}} 
+	& The Legend of Zelda: Oracle of Ages & 4.89 & 3.41 \\\cline{2-4}
+	& Alone in the Dark: The New Nightmare & 5.78 & 2.88 \\\hline
+	
+    \end{tabular}
+    \caption{Average frame time of different \glspl{rom}}
+    \label{fig:frame-time-results}
+\end{figure}
+
+This is a satisfiable value - a speed increase of 300\% is good enough for most uses. Many emulators provide speed increases much superior to this, however this is because these emulators are often written in compiled languages like C++ or Rust, and will thus run much faster than an interpreted language like JavaScript.
+
+Research was made to convert this emulator to AssemblyScript\ftnt{https://www.assemblyscript.org/}, a language similar to TypeScript - the progress so far can be seen on the \texttt{assembly-script} branch\ftnt{https://github.com/N1ark/gbc-emulator/tree/assembly-script}. The advantage of AssemblyScript is that it allows compilation to WebAssembly\ftnt{https://webassembly.org/}, a low-level language made for browsers, ressembling assembly language. It is designed for efficiency, and would thus be a great pick for a browser-based emulator. However, because AssemblyScript targets such a low-level language, many TypeScript constructs are not (yet) available in it, such as arrow functions, or dynamic objects. Although the implemented emulator doesn't use these features extensively and most components were succesfully migrated to AssemblyScript, the \gls{cpu} uses arrow functions for all instructions - a succesful conversion of the entire emulator would thus require a lengthy rewrite of the \gls{cpu}. This project was thus abandoned in favour of additional features in the emulator's core and frontend. An example of \gls{gb} emulator in AssemblyScript is wasmboy\ftnt{https://github.com/torch2424/wasmboy/}. 
+
+In terms of usability, the presented emulator fullfils most of the specification, with some specifications of lower importance having been left out. These include:
+
+\begin{compactitem}
+	\item The user cannot, currently, download the save of their game (code U4).	 The save file is instead stored in the browser. Some research was done to allow saving the emulator's state to the BESS\ftnt{https://github.com/LIJI32/SameBoy/blob/master/BESS.md} save format, however this required a lot more effort so priority was shifted on other features, as the existing save system was deemed sufficient.
+	\item The emulator's frontend does not provide a way to add breakpoints to the emulation (code U7). This feature was initially supported from the browser's console, but it's implementation wasn't satisfactory. A possible improvement to the emulator would thus be support for such breakpoints, maybe in a format similar to that of the current ``Watch Expressions'' menu.
+	\item The implemented emulator cannot currently be downloaded as a local app (code N3). This could however be added quite easily, using a tool like Electron\ftnt{https://www.electronjs.org/} that allows converting web applications to desktop apps.
+\end{compactitem}
+
+All of these specifications are however of low importance, and are mainly small quality of life features. Other possible improvements could include more debugging tools (such as a way to inspect the \gls{apu}'s raw output), or more features added to the emulator's core, like support for other \glspl{mbc} (like the MBC6, MBC7, or MMM01 \cite[MBCs]{pandoc}), the real time clock of the MBC3, additional outputs of the \gls{gb} like the Game Boy Printer or the Game Boy Camera \cite{pandoc}, and support for the Link Cable, allowing multiple Gameboys to play together \cite[Serial Data Transfer]{pandoc}.
+
+\chapter{Conclusion}
 
 \clearpage
 
