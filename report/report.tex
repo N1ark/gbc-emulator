@@ -606,6 +606,7 @@ The main controls for the emulator are the 6 buttons above the screen. These are
 \end{compactitem}
 
 \subsection{Settings}
+\label{sec:settings-ui}
 
 In the side drawer, the first tab is ``Settings''. It contains general settings for the emulator, such as:
 
@@ -1559,6 +1560,30 @@ In terms of usability, the presented emulator fullfils most of the specification
 \end{compactitem}
 
 All of these specifications are however of low importance, and are mainly small quality of life features. Other possible improvements could include more debugging tools (such as a way to inspect the \gls{apu}'s raw output), or more features added to the emulator's core, like support for other \glspl{mbc} (like the MBC6, MBC7, or MMM01 \cite[MBCs]{pandoc}), the real time clock of the MBC3, additional outputs of the \gls{gb} like the Game Boy Printer or the Game Boy Camera \cite{pandoc}, and support for the Link Cable, allowing multiple Gameboys to play together \cite[Serial Data Transfer]{pandoc}.
+
+\chapter{Legal, Social, Ethical and Professional Issues}
+
+\section{Privacy}
+
+This piece of software is safe to use in terms of privacy - it runs entirely locally, with no data ever being sent from the user to the server. There are no cookies, and the only forms of storage used are localStorage\ftnt{https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage} and localForage\ftnt{https://github.com/localForage/localForage}, both of which are local and offline. 
+
+localStorage is handled by the browser, so it is the user's responsability to ensure that they use a secure browser. 
+
+localForage is an open source library, allowing for more transparence - one could go through the source code to verify that it is safe as well. Whenever a new update is released, we may simply verify that the modified code is still safe, and then configure the project to use the new version in the \texttt{package.json} file.
+
+\section{Legality}
+
+The \glsdesc{gb} is a copyrighted console, owned by Nintendo, but making an emulator for it is deemed legal as long as it is done following a ``clean room'' design \cite{emulation_white_paper}. This was ruled via a series of court appeals between console manufacturers and groups that produce emulators, with the latter consistently winning the appeal. This was the case for Sony Computer Entertainment America v. Connectix Corporation trial, that deemed that the ``Virtual Game Station'' PlayStation emulator wasn't a copyright infringement on Sony, and that Connectix's reverse engineering of the original PlayStation's BIOS was fair use \cite{sony_v_connectix}. This project was developed using online resources about the \gls{gb} compiled by people who reverse engineered the \gls{gb}, and as such was developed with a clean room design too.
+
+Although distributing the emulator is legal, distributing the BIOS (Basic Input/Output System) of the console with the emulator is not, as it is still copyrighted software \cite{emulation_white_paper}. Because acquiring such BIOS is however not illegal as long as the user owns the console, a user is free to use their own BIOS in the emulator (see sub section \ref{sec:settings-ui}). The emulator otherwise simulates the effect of the BIOS on the system, by setting up all the necessary memory and registers.
+
+Distributing copyrighted game \glspl{rom} is also not allowed - this is why the user must upload the \gls{rom} they want to use themselves. The software does not upload the \gls{rom}, and simply stores it in local storage.
+
+/section{Integrity}
+
+This piece of software was developed with integrity, always thinking critically on what was developed, and with no intention to harm others. This report has also been written with honesty, without attempting to withhold information on the resulting software. No acquired data was falsified or modified to fit a narrative.
+
+The produced software is 
 
 \chapter{Conclusion}
 
