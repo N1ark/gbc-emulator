@@ -1,6 +1,5 @@
-\documentclass[11pt]{report}
+\documentclass[11pt]{informatics-report}
 
-\usepackage[a4paper,margin=1in]{geometry}
 \usepackage[utf8]{inputenc}
 \usepackage{titlesec}
 \usepackage[T1]{fontenc}
@@ -45,201 +44,29 @@
 
 % Glossary entry
 \makenoidxglossaries
+\loadglsentries{glossary}
 
-\newglossaryentry{ppu_g}{
-    name={Picture Processing Unit},
-    description={The part of the Gameboy that is responsible for rendering the game}
-}
-\newglossaryentry{ppu}{
-    type=\acronymtype,
-    name={PPU},
-    description={Picture Processing Unit},
-    first={Picture Processing Unit (PPU)\glsadd{ppu_g}},
-}
 
-\newglossaryentry{gb}{
-    type=\acronymtype,
-    name=GB,
-    description={Gameboy},
-    first={Gameboy (GB)}
-}
+% setup info
 
-\newglossaryentry{gbc}{
-    type=\acronymtype,
-    name=GBC,
-    description={Gameboy Color},
-    first={Gameboy Color (GBC)}
-}
+\title{Emmy \\\vspace{0.2cm}The Game Boy Emulator}
+\author{Oscar Sjöstedt}
+\studentID{20040078}
+\supervisor{Ian Kenny}
 
-\newglossaryentry{os}{
-	type=\acronymtype,
-	name=OS,
-	description={Operating System},
-	first={Operating System (OS)}
-}
+\date{\today}
 
-\newglossaryentry{cpu}{
-    type=\acronymtype,
-    name=CPU,
-    description={Central Processing Unit},
-    first={Central Processing Unit (CPU)}
-}
-
-\newglossaryentry{apu_g}{
-    name={Audio Processing Unit},
-    description={The part of the Gameboy that is responsible with processing the game's audio}
-}
-
-\newglossaryentry{apu}{
-    type=\acronymtype,
-    name=APU,
-    description={Audio Processing Unit},
-    first={Audio Processing Unit (APU)}
-}
-
-\newglossaryentry{rom}{
-    type=\acronymtype,
-    name={ROM},
-    plural={ROMs},
-    description={Read-Only Memory},
-    first={Read-Only Memory (ROM)},
-    firstplural={Read-Only Memory (ROM)}
-}
-
-\newglossaryentry{mbc}{
-    type=\acronymtype,
-    name={MBC},
-    plural={MBCs},
-    description={Memory Bank Controller},
-    first={Memory Bank Controller (MBC)},
-    firstplural={Memory Bank Controllers (MBCs)}
-}
-
-\newglossaryentry{oam}{
-    type=\acronymtype,
-    name={OAM},
-    description={Object Attribute Memory},
-    first={Object Attribute Memory (OAM)},
-}
-
-\newglossaryentry{vram}{
-	type=\acronymtype,
-	name={VRAM},
-	description={Video RAM},
-	first={Video RAM (VRAM)}
-}
-
-\newglossaryentry{wram}{
-	type=\acronymtype,
-	name={WRAM},
-	description={Work RAM},
-	first={Work RAM (WRAM)}
-}
-
-\newglossaryentry{dma}{
-    type=\acronymtype,
-    name={DMA},
-    description={Direct Memory Access},
-    first={Direct Memory Access (DMA)},
-}
-
-\newglossaryentry{dmg_g}{
-    name={Dot Matrix Game},
-    description={The model name of the Gameboy. It is often used to refer to the ``base'' Gameboy (in contrast with GBC for the Gameboy Color)}
-}
-\newglossaryentry{dmg}{
-    type=\acronymtype,
-    name={DMG},
-    description={Dot Matrix Game},
-    first={Dot Matrix Game (DMG)\glsadd{dmg_g}},
-}
-
-\newglossaryentry{tcyc}{
-    name={T-Cycle},
-    description={A T-cycle is the smallest step the internal clock of the Gameboy can do. This means the rate of T-cycle is that of the CPU, ie. 4.19Mhz}
-}
-
-\newglossaryentry{mcyc}{
-    name={M-Cycle},
-    description={An M-Cycle (or machine cycle) is the smallest step the CPU of the Gameboy can do. Because all instructions of the CPU are multiples of 4, instruction lengths and timings are usually referred to in M-cycles (e.g. \texttt{LD A, B} takes 4 T-cycles, thus 1 M-cycle)}
-}
-
-\newglossaryentry{mmap}{
-    name={Memory Map},
-    description={The memory map is what determines where each address leads to - it can be seen as a list of non-overlapping ranges}
-}
-
-\newglossaryentry{msb}{
-    type=\acronymtype,
-    name={MSB},
-    description={Most Significant Bits},
-    first={Most Significant Bits (MSB)},
-}
-
-% setup paragraph spacing
-\setlength{\parskip}{\baselineskip}
-\setlength{\parindent}{0pt}
-\titlespacing\section{0pt}{12pt plus 4pt minus 2pt}{-8pt}\relax
-\titlespacing\subsection{0pt}{12pt plus 4pt minus 2pt}{-10pt}\relax
-\titlespacing\subsubsection{0pt}{12pt plus 4pt minus 2pt}{-10pt}\relax
+\abstractFile{frontmatter/abstract.tex}
 
 \begin{document}
 
-% setup fonts
+\createFrontMatter
 
-\begin{titlepage}
-    \begin{center}
-        \vspace*{1cm}
-
-        \Huge
-        \textbf{Emmy: The Gameboy Color Emulator}\\
-        6CCS3PRJ Final Project
-
-        \vspace{1.5cm}
-        \Large
-        Classic video game console emulation
-
-        \vfill
-
-        Author: Oscar Sjöstedt\\
-        Student ID: K20040078\\
-        Supervisor: Ian Kenny
-
-        \vspace{1.5cm}
-
-        \Large
-        Draft Two \\
-        \today \\
-        King's College London \\
-
-    \end{center}
-\end{titlepage}
-
-\null\vfill
-
-\clearpage
-
-\vspace*{\fill}
-\begin{center}
-	I verify that I am the sole author of this report, \\
-	except where explicitly stated  to the contrary.
-
-	Oscar Sjöstedt, \today
-\end{center}
-\vspace*{\fill}
-
-\begin{abstract}
-    This project aims to create a Gameboy emulator web-application, in other words a program capable of receiving Gameboy game files (commonly refered to as ROMs), and interpreting such ROM to play the game (or execute the program) it contains. The emulator will be usable in browsers, for both desktop computers and mobile devices that may not have access to a physical keyboard. The emulator will also contain debugging capacities, to allow other emulator developers to use it when comparing with their emulator and working on it.
-
-    The objective of this project is to create a piece of software that could be used by anyone wanting to emulate retro games, without the need for any technical knowledge on emulators or downloading anything (except the ROMs that need to be obtained separately).
-\end{abstract}
-\vfill
-
-\clearpage
+\onehalfspacing
 
 {\hypersetup{hidelinks}\tableofcontents}
 
-\clearpage
+\doublespacing
 
 \chapter{Introduction}
 
@@ -864,7 +691,7 @@ protected instructionSet: Partial<Record<number, InstructionObject>> = {
 
 \subsection{A cycle accurate CPU}
 
-The Gameboy is a memory-bound system, meaning that it is limited by it's memory accesses. The \gls{cpu} can only execute either one read or one write per \gls{mcyc} \cite[CPU core timing]{gbctr}. The \gls{cpu} also needs to retrieve the opcode for each instruction, which takes an additional cycle, meaning an instruction performing no memory accesses lasts one cycle, and an instruction performing $n$ memory accesses lasts at least $n + 1$ cycles. Finally, the \gls{gb} overlaps the last cycle of the execution with the fetching cycle for the next opcode - this will thus be of importance when implementing the fetching of the opcode. See figure \ref{fig:ld-instr-timing} for the breakdown of an instruction.
+The Gameboy is a memory-bound system, meaning that it is limited by it's memory accesses. The \gls{cpu} can only execute either one read or one write per \gls{mcyc} \cite[CPU core timing]{gbctr}. It also needs to retrieve the opcode for each instruction, which takes an additional cycle, meaning an instruction performing no memory accesses lasts one cycle, and an instruction performing $n$ memory accesses lasts at least $n + 1$ cycles. Finally, the \gls{gb} overlaps the last cycle of the execution with the fetching cycle for the next opcode - this will thus be of importance when implementing the fetching of the opcode. See figure \ref{fig:ld-instr-timing} for the breakdown of an instruction.
 
 \begin{figure}[h]
 	\centering
@@ -1553,7 +1380,7 @@ After other minor tweaks to GBEmulatorShootout's code to support web-based emula
 
 We may first notice that the present emulator passes 118 out of 236 tests (3 tests are skipped because the emulator doesn't support the ``Super Game Boy''), ranking it 9th of the 14 tested emulators. It is relevant here to note that most of these other emulators have existed for several years now, and have been worked on by many people.
 
-We may also want to use this table to compare the performance of this emulator to others, by looking at its success rate for tests of different components compared to others (see figure \ref{fig:stats-tests-relative}). Note that if an emulator cannot run a test (because it doesn't support a feature needed by the test), the test is skipped, rather than counted as failed. This explains why ``VisualBoyAdvance-M'' has a success rate of 57.1\% but is ranked lower than Emmy.
+We may also want to use this table to compare the performance of this emulator to others, by looking at its success rate for tests of different components compared to others (see figure \ref{fig:stats-tests-relative}). Note that if an emulator cannot run a test (because it doesn't support a feature needed by the test), the test is skipped, rather than counted as failed. This explains why \mbox{``VisualBoyAdvance-M''} has a success rate of 57.1\% but is ranked lower than Emmy.
 
 \begin{figure}[h]
     \centering
