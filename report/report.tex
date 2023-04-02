@@ -10,7 +10,6 @@
 \usepackage{multirow}
 \usepackage{tabularx}
 \usepackage{adjustbox}
-\usepackage[acronym,toc,nonumberlist,nogroupskip]{glossaries}
 \usepackage{enumitem}
 \usepackage{xltabular}
 \usepackage{dirtree}
@@ -36,15 +35,16 @@
     urlcolor=blue,
 }
 
+% Glossary entry
+\usepackage[acronym,toc,nonumberlist,nogroupskip]{glossaries}
+\makenoidxglossaries
+\loadglsentries{glossary}
+
 % setup debug box command for places things are missing
 \newcommand{\todo}[1]{\fbox{\parbox{\textwidth}{\textbf{TO-DO:} #1}}}
 
 % add footnotes without the \footnote{\url{...}} command
 \newcommand{\ftnt}[1]{\footnote{~See \url{#1}}}
-
-% Glossary entry
-\makenoidxglossaries
-\loadglsentries{glossary}
 
 
 % setup info
@@ -182,7 +182,7 @@ The test \glspl{rom} used for this project are:
 
 \begin{enumerate}[start=1,label=F\arabic*.]
     \item The system can receive a \gls{rom} file, construct an instance of the emulated console, and run the code inside said \gls{rom}.
-    \item The system emulates different components of the \gls{gb} and \gls{gbc}, with as much precision as possible (\gls{mcyc} precision).
+    \item The system emulates different components of the \gls{gb} and \gls{gbc}, with as much precision as possible (M-cycle precision).
     \item The system renders the output of the emulator to a Web \texttt{<canvas />}.
     \item The system creates the required DOM elements for the web-app, and updates them as needed.
     \item The system listens to key presses and releases to emulate controls through the keyboard.
@@ -616,6 +616,8 @@ The component itself then takes as a parameter a callback, that is called with t
 
 The \gls{cpu} is the core of the emulator, and allows running the code from the \gls{rom} by reading the operation code (or opcode) and executing the matching action.
 
+The \glsdesc{gb}'s clock ticks at $2^{22}\approx 4.19$Mhz, with each of these clock cycles being commonly referred to as T-cycles or T-states \cite[CPU Instruction Set]{pandoc}. However, because all of its components tick every four T-cycles, timings of the \gls{gb} are divided by four and called M-cycles. In other words, four T-cycles make for one M-cycle, and M-cycles have a frequency of $\frac{2^{22}}{4}=2^{20}\approx 1.05$Mhz \cite{gbcpumanual}.
+
 \subsection{Instruction Set Decoding}
 
 Because the \glsdesc{gb} is an 8-bit system, opcodes are 8 bits (or one byte) long, giving in theory a maximum of $2^8=256$ operations. However in the \gls{gb} the operation \texttt{0xCB} gives access to an extended instruction set, meaning that when reading \texttt{0xCB} the \gls{cpu} will read the next byte and use a different logic to execute the operation. This means there are now $2^8 - 1 + 2^8=511$ operations. The \gls{gb} also has 11 `unused' opcodes, that will lock the console when used\cite[CPU Comparison with Z80]{pandoc}, meaning there are in total $2^8 - 12 + 2^8 = 500$ operations to implement.
@@ -691,7 +693,7 @@ protected instructionSet: Partial<Record<number, InstructionObject>> = {
 
 \subsection{A cycle accurate CPU}
 
-The Gameboy is a memory-bound system, meaning that it is limited by it's memory accesses. The \gls{cpu} can only execute either one read or one write per \gls{mcyc} \cite[CPU core timing]{gbctr}. It also needs to retrieve the opcode for each instruction, which takes an additional cycle, meaning an instruction performing no memory accesses lasts one cycle, and an instruction performing $n$ memory accesses lasts at least $n + 1$ cycles. Finally, the \gls{gb} overlaps the last cycle of the execution with the fetching cycle for the next opcode - this will thus be of importance when implementing the fetching of the opcode. See figure \ref{fig:ld-instr-timing} for the breakdown of an instruction.
+The Gameboy is a memory-bound system, meaning that it is limited by it's memory accesses. The \gls{cpu} can only execute either one read or one write per M-cycle \cite[CPU core timing]{gbctr}. It also needs to retrieve the opcode for each instruction, which takes an additional cycle, meaning an instruction performing no memory accesses lasts one cycle, and an instruction performing $n$ memory accesses lasts at least $n + 1$ cycles. Finally, the \gls{gb} overlaps the last cycle of the execution with the fetching cycle for the next opcode - this will thus be of importance when implementing the fetching of the opcode. See figure \ref{fig:ld-instr-timing} for the breakdown of an instruction.
 
 \begin{figure}[h]
 	\centering
@@ -708,9 +710,9 @@ The Gameboy is a memory-bound system, meaning that it is limited by it's memory 
 \end{figure}
 
 
-The current implementation is not \gls{mcyc} accurate: the \gls{cpu} instruction is executed as one monolithic block, rather than in different smaller parts. This becomes crucial when the timer, \gls{oam} and \gls{ppu} are involved, as they run in parallel with the \gls{cpu}, so memory accesses to these components may return different values depending on the \gls{mcyc}.
+The current implementation is not M-cycle accurate: the \gls{cpu} instruction is executed as one monolithic block, rather than in different smaller parts. This becomes crucial when the timer, \gls{oam} and \gls{ppu} are involved, as they run in parallel with the \gls{cpu}, so memory accesses to these components may return different values depending on the M-cycle.
 
-In all emulators that were found when researching for this project, \gls{mcyc} accuracy is reached by making the emulator ``\gls{cpu}-driven''. What this means is that inside each instruction, between each cycle, the \gls{cpu} is responsible for ticking the rest of the system - the main loop is then only responsible for continuously running the \gls{cpu}, and nothing else. This approach is probably the simplest and most straightforward one, as it is quite simple to implement - all one needs to do is call the system tick method when relevant (see figure~\ref{fig:cpu-driven-ld}).
+In all emulators that were found when researching for this project, M-cycle accuracy is reached by making the emulator ``\gls{cpu}-driven''. What this means is that inside each instruction, between each cycle, the \gls{cpu} is responsible for ticking the rest of the system - the main loop is then only responsible for continuously running the \gls{cpu}, and nothing else. This approach is probably the simplest and most straightforward one, as it is quite simple to implement - all one needs to do is call the system tick method when relevant (see figure~\ref{fig:cpu-driven-ld}).
 
 Some emulator where this method was found:
 \begin{compactitem}
@@ -782,11 +784,13 @@ step(system: Addressable, interrupts: Interrupts) {
 
 The \texttt{System} class implements the system bus, as well as the ticking of all other components. It handles the ticking of the \gls{ppu}, timer, \gls{apu} and interrupt logic. Furthermore, it is the component that links all of the data together: whenever a component is ticked (any of the above or the \gls{cpu}), the \texttt{System} instance is passed, so that the components can read and write to the rest of the system. It implements \texttt{Addressable} (see \ref{fig:addressable}), and internally has a \texttt{getAdress} method that returns the \texttt{Addressable} at this specific address, to be accessed in the \texttt{read} and \texttt{write} methods. This ensures that the logic used to determine what component is accessed depending on the address isn't duplicated.
 
+All components of the \glsdesc{gb} exist is the same address space. The \textit{memory map} is what describes the allocation of different components to different areas of memory.
+
 \subsection{\texttt{getAddress} optimisation}
 
 Because \texttt{System} is a higly used component and is accessed for almost every read and write, the \texttt{getAddress} method is under a lot of pressure: for a game like `The Legend of Zelda: Link's Awakening DX', the method is called around 650,000 times per second. For a more complex and resource-intensive game such as `Alone in the Dark: The New Nightmare', around 1,900,000 calls are made. This intensity in usage can easily be explained, as the \gls{gb} is a memory-bound system: almost all interactions between components occur through memory reads and write. \texttt{getAddress} must thus be optimised as much as possible, as it is one of the main bottle-necks of the emulator.
 
-An initial implementation of \texttt{getAddress} used the combination of a list of if-statements for different ranges of the \gls{mmap}, as well as a map where all register addresses where mapped to the component responsible for them. The code would first check if the key exists in this map,,and if not it would then go through a series of if-conditions  (see figure~\ref{fig:getaddress-before}). It would not return a tuple, containing both \texttt{Addressable} to use and the address within in - this was needed as some components had a particular mapping to memory. This is the case for the \gls{wram}, who's memory starts at \texttt{0xC000} and ends at \texttt{0xFDFF} (spanning over 15.5KB bytes) despite it only being 8KB long, because the last 7.5KB of its address range map back to the beginning of it (this is called the Echo RAM \cite{memorymap}).
+An initial implementation of \texttt{getAddress} used the combination of a list of if-statements for different ranges of the memory map, as well as a map where all register addresses where mapped to the component responsible for them. The code would first check if the key exists in this map,,and if not it would then go through a series of if-conditions  (see figure~\ref{fig:getaddress-before}). It would not return a tuple, containing both \texttt{Addressable} to use and the address within in - this was needed as some components had a particular mapping to memory. This is the case for the \gls{wram}, who's memory starts at \texttt{0xC000} and ends at \texttt{0xFDFF} (spanning over 15.5KB bytes) despite it only being 8KB long, because the last 7.5KB of its address range map back to the beginning of it (this is called the Echo RAM \cite{memorymap}).
 
 \begin{figure}[h]
     \begin{minted}{typescript}
@@ -815,7 +819,7 @@ This proved quite costly:
     \item This code creates a new map every time it is called, when checking for the registers' addresses.
     \item Having to return both an \texttt{Addressable} and an address is quite costly, as a new array with two items must be created every time. It also adds unecessary complexity to the method, as the system bus shouldn't be responsible for handling the details of address mapping, and instead simply delegate the task to the appropriate component.
     \item The if-conditions for the ranges of the biggest areas of memory (everything between \texttt{0x0000} and \texttt{0xEFFF}) happened after the register checks, which delayed response for these reads and writes. This is all the more important that this range represents $\frac{\texttt{0xEFFF}}{\texttt{0xFFFF}+1} \approx 93\%$ of the total address space.
-    \item Chaining if-conditions is unneficient, as the JS engine must step through all conditions and check the values each time. Furthermore, although having both the lower and upper bound of the memory section indicated in the condition (e.g. \texttt{0x0000 <= pos \&\& pos <= 0x7FFF} for $[\texttt{0x0000}; \texttt{0x7FFF}]$) makes the translation from \gls{mmap} to code easier, it is slower, since only the upper bound of the range is needed for the condition if all the ranges below have already returned.
+    \item Chaining if-conditions is unneficient, as the JS engine must step through all conditions and check the values each time. Furthermore, although having both the lower and upper bound of the memory section indicated in the condition (e.g. \texttt{0x0000 <= pos \&\& pos <= 0x7FFF} for $[\texttt{0x0000}; \texttt{0x7FFF}]$) makes the translation from memory map to code easier, it is slower, since only the upper bound of the range is needed for the condition if all the ranges below have already returned.
 \end{compactitem}
 
 First, we may move the fine-grained addressing logic to sub-components like the \gls{wram}. This removes the need to return an address from the method: only an \texttt{Addressable} is enough, as that component will then be responsible for decoding the address further.
@@ -952,7 +956,7 @@ One of the main characteristics of the \gls{ppu} is that it operates in modes. D
 	\item Mode 2: the \gls{ppu} looks through the \gls{oam}, to look for all the sprites to draw. During this time, the \gls{oam} is not accessible.
 	\item Mode 3: the \gls{ppu} reads both the \gls{vram} and \gls{oam}, and draws the line. None of the video data is accessible here.
 	\item Mode 0: the \gls{ppu} does nothing for a short length of time after each line. An interrupt is raised at the start of this period, allowing the \gls{cpu} to be notified now is the time to update what's rendered if necessary. This is called the horizontal blank, or HBlank.
-	\item Mode 1: the \gls{ppu} does nothing for a long length of time after the bottom of the screen is loaded. This is usually where the bulk of the graphics update go, as it lasts a considerable amount of time (1140 \glspl{mcyc}). An interrupt is also raised here, to notify the \gls{cpu}. This is called the vertical blank, or VBlank.
+	\item Mode 1: the \gls{ppu} does nothing for a long length of time after the bottom of the screen is loaded. This is usually where the bulk of the graphics update go, as it lasts a considerable amount of time (1140 M-cycles). An interrupt is also raised here, to notify the \gls{cpu}. This is called the vertical blank, or VBlank.
 \end{compactitem}
 
 Rendering of the line is thus done during mode 3, when no graphics data is accessible, using a FIFO queue (First In First Out) of pixels that can be pushed in and out as the data is read. Some of the registers are still writable, but most games don't use them during this mode because they would require very precise timing. An example of a game relying on this is ``Prehistorik Man'', that changes the colour palette registers during the scanline in its intro-scene \cite[Tricky-to-emulate games]{gbdev_wiki}.
@@ -1047,7 +1051,7 @@ The \glsfirst{apu} is the component responsible for producing the sounds and mus
 
  Most features of the channels can be derived to a timer, that ticks down from a value and has an effect when reaching 0. And although they differ in output, all channels have some attributes in common. For example, they all have a \textit{length timer}, that turns off the channel when it reaches 0. Channels 1, 2 and 4 also have an \textit{envelope}, that allows updating the volume of the channel at a set frequency. To have these behaviours work across all channels, an abstract class \texttt{SoundChannel} was created. It holds the registers all channels have in common, as well as methods like \texttt{tickLengthTimer} to handle common mechanisms across all channels.
 
-To return their output, all channels have a \texttt{getSample} method that returns the current output value of the channel, a value between 0 and 15. This output can then be combined, and output to the frontend to handle. It is of interest to note that the \gls{gb} is always outputting sound, with a resolution of 1 \gls{mcyc}, ie. $2^{20}\text{Hz} \approx 1.05\text{MHz}$. This is significantly more than the sample rate computers usually use, $44.1\text{Hz}$. To fit to this standard, the emulator's \gls{apu} has an internal counter that ticks down and only produces a sample every $\frac{2^20}{44.1*10^3}=23.7$ cycles. This isn't the most accurate way of producing the audio data, but is far simpler and faster than downsampling the audio. An example of very accurate emulator that does downsampling is SameBoy\footnote{See Accuracy, \url{https://sameboy.github.io/features/}}.
+To return their output, all channels have a \texttt{getSample} method that returns the current output value of the channel, a value between 0 and 15. This output can then be combined, and output to the frontend to handle. It is of interest to note that the \gls{gb} is always outputting sound, with a resolution of 1 M-cycle, ie. $2^{20}\text{Hz} \approx 1.05\text{MHz}$. This is significantly more than the sample rate computers usually use, $44.1\text{Hz}$. To fit to this standard, the emulator's \gls{apu} has an internal counter that ticks down and only produces a sample every $\frac{2^20}{44.1*10^3}=23.7$ cycles. This isn't the most accurate way of producing the audio data, but is far simpler and faster than downsampling the audio. An example of very accurate emulator that does downsampling is SameBoy\footnote{See Accuracy, \url{https://sameboy.github.io/features/}}.
 
 \section{MBCs and ROMs}
 
@@ -1118,7 +1122,7 @@ In the implemented frontend, this is done by saving the RAM data in the browser'
 
 The timer is a component in the \gls{gb} that ticks regularly. It allows the control of two independent mechanisms \cite[Timer and Divider Registers]{pandoc}.
 
-First is the \textit{divider counter}, accessed and controlled via the \texttt{DIV} register. This counter is internally 16-bits, although only the upper 8-bits can be accessed. It is incremented every machine cycle (ie. increased by 4 every \gls{mcyc}), can be read, and writing to the divider resets the counter (see figure~\ref{fig:div-timer}).
+First is the \textit{divider counter}, accessed and controlled via the \texttt{DIV} register. This counter is internally 16-bits, although only the upper 8-bits can be accessed. It is incremented every machine cycle (ie. increased by 4 every M-cycles), can be read, and writing to the divider resets the counter (see figure~\ref{fig:div-timer}).
 
 \begin{figure}[h]
     \begin{minted}{typescript}
@@ -1518,9 +1522,7 @@ Finally, the third point to improve on this project is it's frontend. Although i
 
 \printnoidxglossary[type=\acronymtype]
 
-\printnoidxglossary[type=main]
-
 \printbibliography
-
+\addcontentsline{toc}{chapter}{Bibliography}
 
 \end{document}
