@@ -48,8 +48,8 @@ const Screen: FunctionalComponent<ScreenProps> = ({
     scale = 1,
     Filter = Identity,
     blending = false,
-    id,
-    palette,
+    id = undefined,
+    palette = undefined,
 }) => {
     const [stateRefresh, setStateRefresh] = useState(0);
     const canvasRef = useRef<HTMLCanvasElement>(null);

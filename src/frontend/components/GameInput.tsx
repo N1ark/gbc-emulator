@@ -33,6 +33,17 @@ const JoypadButton: FunctionalComponent<JoypadButtonProps> = ({ name, objKey, ob
     );
 };
 
+const NO_INPUT: GameBoyInputObj = {
+    a: false,
+    b: false,
+    start: false,
+    select: false,
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+};
+
 type GameInputProps = {
     inputHandler: (input: GameBoyInput) => void;
 };
@@ -62,44 +73,33 @@ const GameInput: FunctionalComponent<GameInputProps> = ({ inputHandler }) => {
         controlArrowRight,
     ]);
 
-    const touchControlStatus = useMemo(
-        () => ({
-            a: false,
-            b: false,
-            start: false,
-            select: false,
-            up: false,
-            down: false,
-            left: false,
-            right: false,
-        }),
-        []
-    );
+    const touchControlStatus = useMemo(() => ({ ...NO_INPUT }), []);
 
-    const inputFn = useCallback(
-        () => ({
-            a: touchControlStatus.a || pressedKeys.includes(controlA),
-            b: touchControlStatus.b || pressedKeys.includes(controlB),
-            start: touchControlStatus.start || pressedKeys.includes(controlStart),
-            select: touchControlStatus.select || pressedKeys.includes(controlSelect),
-            up: touchControlStatus.up || pressedKeys.includes(controlArrowUp),
-            down: touchControlStatus.down || pressedKeys.includes(controlArrowDown),
-            left: touchControlStatus.left || pressedKeys.includes(controlArrowLeft),
-            right: touchControlStatus.right || pressedKeys.includes(controlArrowRight),
-        }),
-        [
-            touchControlStatus,
-            pressedKeys,
-            controlA,
-            controlB,
-            controlStart,
-            controlSelect,
-            controlArrowUp,
-            controlArrowDown,
-            controlArrowLeft,
-            controlArrowRight,
-        ]
-    );
+    const inputFn = useMemo(() => {
+        const obj = { ...NO_INPUT };
+        return () => {
+            obj.a = touchControlStatus.a || pressedKeys.includes(controlA);
+            obj.b = touchControlStatus.b || pressedKeys.includes(controlB);
+            obj.start = touchControlStatus.start || pressedKeys.includes(controlStart);
+            obj.select = touchControlStatus.select || pressedKeys.includes(controlSelect);
+            obj.up = touchControlStatus.up || pressedKeys.includes(controlArrowUp);
+            obj.down = touchControlStatus.down || pressedKeys.includes(controlArrowDown);
+            obj.left = touchControlStatus.left || pressedKeys.includes(controlArrowLeft);
+            obj.right = touchControlStatus.right || pressedKeys.includes(controlArrowRight);
+            return obj;
+        };
+    }, [
+        touchControlStatus,
+        pressedKeys,
+        controlA,
+        controlB,
+        controlStart,
+        controlSelect,
+        controlArrowUp,
+        controlArrowDown,
+        controlArrowLeft,
+        controlArrowRight,
+    ]);
 
     useEffect(() => {
         inputHandler({ read: inputFn });

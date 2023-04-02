@@ -9,15 +9,16 @@ class AudioPlayer {
     protected lastPlayEnd: number | undefined;
     protected enqued: number = 0;
 
-    protected windowBlurListener: () => void;
-    protected windowFocusListener: () => void;
+    protected maxQueueSize: number;
 
-    constructor(volume: { value: number } = { value: 1 }) {
+    protected windowBlurListener = () => this.context?.suspend();
+    protected windowFocusListener = () => this.context?.resume();
+
+    constructor(volume: { value: number } = { value: 1 }, maxQueueSize = 8) {
+        this.maxQueueSize = maxQueueSize;
         this.volume = volume;
         this.context = new AudioContext();
         this.context.resume();
-        this.windowBlurListener = () => this.context?.suspend();
-        this.windowFocusListener = () => this.context?.resume();
         window.addEventListener("blur", this.windowBlurListener, false);
         window.addEventListener("focus", this.windowFocusListener, false);
     }
@@ -31,7 +32,7 @@ class AudioPlayer {
 
     enqueue(sample: Float32Array) {
         // Not allowed to have more than 8 samples in the queue, to avoid delay
-        if (this.enqued > 8 || !this.context) {
+        if (this.enqued > this.maxQueueSize || !this.context) {
             return;
         }
 
