@@ -41,7 +41,7 @@
 \newcommand{\todo}[1]{\fbox{\parbox{\textwidth}{\textbf{TO-DO:} #1}}}
 
 % add footnotes without the \footnote{\url{...}} command
-\newcommand{\ftnt}[1]{\footnote{\url{#1}}}
+\newcommand{\ftnt}[1]{\footnote{~See \url{#1}}}
 
 % Glossary entry
 \makenoidxglossaries
@@ -408,6 +408,8 @@ The test \glspl{rom} used for this project are:
 
 In this chapter we will outline the main components of the Gameboy and of this emulator. For the different \gls{gb} components, we will briefly go over their role, and how they interact with other components and to what end.
 
+The emulator's name will be ``Emmy'', short for emulator\footnote{The emulator was named before the realization that an emulator-related project called ``Emmy'' already exists~\cite{emmy_stanford}. These two projects are unrelated.}. 
+
 In emulators, the different components are usually split in three parts:
 \begin{compactitem}
 	\item The \gls{cpu}, responsible for reading instructions and changing the state of the console. This is what drives the emulation, as other components usually idle unless acted upon.
@@ -461,10 +463,6 @@ The \gls{cpu} is thus responsible for stepping through the program it's given. I
 \end{compactitem}
 
 Aside from it's registers, the \gls{cpu} needs to interact with system interrupts, and needs to access memory for reading/writing operations.
-
-% TODO: Keep this for implementation?
-%
-% Each opcode (operation code) of the \gls{gb} is one byte long, meaning there could be $2^8=256$ different opcodes. However, there exist 16-bit opcodes, to allow the \gls{cpu} to perform more operations. These 16-bit opcodes always start with \texttt{0xCB}, with the second byte containing what operation is executed. There are also 11 values of the opcode that do nothing, and aren't used in any \glspl{rom}. This brings the total number of operations to $2^8 * 2 - 11 = 501$.
 
 \section{PPU, APU, Joypad}
 
@@ -616,9 +614,10 @@ In the side drawer, the first tab is ``Settings''. It contains general settings 
 	\item the size of the emulator's screen, allowing resizing to two or four times larger.
 	\item a slider to change the volume of the emulator's audio output.
 	\item a palette selector, to change the four hues of the \gls{dmg}'s screen.
+	\item two buttons to uploda the boot \glspl{rom} of the \gls{dmg} and \gls{gbc}. This is needed for users that wish to play with the full start-up screen of the console, as these two \glspl{rom} are copyrighted and cannot be distributed. If they're not provided, the emulator simulates their effect on the system.
 	\item miscellaneous togglable settings, grouped together:
 	\begin{compactitem}
-		\item an option to play with or without the initial boot \gls{rom} of the emulator.
+		\item an option to play with or without the initial boot \gls{rom} of the emulator (a boot \gls{rom} must have been uploaded).
 		\item a toggle to enable frame-blending, meaning for every new frame the output is mixed with the previous frame. This is a nice addition to have, because certain games made certain objects flicker on screen to make them appear translucent (since the flicker wasn't visible to the eye).
 		\item a button to show the performance statistics of the emulator. This is mainly useful when developing the emulator to make sure it is still efficient.
 		\item a toggle to enable the debug view of the emulator, where the currently loaded tileset and background map are displayed (see \ref{fig:debug-view}).
@@ -706,6 +705,84 @@ The user can also customise their keybindings for the emulator, by mapping each 
     \label{fig:keybindings}
 \end{figure}
 
+\section{Emulator-Frontend Interfaces}
+
+To allow the emulator to communicate with the frontend, three components were created, each responsible for part of the output/input. 
+
+\subsection{Screen output handler}
+
+To allow easily displaying graphics data from the emulator on the frontend, a \texttt{Screen} component was created. This highly configurable screen takes multiple inputs, to allow configuring the screen's size, scale, if it has any upscaling filters applied, if it has any color palettes, and if it needs to blend frames together (see figure \ref{fig:screen-params}).
+
+\begin{figure}[h]
+    \begin{minted}{typescript}
+type VideoReceiver = (data: Uint32Array) => void;
+type ScreenProps = {
+    inputRef: MutableRef<VideoReceiver | undefined>;
+    width?: number;
+    height?: number;
+    scale?: number;
+    Filter?: ImageFilter;
+    blending?: boolean;
+    id?: string;
+    palette?: Partial<Record<number, number>>;
+};
+    \end{minted}
+    \caption{Parameters of the \texttt{Screen} component}
+    \label{fig:screen-params}
+\end{figure}
+
+All of the parameters are optional, and use sensible defaults when not specified. The only required parameter is \texttt{inputRef}, a modifiable ``pointer'' to the screen input function. This allows passing data to the screen without re-rendering the whole website. Because pointer's don't exist in TypeScript, what is passed is actually an object with a modifiable \texttt{value} field.
+
+Whenever any parameter changes, a new \textit{render function} is generated, and is set in the given ``pointer''. This function takes as input the graphics data (a \texttt{Uint32Array}\ftnt{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint32Array}, containing ARGB values), and applies the required transformations to it. The function also holds a reference to two backing data buffers, for the previous and the current frame. This allows for blending between frames, and avoids creating new arrays repeatedly, lowering the memory consumption of the screen. The transformations it applies are: 
+
+\begin{enumerate}[itemsep=0mm]
+	\item Roll the buffers, setting the previous frame to the current frame, and the current frame to the newly received frame.
+	\item If needed, apply the colour palette to the input. The palette is a simple map, from source colour to target colour.
+	\item If it's the first frame to be drawn, also set the previous frame to the newly received frame (this avoid blending the new frame with a black frame, since the buffers are initialised with \texttt{0x000000} values).
+	\item If required, blend the previous frame and the current frame.
+	\item Apply the upscale filter to the image (this can be an identity filter, that simply returns the image, or upscale filters like Scale2x and Scale4x).
+	\item The image data is created from the \texttt{Uint32Array}, and drawn on the \texttt{<canvas />}.
+\end{enumerate}
+
+This simple pipeline of functions makes the code really easy to understand and potentially modify, and allows for easy extension, as any filter could be given to the screen and it would work seamlessly. It is also of interest to note that the order in which the operations are applied maximised efficiency. For instance, the filter is applied last, to avoid having to do previous operations like blending on much larger images.
+
+\subsection{Audio output handler}
+
+To output the sound generated by the emulator, a utility class \texttt{AudioPlayer} was made. It is a simple class, that creates an \texttt{AudioContext}\ftnt{https://developer.mozilla.org/en-US/docs/Web/API/AudioContext} instance on creation. This class allows playing sound output from the browser.
+
+A difficulty with playing audio data stems from the fact that audio samples are quite short (they are output every frame, so every $16.6$ milliseconds), and they must be constantly output, with tolerance for small delays in the output. If there happens to be even a small gap between two consecutive samples, a audible pop might play, which results in a very unpleasant experience.
+
+To avoid this, \texttt{AudioPlayer} actually adds a small delay before starting to play audio. This ensures that by the time the first received sample is done playing, a new sample has already been received and queued for output, meaning there are never gaps between samples (except if there is an exceptionally long delay between samples, which shouldn't happen).
+
+A drawback from this solution however is that if samples are received too fast, a delay may create itself, as too many samples are enqued, and new samples need to wait for all the previous ones to be played before being played. To avoid having this delay grow too large, a parameter of \texttt{AudioPlayer} allows setting the max size of the enqueued audio samples (the frontend uses a value of 8) - any samples that would make the queue exceed this size are ignored, meaning the max delay of the playback is $8*\frac{1}{60}=0.13$ seconds, a reasonable delay.
+
+\subsection{Input handler}
+
+To provide a simple way of handling inputs whether the device has a keyboard or uses touch controls, a \texttt{GameInput} component was created. It handles keyboard inputs, via a helper hook\ftnt{https://reactjs.org/docs/hooks-intro.html}, \texttt{useKeys}. To handle touch screen inputs, this component creates buttons mimicking those of the \gls{gb}. These buttons all have the \texttt{mobile-only} class, which is defined in \texttt{main.css} to only be visible when no fine pointer is available on the device (ie. no mouse is detected), as can be seen on figure \ref{fig:css-mobile-only}.
+
+\begin{figure}[h]
+    \begin{minted}{css}
+@media (any-pointer: fine) {
+    .mobile-only {
+        display: none;
+    }
+}
+    \end{minted}
+    \caption{\texttt{mobile-only} CSS class}
+    \label{fig:css-mobile-only}
+\end{figure}
+
+This means that if the user is on a mobile devices, the buttons will show, allowing for input without the need for a keyboard (see figure \ref{fig:ui-mobile-buttons}).
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=5cm]{images/ui-mobile-buttons}\\
+    \caption{Buttons for mobile devices}
+    \label{fig:ui-mobile-buttons}
+\end{figure}
+
+The component itself then takes as a parameter a callback, that is called with the input function created by this component and returns an up to date object with the currently read inputs \texttt{GameBoyInputRead} (see figure \ref{fig:gameboyinput}).
+
 \section{CPU}
 
 The \gls{cpu} is the core of the emulator, and allows running the code from the \gls{rom} by reading the operation code (or opcode) and executing the matching action.
@@ -785,7 +862,7 @@ protected instructionSet: Partial<Record<number, InstructionObject>> = {
 
 \subsection{A cycle accurate CPU}
 
-The Gameboy is a memory-bound system, meaning that it is limited by it's memory accesses. The \gls{cpu} can only execute either one read or one write per \gls{mcyc} \cite[CPU core timing]{gbctr}. The \gls{cpu} also needs to retrieve the opcode for each instruction, which takes an additional cycle, meaning an instruction performing no memory accesses lasts one cycle, and an instruction performing $n$ memory accesses lasts at least $n + 1$ cycles. Note also that the \gls{gb} overlaps the last cycle of the execution with the fetching cycle for the next opcode - this will thus be of importance when implementing the fetching of the opcode.
+The Gameboy is a memory-bound system, meaning that it is limited by it's memory accesses. The \gls{cpu} can only execute either one read or one write per \gls{mcyc} \cite[CPU core timing]{gbctr}. The \gls{cpu} also needs to retrieve the opcode for each instruction, which takes an additional cycle, meaning an instruction performing no memory accesses lasts one cycle, and an instruction performing $n$ memory accesses lasts at least $n + 1$ cycles. Finally, the \gls{gb} overlaps the last cycle of the execution with the fetching cycle for the next opcode - this will thus be of importance when implementing the fetching of the opcode. See figure \ref{fig:ld-instr-timing} for the breakdown of an instruction.
 
 \begin{figure}[h]
 	\centering
@@ -1506,7 +1583,7 @@ We may also want to use this table to compare the performance of this emulator t
     \label{fig:stats-tests-relative}
 \end{figure}
 
-This table is a good indicator of where our emulator, Emmy, performs well and where it doesn't, compared to other \gls{gb} emulators. For instance, it has a really accurate timer, compared to emulators ranked around it. This also emphasizes the fact that its \gls{cpu} is of an accuracy similar to that of the higher accuracy emulators, passing almost 80\% of tests. It also helps see that only very high accuracy emulators manage to pass the \gls{apu} tests. The only outliar seems to be VisualBoyAdvance-M, with an \gls{apu} success rate of 60.7\%. However, when inspecting the test results, we notice that most of the \gls{apu} tests weren't run on it - this is because it doesn't have support for the \texttt{PCM12} and \texttt{PCM34} registers these tests use. If we add the un-run tests to the percentage, we end with 17 tests passed out of 85, or a 20\% success rate, in line with the success rate of similar emulators. This further shows that getting creating an accurate \gls{apu} is challenging, especially given the standards of the used test \glspl{rom}.
+This table is a good indicator of where our emulator, Emmy, performs well and where it doesn't, compared to other \gls{gb} emulators. For instance, it has a really accurate timer, compared to emulators ranked around it. This also emphasizes the fact that its \gls{cpu} is of an accuracy similar to that of the higher accuracy emulators, passing almost 80\% of tests. It also helps see that only very high accuracy emulators manage to pass the \gls{apu} tests. The only outliar seems to be VisualBoyAdvance-M, with an \gls{apu} success rate of 60.7\%. However, when inspecting the test results, we notice that most of the \gls{apu} tests weren't run on it - this is because it doesn't have support for the \texttt{PCM12} and \texttt{PCM34} registers these tests use. If we add the un-run tests to the percentage, we end with 17 tests passed out of 85, or a 20\% success rate, in line with the success rate of similar emulators. This further shows that creating an accurate \gls{apu} is challenging, especially given the standards of the used test \glspl{rom}.
 
 \section{Performance and Usability}
 
@@ -1527,7 +1604,7 @@ As for how to measure the frame time, the frame time of every frame will be summ
 
 From this table we can notice two things. First, it is that \gls{dmg} games run faster than \gls{gbc} games. This can be due to the double speed mode, that forces the emulator to run twice as many instructions, or to the fact that the \gls{ppu} logic with colour is more complex and needs to be optimised. Secondly we may look at the average frame times of these \glspl{rom}. 
 
-The \gls{gb} runs at 60 frames per second, meaning a frame must last at most $\frac{1}{60}=16.6\text{ms}$. We may calculate the maximum speed increase attainable for a frame time via the formula~$\frac{1000}{\text{frame time} * 60}$. For instance, for ``The Legend of Zelda: Link's Awakening'', the maximum speed up could be of $\times 3.79$.
+The \gls{gb} runs at 60 frames per second, meaning a frame must last at most $\frac{1}{60}=16.6\text{ms}$. We may calculate the maximum speed increase attainable for a frame time via the formula~$\frac{1000}{\text{frame time} * 60}$, or $(\frac{1000}{\text{frame time} * 60}-1)*100$ to get an increase percentage. For instance, for ``The Legend of Zelda: Link's Awakening'', the maximum speed increase could be of around 279\%.
 
 \begin{figure}[h]
     \centering
@@ -1536,27 +1613,32 @@ The \gls{gb} runs at 60 frames per second, meaning a frame must last at most $\f
     \textbf{Console} & \textbf{ROM} & \textbf{Frame time} (ms) & \textbf{Speed increase} \\ \hline
 
 	\multirow{2}{*}{\textbf{\gls{dmg}}} 
-	& The Legend of Zelda: Link's Awakening & 4.39 & 3.79 \\\cline{2-4}
-	& \texttt{cpu\_instrs} & 5.43 & 3.07 \\\hline
+	& The Legend of Zelda: Link's Awakening & 4.39 & 279\% \\\cline{2-4}
+	& \texttt{cpu\_instrs} & 5.43 & 207\% \\\hline
 	\multirow{2}{*}{\textbf{\gls{gbc}}} 
-	& The Legend of Zelda: Oracle of Ages & 4.89 & 3.41 \\\cline{2-4}
-	& Alone in the Dark: The New Nightmare & 5.78 & 2.88 \\\hline
+	& The Legend of Zelda: Oracle of Ages & 4.89 & 241\% \\\cline{2-4}
+	& Alone in the Dark: The New Nightmare & 5.78 & 188\% \\\hline
 	
     \end{tabular}
     \caption{Average frame time of different \glspl{rom}}
     \label{fig:frame-time-results}
 \end{figure}
 
-This is a satisfiable value - a speed increase of 300\% is good enough for most uses. Many emulators provide speed increases much superior to this, however this is because these emulators are often written in compiled languages like C++ or Rust, and will thus run much faster than an interpreted language like JavaScript.
+This is a satisfiable value - a speed increase of 200\% is good enough for most uses. Many emulators provide speed increases much superior to this, however this is because these emulators are often written in compiled languages like C++ or Rust, and will thus run much faster than an interpreted language like JavaScript.
 
-Research was made to convert this emulator to AssemblyScript\ftnt{https://www.assemblyscript.org/}, a language similar to TypeScript - the progress so far can be seen on the \texttt{assembly-script} branch\ftnt{https://github.com/N1ark/gbc-emulator/tree/assembly-script}. The advantage of AssemblyScript is that it allows compilation to WebAssembly\ftnt{https://webassembly.org/}, a low-level language made for browsers, ressembling assembly language. It is designed for efficiency, and would thus be a great pick for a browser-based emulator. However, because AssemblyScript targets such a low-level language, many TypeScript constructs are not (yet) available in it, such as arrow functions, or dynamic objects. Although the implemented emulator doesn't use these features extensively and most components were succesfully migrated to AssemblyScript, the \gls{cpu} uses arrow functions for all instructions - a succesful conversion of the entire emulator would thus require a lengthy rewrite of the \gls{cpu}. This project was thus abandoned in favour of additional features in the emulator's core and frontend. An example of \gls{gb} emulator in AssemblyScript is wasmboy\ftnt{https://github.com/torch2424/wasmboy/}. 
+WebAssembly\ftnt{https://webassembly.org/} is a low-level language made for browsers, ressembling assembly language. It is designed for efficiency, and would thus be a great pick for a browser-based emulator as it runs faster~\cite{wasm-faster}. Languages like C, C++ and Rust can be compiled to WebAssembly via tools like emscripten\ftnt{https://emscripten.org/}, allowing for great performance with portable code. Examples of such emulators playable from the browser include GBEmu\ftnt{https://github.com/BlueBlazin/gbemu}, an emulator written in Rust that is compiled to WebAssembly and that can thus be played from a browser.
+
+
+This would however require a full rewrite of the code, since TypeScript and C++ have little in common in terms of syntax. Another simpler alternative to convert the emulator's code to a WebAssembly-compilable language is using AssemblyScript\ftnt{https://www.assemblyscript.org/}, a language similar to TypeScript.
+
+Research has been done to convert the project's code to AssemblyScript, and the progress so far can be seen on the \texttt{assembly-script} branch\ftnt{https://github.com/N1ark/gbc-emulator/tree/assembly-script}. However, because AssemblyScript targets such a low-level language, many TypeScript constructs are not (yet) available in it, such as arrow functions, or dynamic objects. Although the implemented emulator doesn't use these features extensively and most components were succesfully migrated to AssemblyScript, the \gls{cpu} uses arrow functions for all instructions - a succesful conversion of the entire emulator would thus require a lengthy rewrite of the \gls{cpu}. This project was thus abandoned in favour of additional features in the emulator's core and frontend. An example of \gls{gb} emulator in AssemblyScript is wasmboy\ftnt{https://github.com/torch2424/wasmboy/}.
 
 In terms of usability, the presented emulator fullfils most of the specification, with some specifications of lower importance having been left out. These include:
 
 \begin{compactitem}
 	\item The user cannot, currently, download the save of their game (code U4).	 The save file is instead stored in the browser. Some research was done to allow saving the emulator's state to the BESS\ftnt{https://github.com/LIJI32/SameBoy/blob/master/BESS.md} save format, however this required a lot more effort so priority was shifted on other features, as the existing save system was deemed sufficient.
 	\item The emulator's frontend does not provide a way to add breakpoints to the emulation (code U7). This feature was initially supported from the browser's console, but it's implementation wasn't satisfactory. A possible improvement to the emulator would thus be support for such breakpoints, maybe in a format similar to that of the current ``Watch Expressions'' menu.
-	\item The implemented emulator cannot currently be downloaded as a local app (code N3). This could however be added quite easily, using a tool like Electron\ftnt{https://www.electronjs.org/} that allows converting web applications to desktop apps.
+	\item The implemented emulator cannot currently be downloaded as a local app (code N3). This could however be added quite easily, using a tool like Electron\ftnt{https://www.electronjs.org/} that allows converting web applications to desktop apps. Another option is converting the web-app into a Progressive Web App (PWA)\ftnt{https://web.dev/progressive-web-apps/}, allowing users to ``download'' the web-app and use it while offline.
 \end{compactitem}
 
 All of these specifications are however of low importance, and are mainly small quality of life features. Other possible improvements could include more debugging tools (such as a way to inspect the \gls{apu}'s raw output), or more features added to the emulator's core, like support for other \glspl{mbc} (like the MBC6, MBC7, or MMM01 \cite[MBCs]{pandoc}), the real time clock of the MBC3, additional outputs of the \gls{gb} like the Game Boy Printer or the Game Boy Camera \cite{pandoc}, and support for the Link Cable, allowing multiple Gameboys to play together \cite[Serial Data Transfer]{pandoc}.
@@ -1579,13 +1661,29 @@ Although distributing the emulator is legal, distributing the BIOS (Basic Input/
 
 Distributing copyrighted game \glspl{rom} is also not allowed - this is why the user must upload the \gls{rom} they want to use themselves. The software does not upload the \gls{rom}, and simply stores it in local storage.
 
-/section{Integrity}
+\section{Integrity}
 
 This piece of software was developed with integrity, always thinking critically on what was developed, and with no intention to harm others. This report has also been written with honesty, without attempting to withhold information on the resulting software. No acquired data was falsified or modified to fit a narrative.
 
-The produced software is 
+The produced software is also open source, and available at \url{https://github.com/N1ark/gbc-emulator}. This means it can be used by others to create similar emulators, or for educational purposes. Other users may also contribute to the project, or fix issues it has.
 
-\chapter{Conclusion}
+Overall, this software was developed with the British Computer Society's Code of Conduct \& Code of Good Practice\ftnt{https://www.bcs.org/media/2211/bcs-code-of-conduct.pdf} in mind, and all of its relevant rules were followed.
+
+\chapter{Conclusion and Future Work}
+
+\section{Conclusion}
+
+This project helped outline the typical structure of a an emulator, and in particular that of a \glsdesc{gb} emulator. It describes how the console works in detail, what components it is made of, and how they interact with eachother. It showcased optimisation methods for emulating different components of an emulator, like the \gls{cpu} or the system bus. The resulting software is a fully playable \glsdesc{gb} and \glsdesc{gbc} emulator, that has multiple quality of life features to make the experience more pleasant while also providing debugging tools for retro game and emulator developers. This emulator can be played on both computer and mobile devices, and is of good accuracy compared to other existing emulators.
+
+\section{Future Work}
+
+As it stands the emulator has three main properties that could be improved, each independently one of the other.
+
+The first is improving the accuracy of the emulator. As seen in the evaluation of the project, itd \gls{apu} should be reworked. It is currently lackluster, and represents a part of the system that could be improved without requiring a full re-write, as it is self contained. Other small improvements could be done to improve the accuracy of other components like the \glspl{mbc} or the \gls{ppu}, or to add currently unsupported \glspl{mbc} and accessories. All of these improvements can be done separately and in small increments, and don't entail any breaking changes outside of the emulator's core.
+
+A second important point to be improved in the emulator is its performance. As seen in its evaluation, an average maximum of a 200\% speed increase is reachable. To improve the performance of the emulator (which will be needed if more features are to be added), its performance must be improved substantially. Although code optimisations and caching could improve some of the performance issues, a significant bottleneck is the language used itself. If the emulator were to be entirely rewritten using a language such as AssemblyScript, it would likely run much faster. This would be much more time-consuming of a change, and would requiring updating the front-end to work properly with it, but could yield great performance improvements if done properly.
+
+Finally, the third point to improve on this project is it's frontend. Although it has a good range of available features, it could still be improved to be up to par with other technical emulators. More and better debugging tools could be provided to the user, as well as more customisation options, such as new screen filters, a full-sreen mode or support for input macros.
 
 \clearpage
 
