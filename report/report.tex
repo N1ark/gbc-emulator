@@ -282,7 +282,7 @@ Most emulator are typically ``CPU-driven''. This means that the \gls{cpu} is wha
 The \gls{cpu} is thus responsible for stepping through the program it's given. It has 6 different 16-bit registers, with different roles. Some registers' bytes can be accessed independently, operating as two 8-bit registers or one 16-bit register as needed \cite[CPU Registers and Flags]{pandoc}.
 
 \begin{compactitem}
-	\item \texttt{AF}: the accumulator-flag register. Most arithmetic operations can be done on \texttt{A}. \texttt{F} holds the \gls{cpu}'s flags, and can only be altered through arithmetic operations.
+	\item \texttt{AF}: the accumulator-flag register. Most arithmetic operations can be done on \texttt{A}. \texttt{F} holds the \gls{cpu}'s flags, and can only be altered indirectly, as a consequence of arithmetic operations.
 	\item \texttt{PC}: the program counter register. It cannot be accessed directly, and is used to store the current position of the \gls{cpu} in the program. It can be altered via \texttt{CALL}, \texttt{RET}, \texttt{JP} operations, for instance.
 	\item \texttt{SP}: the stack pointer register. It can be modified or incremented, and stores the pointer to the top of the ``stack''. A typical use of the stack is for handling functions, by pushing the current address to the stack whenever a procedure is called, and popping it back to the stack pointer when it returns.
 	\item \texttt{BC}, \texttt{DE}: two simple registers that can be used for arithmetic operations.
@@ -293,11 +293,30 @@ Aside from it's registers, the \gls{cpu} needs to interact with system interrupt
 
 \section{PPU, APU, Joypad}
 
-The \glsfirst{ppu} is a complex part of the Gameboy, that handles outputting the game state to a $160 \times 144$ screen, that may either be monochrome on the \gls{dmg} or with colour support on the \gls{gbc}. It may raise interrupts, and needs to be able to access memory, due to it being responsible for the \glsfirst{oam} -- a feature allowing transfer of data from an arbitrary location in memory.
+The \glsfirst{ppu} is a complex part of the Gameboy, that handles outputting the game state to a $160 \times 144$ screen, that may either be monochrome on the \gls{dmg} or with colour support on the \gls{gbc}. It may raise interrupts, and needs to be able to access memory, due to it being responsible for the \glsfirst{oam} \glsfirst{dma} -- a feature allowing transfer of data from an arbitrary location in memory \cite[OAM DMA Transfer]{pandoc}.
 
-The \glsfirst{apu} is responsible for playing the audio output of the console. It has a few registers to control it, as well as a short memory area called the wave RAM. It is partially controlled by the timer, but is otherwise independent. It's sound output is derived from four separate channels: two square wave channels, a custom wave channel, and a noise channel \cite[Audio]{pandoc}. These channels are here modelled as separate entities, but are purely internal.
+The behaviour of the \gls{ppu} changes significantly between the \gls{dmg} and the \gls{gbc}: it can, for the latter, support colours, and it also supports \gls{vram} bank switching, a feature the \gls{dmg} lacks \cite[CGB Registers]{pandoc}. It also has an \gls{oam} \gls{dma} mechanism that is quite complex. As such, to make maintenance easier, the \gls{ppu} is split into different smaller classes. This is not visible to the rest of the system, as only the \gls{ppu} is exposed to it. See figure \ref{fig:ppu-class-diagram} for a simplified class diagram of its structure.
 
-The former two components need to output information to the user, either graphic or audio data. To do this in a portable way, the emulator will expose an interface, that can be implemented by the front-end. This allows the emulator core to be platform-agnostic, and be easily portable.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{diagrams/ppu-class-diagram.drawio.pdf}
+    \caption{Simplified class diagram of the PPU}
+    Note most private fields and methods have been excluded for readability purposes
+    \label{fig:ppu-class-diagram}
+\end{figure}
+
+The \glsfirst{apu} is responsible for playing the audio output of the console. It has a few registers to control it, as well as a short memory area called the wave RAM. It's timings are controlled by the timer, which can be accessed via a memory read of the system. It's sound output is derived from four separate channels: two square wave channels, a custom wave channel, and a noise channel \cite[Audio]{pandoc}. These channels are here modelled as separate entities, but are purely internal (see figure \ref{fig:apu-class-diagram}).
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=11cm]{diagrams/apu-class-diagram.drawio.pdf}
+    \caption{Simplified class diagram of the APU}
+    Note most private fields and methods have been excluded for readability purposes
+    \label{fig:apu-class-diagram}
+\end{figure}
+
+
+The former two components need to output information to the user, either graphic or audio data. To do this in a portable way, the emulator will expose an interface, that can be implemented by the front-end. This allows the emulator core to be platform-agnostic, and be easily re-usable.
 
 The joypad, on the other hand, is the one input component the \gls{gb} has. It contains 4 directional arrow buttons, and 4 input buttons: A, B, start and select (see \ref{fig:gb-front}). To use these inputs, the \gls{cpu} needs to use two different registers.
 
@@ -326,9 +345,9 @@ The timer, responsible for incrementing a counter (the \texttt{DIV}) at a set fr
 
 \subsection{Interrupts}
 
-The interrupt system, that allows components such as the timer or the \gls{ppu} to interrupt the \gls{cpu} to run another process. It can also be enabled and disabled by the \gls{cpu}, with the \texttt{EI} and \texttt{DI} instructions.
+The interrupt system, that allows components such as the timer or the \gls{ppu} to interrupt the \gls{cpu} to run another process. It can also be enabled and disabled by the \gls{cpu}, with the \texttt{EI} and \texttt{DI} instructions \cite[Interrupts]{pandoc}.
 
-This sub-system is designed as a separate component to reduce coupling between other components, and instead have a small object that can be passed to components as needed.
+This sub-system is designed as a separate component to reduce coupling between other components, to instead have a small object that can be passed to components as needed.
 
 \subsection{MBC}
 
@@ -354,7 +373,7 @@ The \texttt{Register} class implements \texttt{Addressable}, but ignores the add
 
 \chapter{Implementation}
 
-The project uses Preact\ftnt{https://preactjs.com/}, a light-weight alternative to the more popular React\ftnt{https://reactjs.org/} framework. Preact was chosen because the front-end of the web-app is extremely lightweight, so a smaller framework with less features is enough. This also avoids bloating the app with a heavy framework such as React: its GZipped and minified size is around 31.8Kb, while Preact is only 4Kb (87\% less).
+The project uses Preact\ftnt{https://preactjs.com/}, a light-weight alternative to the more popular React\ftnt{https://reactjs.org/} framework. Preact was chosen because the front-end of the web-app is extremely lightweight, so a smaller framework with less features is enough. This also avoids bloating the app with a heavy framework such as React: its GZipped and minified size is around 31.8Kb, while Preact is only 4Kb (87\% less) \cite{preact_vs_react_size}.
 
 The language used for the project is TypeScript\ftnt{https://www.typescriptlang.org/}, a typed version of JavaScript. This is essential for the project, as ensuring the correctness of code can be extremely hard without proper typing constraints, especially as a project grows in size.
 
