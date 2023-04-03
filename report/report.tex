@@ -35,13 +35,11 @@
     urlcolor=blue,
 }
 
-% Glossary entry
+% glossary entries
 \usepackage[acronym,toc,nonumberlist,nogroupskip]{glossaries}
 \makenoidxglossaries
+\glsdisablehyper
 \loadglsentries{glossary}
-
-% setup debug box command for places things are missing
-\newcommand{\todo}[1]{\fbox{\parbox{\textwidth}{\textbf{TO-DO:} #1}}}
 
 % add footnotes without the \footnote{\url{...}} command
 \newcommand{\ftnt}[1]{\footnote{~See \url{#1}}}
@@ -74,17 +72,17 @@
 
 Emulators are an area of computer science widely used today. Either implemented in hardware or software, they allow replicating the behaviour of one system on another. One of its applications is video game emulation, where a computer simulates a game console (usually a retro console). This allows users to play games that either may not be obtainable in stores anymore, or made for consoles that don't function properly anymore. A wide range of emulators already exist for most consoles. Emulation in general is also widely used in developing new systems, and is an active area of computer science.
 
-This project will seek to create a new emulator for the Gameboy allowing users to play retro games on their computer or mobile device, through the browser. This report will document how the original console works and how the emulator imitates this behaviour to the best accuracy possible, as well as comparing the resulting emulator with other existing ones.
+This project will seek to create a new emulator for the Game Boy allowing users to play retro games on their computer or mobile device, through the browser. This report will document how the original console works and how the emulator imitates this behaviour to the best accuracy possible, as well as comparing the resulting emulator with other existing ones.
 
 \section{Scope}
 
-The scope of this project is creating a new Gameboy and Gameboy Color emulator, working for browsers. Emulation will be as accurate as achievable with the time available - there may be minor inacuracies in the end product. Extra peripherals and features of the console may be omitted, to allow more focus to be put on the core part of the console.
+The scope of this project is creating a new Game Boy and Game Boy Color emulator, working for browsers. Emulation will be as accurate as achievable with the time available - there may be minor inaccuracies in the end product. Extra peripherals and features of the console may be omitted, to allow more focus to be put on the core part of the console.
 
 The emulator will be usable across a range of devices. Debugging tools and additional features may be provided to the user to let them customise their experience to their needs.
 
 \section{Objectives}
 
-The resulting software will allow users to open a game file for the gameboy - also called a ROM - and play it. They may use the emulator on a computer, controlling the console via the keyboard, or on a touch device, using on-screen buttons. The emulated features of the emulator include proper rendering of the screen, simulating the audio of the console, the different buttons, and support for a variety of chip controllers for game cartridges.
+The resulting software will allow users to open a game file for the Game Boy - also called a ROM - and play it. They may use the emulator on a computer, controlling the console via the keyboard, or on a touch device, using on-screen buttons. The emulated features of the emulator include proper rendering of the screen, simulating the audio of the console, the different buttons, and support for a variety of chip controllers for game cartridges.
 
 The frontend of the emulator may also contain additional quality of life features, such as custom themes, save states, and debugging options allowing to inspect the state of the Gameboy - a feature vital to emulator developers and retro game developers.
 
@@ -94,25 +92,27 @@ The frontend of the emulator may also contain additional quality of life feature
 
 An emulator is ``hardware or software that permits programs written for one computer to be run on another computer'' \cite{emulator_def}. The imitated computer is the \textit{guest}, and the one that imitates is the \textit{host}. Emulators are nowadays mainly found in the form of software, and have many different uses, from preservation to hardware development.
 
-Emulation was technically born with the first computers: the very first computer, the Colossus made in 1941, was built to imitate the Enigma machine \cite{emulator_origin}. However emulation was properly studied towards the end of the twentieth century, when computing power started to steadily increase. One of the earliest instances of emulation as an actual feature is with the IBM System/360. This computer supported emulation of previous models, such as the IBM 709, 7090, 7094 and 7094 IIx \cite{ibm_emulation}.
+Emulation was born with the first computers: the very first computer, the Colossus made in 1941, was built to imitate the Enigma machine \cite{emulator_origin}. However emulation was properly studied in the 1980s, when computing power started to steadily increase. One of the earliest instances of emulation as an actual feature is with the IBM System/360. This computer supported emulation of previous models, such as the IBM 709, 7090, 7094 and 7094 II \cite{ibm_emulation}.
 
-Emulation is also vital for preservation: as transistors and motherboards age, old systems become unusable, and with them the software they ran. Emulating these systems is often the only future-proof and sustainable way to keep this software usable.
+Emulation is also vital for preservation: as transistors and motherboards age, old systems become unusable, and with them the software they ran.  Companies may also stop producing the hardware to run this software on. Emulating these systems is often the only future-proof and sustainable way to keep this software usable \cite{emu_preservation}.
 
-Finally, another common use for emulation is virtual machines. These programs allow running another \gls{os} on a computer, which can be used for instance when developing for other systems, without needing to use the physical device directly, for instance when developing a Windows-compatible app with a Linux computer.
+Finally, another common use for emulation is virtual machines. These programs allow running another \gls{os} on a computer, which can be used for instance when developing for other systems, without needing to use the physical device directly, for instance when developing a Windows-compatible app with a Linux computer. In the case where the architectures of the guest and the host are the same, we call this \textit{virtualisation} \cite{emu_vs_virtu}. Virtualisation is nowadays extremely common, with tools like Docker\ftnt{https://www.docker.com/}, that allow multiple virtualised instances of computer systems running on the same host. This typically allows for great portability, as the same infrastructure can be copied and ran anywhere.
 
 \section{Video Game Emulation}
 
-Video game emulation is the art of emulation applied to video game hardware systems. This allows the host to run games destined for the original console. This usually requires precise understanding of the console's hardware and functioning, as games may rely on specific behaviours and edge cases to function. This task is rendered harder by the fact that often game consoles are poorly documented, as they are proprietary hardware and programmer guides written for them cannot be legally distributed.
+Video game emulation is the art of emulation applied to video game hardware systems. This allows the host to run games destined for the original console. This usually requires precise understanding of the console's hardware and functioning, as games may rely on specific behaviours and edge cases to function. This task is rendered harder by the fact that the only legally available source of information on these consoles comes from research and reverse-engineering done by hobbyists, and doesn't come from an official source, as it is proprietary hardware.
 
-Video game emulation started in the 90s when computers were powerful enough to properly simulate console systems. Although precise dates are hard to get, the first console emulators seem to be either from 1990 or 1993 \cite{first_nes_emu}, and were able to run some NES games. The first Gameboy emulators were in the late 90s, with the Virtual GameBoy\ftnt{http://fms.komkon.org/VGB/} in 1995 and NO\$GMB\ftnt{https://problemkaputt.de/gmb.htm} in 1997 (although it's history page\ftnt{https://problemkaputt.de/gmbhist.htm} seems to indicate development started in 1993) \cite{first_gb_emus}.
+Video game emulation started in the 90s when computers were powerful enough to properly simulate console systems. Although precise dates are hard to get, the first console emulators seem to be either from 1990 or 1993 \cite{first_nes_emu}, and were able to run some NES games. The first Gameboy emulators were in the late 90s, with the Virtual GameBoy\ftnt{http://fms.komkon.org/VGB/} in 1995 and NO\$GMB\ftnt{https://problemkaputt.de/gmb.htm} in 1997 (although its history page\ftnt{https://problemkaputt.de/gmbhist.htm} seems to indicate development started in 1993) \cite{first_gb_emus}.
 
 The original game files and assembled code for video games is copyrighted material, and is referred to as the \gls{rom} of the game. Although distributing these \glspl{rom} is usually illegal, there also exist copyright free \glspl{rom}: games created by developers that chose to license them under Creative Commons licenses, for instance. Websites such as Retro Veteran\ftnt{https://www.retroveteran.com/category/nintendo-game-boy-color/} host wide collections of legal \glspl{rom}.
 
-\section{Gameboy, Gameboy Color}
+Official emulators also exist, and are developed by the console manufacturers. These usually only allow playing from a selection of games, limiting options. The reason for this is that they are built to emulate these specific games, rather than the console as a whole, meaning games outside of the catalogue will often not work. They are thus usually less accurate than unofficial emulators - this is the case of the Virtual Console, the official emulator of the Nintendo 3DS, that fails many Game Boy test ROMs \cite[Test ROMs]{gbdev_wiki}.
 
-The \gls{gb} is an 8-bit handheld video game console, released in 1989. It has a small $160 \times 144$ pixel screen, and has a Sharp LR35902 as its \gls{cpu}, clocked at 4.19MHz \cite[Specifications]{pandoc}. In 1998, the \gls{gbc} was then released. Seen as the successor of the \gls{gb}, it contains a screen of the same resolution, but supporting colour, from a palette of 32768 options (15 bits per color). It contains the same \gls{cpu} as its predecessor, a Sharp LR35902, with now two modes: a 4.19MHz mode and a 8.38MHz mode (double-speed mode). This allows the \gls{gbc} to be backwards compatible with most \gls{gb} games - there are a few exceptions to this, games that used hardware bugs of the original \gls{gb} that were fixed in the \gls{gbc}.
+\section{Game Boy, Game Boy Color}
 
-From an emulation perspective, the \glsdesc{gbc} can thus be seen as an extension of the Game Boy - it has an identical CPU (although with a toggle-able double speed mode), and most of the memory layout is identical. To keep the remaining of this document simple, if not stated, ``GB'' will refer to both the original \glsdesc{gb} and the \glsdesc{gbc}, as they are very similar. \gls{dmg} refers to the original \glsdesc{gb} model.
+The \gls{gb} is an 8-bit handheld video game console, released in 1989. It has a small $160 \times 144$ pixel screen, and has a Sharp LR35902 as its \gls{cpu}, clocked at 4.19MHz \cite[Specifications]{pandoc}. In 1998, the \gls{gbc} was then released. Seen as the successor of the \gls{gb}, it contains a screen of the same resolution, but supporting colour, from a palette of 32768 options (15 bits per colour). It contains the same \gls{cpu} as its predecessor, a Sharp LR35902, with now two modes: a 4.19MHz mode and a 8.38MHz mode (double-speed mode). This allows the \gls{gbc} to be backwards compatible with most \gls{gb} games - there are a few exceptions to this, games that used hardware bugs of the original \gls{gb} that were fixed in the \gls{gbc} \cite[STAT IRQ glitches]{bugs_in_emul}.
+
+From an emulation perspective, the \glsdesc{gbc} can thus be seen as an extension of the Game Boy - it has an identical CPU (although with a toggle-able double speed mode), and most of the memory layout is identical. To keep the remaining of this document simple, if not stated, ``GB'' will refer to both the original \glsdesc{gb} and the \glsdesc{gbc}, as they are very similar. \gls{dmg} refers exclusively to the original \glsdesc{gb} model.
 
 \section{Existing Literature}
 
@@ -122,7 +122,7 @@ The \glsdesc{gb} is one of the best documented consoles for emulation, and an ar
 
 \begin{compactitem}
     \item Pandocs\ftnt{https://gbdev.io/pandocs/} is a technical reference of how the \gls{gb} works. It is extremely complete and covers a wide range of topics, so it is useful to get a global view of a problem. It is one of the most referenced pieces of literature on the console.
-    \item GB CPU Instructions\ftnt{https://meganesu.github.io/generate-gb-opcodes/} is a table containing all instructions the \gls{gb} \gls{cpu} has, as well as information on the amount of cycles taken by the instruction, the bytes of memory used, the flags affected by the operation, and a description of the instruction.
+    \item GB CPU Instructions\ftnt{https://meganesu.github.io/generate-gb-opcodes/} is a table containing all instructions its \gls{cpu} has, as well as information on the amount of cycles taken by the instruction, the bytes of memory used, the flags affected by the operation, and a description of the instruction.
     \item Gameboy Complete Technical Reference\ftnt{https://gekkio.fi/files/gb-docs/gbctr.pdf} (GBCTR) is an unfinished document that contains very detailed information on the \gls{cpu} and other components of the \gls{gb}. Although incomplete, it provides a much lower-level view of the details of the \gls{gb} (compared to Pandocs), making it useful to emulate very specific behaviour like the cycle-by-cycle timing of the CPU.
     \item GB dev wiki\ftnt{https://gbdev.gg8.se/wiki/} is a wiki containing additional information on the \gls{gb}, including guides to making games and explanations on some hardware quirks, and in particular a very precise description of the \gls{apu}.
 \end{compactitem}
@@ -135,29 +135,29 @@ A wide range of emulators for the \gls{gb} and \gls{gbc} already exist, many of 
     \item Game Boy Crust\ftnt{https://github.com/mattbruv/Gameboy-Crust} is a simple \gls{gb} emulator written in Rust. It is quite incomplete but has a comprehensive structure, so it's a good project to first figure out how emulators work.
     \item AccurateBoy\ftnt{https://github.com/Atem2069/accurateboy} is a highly accurate emulator, in particular for its \gls{ppu} that has pixel-perfect accuracy.
     \item oxideboy\ftnt{https://github.com/samcday/oxideboy} is another \gls{gb} emulator written in Rust, that is much more complete and helpful for some edge cases.
-    \item SameBoy\ftnt{https://github.com/LIJI32/SameBoy} is one of the most accurate open source \gls{gb} and \gls{gbc} emulators, written in C. It is much more technically complex but still useful to understand edge cases, especially since it is the emulator I use and compare mine with.
+    \item SameBoy\ftnt{https://github.com/LIJI32/SameBoy} is one of the most accurate open source \gls{gb} and \gls{gbc} emulators, written in C. It is much more technically complex but still useful to understand edge cases, especially since it is the emulator used as a reference when developing this project.
     \item Mooneye GB\ftnt{https://github.com/Gekkio/mooneye-gb} is a \gls{gb} research emulator written in Rust. It passes most of the Mooneye test ROMs, making it helpful when encountering issues with these tests.
-    \item GameBoy-Online\ftnt{https://github.com/taisel/GameBoy-Online/} is a high-accuracy JavaScript emulator, that I used when unsure on how to interface the emulator with the browser (notably for the \gls{apu}).
-    \item Gameboy.js\ftnt{https://github.com/juchi/gameboy.js/} is another JavaScript emulator. It is fairly simply and inaccurate, but is easily hackable. As such it's the emulator I used when starting the emulator, to compare mine with.
-    \item rboy\ftnt{https://github.com/mvdnes/rboy} is an emulator written in Rust, that I used when developing the \gls{apu} to compare mine with, as it passes some test \glspl{rom} I struggled with.
+    \item GameBoy-Online\ftnt{https://github.com/taisel/GameBoy-Online/} is a high-accuracy JavaScript emulator, that is particularly useful to understand how to interface the emulator with the browser (notably for the \gls{apu}).
+    \item Gameboy.js\ftnt{https://github.com/juchi/gameboy.js/} is another JavaScript emulator. It is fairly simply and inaccurate, but is easily hackable, making it useful when starting a new emulator to compares execution traces.
+    \item rboy\ftnt{https://github.com/mvdnes/rboy} is an emulator written in Rust, that was used when developing the \gls{apu}, as it passes some complex test \glspl{rom} with quite simple code.
 \end{compactitem}
 
-The 8th of February 2023, Nintendo announced they are releasing a \glsdesc{gb} and \glsdesc{gbc} emulator on the Nintendo Switch, via the Nintendo Switch Online subscription \cite{switch_gb_emu}. This proves the relevance of this kind of emulator, as new official ones are still being released today, and people still look forward to playing with them.
+The 8th of February 2023, Nintendo announced the release of a \glsdesc{gb} and \glsdesc{gbc} emulator on the Nintendo Switch, via the Nintendo Switch Online subscription \cite{switch_gb_emu}. This proves the relevance of this kind of emulator, as new official ones are still being released today, and people still look forward to playing with them.
 
 \subsection{Gameboy Test ROMs}
 \label{sec:gb-test-roms}
 
-A core set of resources to develop an emulator is the test \glspl{rom} for that console. These are valid source code for the console, that instead of playing a game will run a set of tests on the console. These tests are first written to pass on the physical console itself, and are then used to ensure they also pass on the emulator. This means issues in specific components can be easily diagnosed (so long as the rest of the emulator responsible for running the test \gls{rom} works itself). These test \glspl{rom} also have the advantage of being open source, meaning their source code can be referred to, to understand what they expect of the console.
+A core set of resources to develop an emulator are test \glspl{rom}. These are \glspl{rom} that instead of playing a game will run a series of tests on the console. These tests are first written to pass on the physical console itself, and are then used to ensure they also pass on the emulator. This means issues in specific components can be easily diagnosed (so long as the rest of the emulator responsible for running the test \gls{rom} works itself). These test \glspl{rom} also have the advantage of being open source, meaning their source code can be referred to in order to understand what they expect of the console.
 
-An other advantage to using test \gls{rom} is that they tend to re-use the same framework across a given test suite to report results. This means the result of the test is usually logged somewhere in the console, and testing can easily be automated by inspecting specific registers/memory addresses, rather than having to store an ``expect result'' image for each test.
+An other advantage of using test \glspl{rom} is that they tend to re-use the same framework across a given test suite to report results. This means testing can easily be automated over multiple tests by inspecting specific registers/memory addresses, rather than having to store an ``expected result'' image for each test.
 
 The test \glspl{rom} used for this project are:
 
 \begin{compactitem}
-    \item Blaarg test \glspl{rom}\ftnt{https://github.com/retrio/gb-test-roms/} are some of the most well-known and used \gls{gb} test \glspl{rom}. They include tests for the \gls{cpu}, the timings of instructions, and some other functionality.
-    \item Mooneye test \glspl{rom}\ftnt{https://github.com/Gekkio/mooneye-test-suite} is a very complete test suite, that verifies most components of the \gls{gb}: \gls{cpu} instructions, memory timings of specific instructions, behaviour of \glspl{mbc}, timing of the \gls{oam} \gls{dma}, \gls{ppu} timings, timer timings, etc.
-    \item Acid Test (\gls{dmg}\ftnt{https://github.com/mattcurrie/dmg-acid2}, \gls{gbc}\ftnt{https://github.com/mattcurrie/cgb-acid2}) is a test that verifies the \gls{ppu} of the \gls{gb} displays data properly (to line-rendering accuracy), for both \glsdesc{gb} and \glsdesc{gbc} displays.
-    \item SameSuite\ftnt{https://github.com/LIJI32/SameSuite/} is a test suite that is valuable for its \gls{apu} tests: it uses the PCM12 and PCM34 registers exclusive to the \gls{gbc} to inspect the exact ouput of the \gls{apu} (whereas other test \glspl{rom} tend to inspect the on/off status of the channels, which is much less accurate).
+    \item Blaarg test \glspl{rom}\ftnt{https://github.com/retrio/gb-test-roms/} are some of the most well-known and used \gls{gb} test \glspl{rom}. They include tests for the \gls{cpu}, the timings of instructions, hardware bugs and the \gls{apu}.
+    \item Mooneye test \glspl{rom}\ftnt{https://github.com/Gekkio/mooneye-test-suite} is a very complete test suite, that verifies most components of the \gls{gb}: \gls{cpu} instructions, memory timings of specific instructions, behaviour of \glspl{mbc}, timings of the \gls{apu}, \gls{dma}, \gls{ppu} and timer.
+    \item Acid Test (\gls{dmg}\ftnt{https://github.com/mattcurrie/dmg-acid2}, \gls{gbc}\ftnt{https://github.com/mattcurrie/cgb-acid2}) is a test that verifies that the \gls{ppu} of the \gls{gb} displays data properly (to line-rendering accuracy), for both \glsdesc{gb} and \glsdesc{gbc} displays.
+    \item SameSuite\ftnt{https://github.com/LIJI32/SameSuite/} is a test suite that is valuable for its \gls{apu} tests: it uses the \texttt{PCM12} and \texttt{PCM34} registers exclusive to the \gls{gbc} to inspect the exact ouput of the \gls{apu} (whereas other test \glspl{rom} tend to inspect the on/off status of the channels, which is much less accurate).
 \end{compactitem}
 
 \chapter{Requirements and Specification}
@@ -169,12 +169,12 @@ The test \glspl{rom} used for this project are:
 \begin{enumerate}[start=1,label=U\arabic*.]
     \item Run \glsdesc{gb} games to a satisfiable fidelity, with proper rendering and controls emulation.
     \item Run \glsdesc{gbc} games to a satisfiable fidelity, with proper rendering and controls emulation.
-    \item Allow the user to run \gls{gb} and \gls{gbc} games for both a \glsdesc{gb} and a \glsdesc{gbc} (ie. allow using a \gls{gbc} for a \texttt{.gbc} file, and a \gls{gb} for a \texttt{.gb} file).
+    \item Allow the user to run \gls{gb} and \gls{gbc} games on both  \glsdesc{gb} and a \glsdesc{gbc}.
     \item Allow the user to save the state of the game, to continue their playthrough later. The state can simply be saved as a downloaded file, and re-uploaded later to continue the game.
     \item Allow the user to change the speed at which the game is played: double speed mode, half speed mode, etc.
     \item Have some debug functionality, to inspect the state of the console at any given time.
     \item Allow users to pause the console, and add breakpoints to stop execution at specific moments.
-    \item Allow the user to switch between rendering modes (nearest-neighbour, LCD display, scale2, etc.)
+    \item Allow the user to switch between rendering modes (nearest-neighbour, LCD display, Scale2x, etc.)
     \item Allow the user to switch the colour palette of the \gls{dmg} emulation.
 \end{enumerate}
 
@@ -195,7 +195,7 @@ The test \glspl{rom} used for this project are:
     \item The emulator should be accessible on computers through a web browser equipped with a recent version of JavaScript.
     \item The emulator should be accessible on mobile devices through a web browser equipped with a recent version of JavaScript.
     \item The emulator should be accessible on computers through a standalone app.
-    \item Maximise the tests passed by the emulator (see \nameref{sec:gb-test-roms})
+    \item Maximise the tests passed by the emulator (see \nameref{sec:gb-test-roms}).
     \item Have the code be well documented, allowing new-comers to the project and to \gls{gb} emulation to easily understand what is going on - if possible with links to relevant \glsdesc{gb} emulation resources.
 \end{enumerate}
 
@@ -212,12 +212,12 @@ The test \glspl{rom} used for this project are:
     U1 & User can upload a \gls{gb} \gls{rom} file (\texttt{.gb}), and the emulator will run the game. The keyboard can be used to control the game, and the output is displayed. & High \\ \hline
     U2 & User can upload a \gls{gbc} \gls{rom} file (\texttt{.gbc}), and the emulator will run the game. The keyboard can be used to control the game, and the output is displayed. & Medium \\ \hline
     U3 & User can upload a \gls{gb} \gls{rom} file (\texttt{.gb}). The user can switch between a \gls{dmg} and a \gls{gbc} emulator. & Medium \\ \hline
-    U4 & User can press a button to download a save of their game (or, alternatively, the save can be stored inside the browser with a technology like IndexedDB\ftnt{https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API}) & Low \\ \hline
+    U4 & User can press a button to download a save of their game (or, alternatively, the save can be stored inside the browser with a technology like IndexedDB\ftnt{https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API}). & Low \\ \hline
     U5 & User can select the speed of emulation, to dynamically accelerate/decelerate the game. & Medium \\ \hline
     U6 & User can see debug information of the emulator. This information includes the current tileset, background map, time to draw a frame, and register information. & Low \\ \hline
     U7 & User can pause the console emulation through a button. They can also input conditions for which the console should break execution. & Low \\ \hline
     U8 & User can dynamically switch the rendering filter via a dropdown button. & Low \\ \hline
-    U9 & User can dynamically switch the colour palette of the GameBoy via a dropdown button. & Low \\ \hline
+    U9 & User can dynamically switch the colour palette of the \gls{gb} via a dropdown button. & Low \\ \hline
 
     F1 & A \gls{rom} file can be uploaded, is transformed into an \texttt{UInt8Array} (because the \gls{gb} is an 8-bit system), and the appropriate object is created to run the code. & High \\ \hline
     F2 & Different components exists as different classes, respecting typical OOP principles such as encapsulation and inheritance when relevant. & High \\ \hline
@@ -229,7 +229,7 @@ The test \glspl{rom} used for this project are:
     N1 & A deployed version of the web-app is accessible on a desktop browser and provides full functionality, via keyboard and mouse inputs. & High \\ \hline
     N2 & A deployed version of the web-app is accessible on a mobile device browser and provides full functionality, via touch controls. & Medium \\ \hline
     N3 & A downloadable version of the web-app can be used on a computer and provides full functionality, via keyboard and mouse inputs. & Low \\ \hline
-    N4 & As many possible tests as possible should be passed, while ensuring previously passing tests don't start failing. & Medium \\ \hline
+    N4 & As many possible tests as possible should be passed, while ensuring previously passing tests do not fail. & Medium \\ \hline
     N5 & Main methods and variables must be properly documented, and have links to appropriate online resources to documentation about said element. & High \\ \hline
 \end{xltabular}
 
@@ -237,7 +237,7 @@ The test \glspl{rom} used for this project are:
 
 In this chapter we will outline the main components of the Gameboy and of this emulator. For the different \gls{gb} components, we will briefly go over their role, and how they interact with other components and to what end.
 
-The emulator's name will be ``Emmy'', short for emulator\footnote{The emulator was named before the realization that an emulator-related project called ``Emmy'' already exists~\cite{emmy_stanford}. These two projects are unrelated.}. 
+The emulator's name will be ``Emmy'', short for emulator\footnote{The emulator was named before the realisation that an emulator-related project called ``Emmy'' already exists~\cite{emmy_stanford}. These two projects are unrelated.}.
 
 In emulators, the different components are usually split in three parts:
 \begin{compactitem}
@@ -295,7 +295,7 @@ Aside from it's registers, the \gls{cpu} needs to interact with system interrupt
 
 \section{PPU, APU, Joypad}
 
-The \glsfirst{ppu} is a complex part of the Gameboy, that handles outputting the game state to a $160 \times 144$ screen, that may either be monochrome on the \gls{dmg} or with color support on the \gls{gbc}. It may raise interrupts, and needs to be able to access memory, due to it being responsible for the \glsfirst{oam} - a feature allowing transfer of data from an arbitrary location in memory.
+The \glsfirst{ppu} is a complex part of the Gameboy, that handles outputting the game state to a $160 \times 144$ screen, that may either be monochrome on the \gls{dmg} or with colour support on the \gls{gbc}. It may raise interrupts, and needs to be able to access memory, due to it being responsible for the \glsfirst{oam} - a feature allowing transfer of data from an arbitrary location in memory.
 
 The \glsfirst{apu} is responsible for playing the audio output of the console. It has a few registers to control it, as well as a short memory area called the wave RAM. It is partially controlled by the timer, but is otherwise independent. It's sound output is derived from four separate channels: two square wave channels, a custom wave chanel, and a noise channel \cite[Audio]{pandoc}. These channels are here modelled as separate entities, but are purely internal.
 
@@ -485,7 +485,7 @@ The user-defined function is then repeatedly invoked, and the result output belo
 \subsection{Test ROMs}
 \label{sec:testing-ui}
 
-To ensure emulators work properly, a variety of test \glspl{rom} have been made, that test most aspects of the \gls{gb} (see \ref{sec:gb-test-roms}). The front-end of the emulator supports running a large number of them in an automated way (see \ref{fig:}). The user can select the group of tests desired by ticking the associated, or select/unselect everything by pressing the top right button. They can then run them by pressing the ``Test'' button, making them run internally (without receiving any input our outputting anything directly). The status of each individual test is displayed, and the user can click on the test name to run it on the main emulator, for further debugging or inspection.
+To ensure emulators work properly, a variety of test \glspl{rom} have been made, that test most aspects of the \gls{gb} (see \nameref{sec:gb-test-roms}). The front-end of the emulator supports running a large number of them in an automated way (see \ref{fig:}). The user can select the group of tests desired by ticking the associated, or select/unselect everything by pressing the top right button. They can then run them by pressing the ``Test'' button, making them run internally (without receiving any input our outputting anything directly). The status of each individual test is displayed, and the user can click on the test name to run it on the main emulator, for further debugging or inspection.
 
 \begin{figure}[h]
     \centering
@@ -536,11 +536,11 @@ The user can also customise their keybindings for the emulator, by mapping each 
 
 \section{Emulator-Frontend Interfaces}
 
-To allow the emulator to communicate with the frontend, three components were created, each responsible for part of the output/input. 
+To allow the emulator to communicate with the frontend, three components were created, each responsible for part of the output/input.
 
 \subsection{Screen output handler}
 
-To allow easily displaying graphics data from the emulator on the frontend, a \texttt{Screen} component was created. This highly configurable screen takes multiple inputs, to allow configuring the screen's size, scale, if it has any upscaling filters applied, if it has any color palettes, and if it needs to blend frames together (see figure \ref{fig:screen-params}).
+To allow easily displaying graphics data from the emulator on the frontend, a \texttt{Screen} component was created. This highly configurable screen takes multiple inputs, to allow configuring the screen's size, scale, if it has any upscaling filters applied, if it has any colour palettes, and if it needs to blend frames together (see figure \ref{fig:screen-params}).
 
 \begin{figure}[h]
     \begin{minted}{typescript}
@@ -562,7 +562,7 @@ type ScreenProps = {
 
 All of the parameters are optional, and use sensible defaults when not specified. The only required parameter is \texttt{inputRef}, a modifiable ``pointer'' to the screen input function. This allows passing data to the screen without re-rendering the whole website. Because pointer's don't exist in TypeScript, what is passed is actually an object with a modifiable \texttt{value} field.
 
-Whenever any parameter changes, a new \textit{render function} is generated, and is set in the given ``pointer''. This function takes as input the graphics data (a \texttt{Uint32Array}\ftnt{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint32Array}, containing ARGB values), and applies the required transformations to it. The function also holds a reference to two backing data buffers, for the previous and the current frame. This allows for blending between frames, and avoids creating new arrays repeatedly, lowering the memory consumption of the screen. The transformations it applies are: 
+Whenever any parameter changes, a new \textit{render function} is generated, and is set in the given ``pointer''. This function takes as input the graphics data (a \texttt{Uint32Array}\ftnt{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint32Array}, containing ARGB values), and applies the required transformations to it. The function also holds a reference to two backing data buffers, for the previous and the current frame. This allows for blending between frames, and avoids creating new arrays repeatedly, lowering the memory consumption of the screen. The transformations it applies are:
 
 \begin{enumerate}[itemsep=0mm]
 	\item Roll the buffers, setting the previous frame to the current frame, and the current frame to the newly received frame.
@@ -1170,7 +1170,7 @@ tick(interrupts: Interrupts): void {
         this.timerOverflowed = false;
         this.previousTimerOverflowed = true;
     }
-    
+
     const timerControl = this.timerControl.get();
     const speedMode = (timerControl & 0b11);
     const checkedBit = TIMER_CONTROLS[speedMode];
@@ -1187,7 +1187,7 @@ tick(interrupts: Interrupts): void {
         this.timerCounter.set(result);
         if (result === 0) this.timerOverflowed = true;
     }
-    
+
     this.timerWasEnabled = timerIsEnabled;
     this.previousDivider = newDivider;
 }
@@ -1223,7 +1223,7 @@ class MaskRegister extends Register {
 
 To accomodate the 16-bit registers of the \gls{cpu}, a \texttt{DoubleRegister} class was implemented. It is made of two \texttt{Register} instances, and provides methods to get and set its value as if it held a 16-bit number (despite being implemented as two 8-bit numbers). This provides flexibility to the \gls{cpu}, enabling both 16-bit and 8-bit arithmetic, without having to manage the way the register is implemented.
 
-Classes to manage memory were also created, to avoid having high-level components access data structures directly. For instance, a \texttt{ROM} class was made. It is backed by a \texttt{UInt8Array}\ftnt{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array}, and implements \texttt{Addressable}. It is extended by \texttt{RAM}, to allow \texttt{write} operations. 
+Classes to manage memory were also created, to avoid having high-level components access data structures directly. For instance, a \texttt{ROM} class was made. It is backed by a \texttt{UInt8Array}\ftnt{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array}, and implements \texttt{Addressable}. It is extended by \texttt{RAM}, to allow \texttt{write} operations.
 
 To simplify the operation of certain components, a \texttt{CircularRAM} class was also created. It extends \texttt{RAM}, and must be provided an \textit{offset} on creation. When reading or writing to it, the offset is substracted from the address, and the modulo of the RAM's length is then applied to it (see figure~\ref{fig:circular-ram}). This allows this part of memory to handle addressing in an independent way: the high-level component simply has to provide it with it's address on creation.
 
@@ -1297,7 +1297,7 @@ Using the ``Test ROMs'' panel from the emulator frontend, we can run a total of 
 
 We first may notice from this table that the accuracy of the \gls{cpu} is great - the only test failing being \texttt{ie\_push}\ftnt{https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/interrupts/ie\_push.s}, a test verifying an edge-case of interrupt handling. This is essential, since of course all tests run on the \gls{cpu} and rely on it functioning to operate properly.
 
-The \gls{ppu}'s accuracy is good in terms of rendering, but the timings of it are wrong. When analyzing the test \glspl{rom} further to understand what goes wrong, we can notice that some of the modes of the \gls{ppu} are one cycle too long. This can be seen by inspect the test's output (see figure \ref{fig:failed-ppu-timing-test}), and noticing the error is in the \texttt{D} register, that has a value of \texttt{0x02} instead of \texttt{0x01}. The part of the code responsible for this is in lines~35--40 of the test's source\ftnt{https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/ppu/intr\_2\_mode3\_timing.s}. Although the timing of the emulator could be modified to make this test pass, the change makes other \gls{ppu} timing tests fail; as such, it is reasonable to suspect the fault is in the logic itself of the \texttt{PPU} class and not the number of cycles only. Many modifications have been attempted to improve the accuracy of the timing, to no avail - more research would thus be needed to fix this.
+The \gls{ppu}'s accuracy is good in terms of rendering, but the timings of it are wrong. When analysing the test \glspl{rom} further to understand what goes wrong, we can notice that some of the modes of the \gls{ppu} are one cycle too long. This can be seen by inspect the test's output (see figure \ref{fig:failed-ppu-timing-test}), and noticing the error is in the \texttt{D} register, that has a value of \texttt{0x02} instead of \texttt{0x01}. The part of the code responsible for this is in lines~35--40 of the test's source\ftnt{https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/ppu/intr\_2\_mode3\_timing.s}. Although the timing of the emulator could be modified to make this test pass, the change makes other \gls{ppu} timing tests fail; as such, it is reasonable to suspect the fault is in the logic itself of the \texttt{PPU} class and not the number of cycles only. Many modifications have been attempted to improve the accuracy of the timing, to no avail - more research would thus be needed to fix this.
 
 \begin{figure}[h]
     \centering
@@ -1316,7 +1316,7 @@ Seeing the total of tests passed is also of interest. The total success rate is 
 
 After verifying the accuracy of the emulator by itself, using automated tests, we may also want to compare it to other existing \gls{gb} emulators, and see how it does in contrast with them.
 
-Thankfully, a tool for this already exists: ``GBEmulatorShootout''\ftnt{https://github.com/daid/GBEmulatorShootout}. It automatically tests \gls{gb} emulators, and displays their results in a large table, allowing for the comparison of emulators' accuracy. 
+Thankfully, a tool for this already exists: ``GBEmulatorShootout''\ftnt{https://github.com/daid/GBEmulatorShootout}. It automatically tests \gls{gb} emulators, and displays their results in a large table, allowing for the comparison of emulators' accuracy.
 
 The way the tool works is that each emulator it supports must have a matching file, to allow downloading the emulator's executable and running it with a given test \gls{rom}. The program then regularly screenshots the emulator's window, and compares it with the expected visual output of the test. This means the tool expects the emulator's window to only contain the graphical output of the emulator.
 
@@ -1352,7 +1352,7 @@ class Emmy(Emulator):
 
 Once the emulator is setup, the test \gls{rom} must be handled. First, the desired console model is checked, and the appropriate console is selected in the UI (lines~9--12). This is done my matching the model ID to the ID of the button that selects said console, and clicking the button with that ID. The test \gls{rom} may then be uploaded, by pressing the ``Import a ROM'' button, and entering the \gls{rom}'s path. We must also check if an alert is raised in the browser (lines~15--19) - this occurs if an error occurs when reading a \gls{rom}, usually because the \gls{mbc} is not supported.
 
-The second part of automated testing requires monitoring the emulator, and verifying if the test succeeded or failed. GBEmulatorShootout requires taking screenshots of the emulator frequently, and comparing the screenshot to an image of the expected result. This method implies storing an additional image for each test \gls{rom}, but comes with the advantage that no complex code is required to look into the emulator's state for other indicators of success (like what was done in this project's frontend, see subsection \ref{sec:testing-ui}).
+The second part of automated testing requires monitoring the emulator, and verifying if the test succeeded or failed. GBEmulatorShootout requires taking screenshots of the emulator frequently, and comparing the screenshot to an image of the expected result. This method implies storing an additional image for each test \gls{rom}, but comes with the advantage that no complex code is required to look into the emulator's state for other indicators of success (like what was done in this project's frontend, see subsection \nameref{sec:testing-ui}).
 
 To do this, we must extract the image from the \texttt{<canvas/>} element the emulator's frontend draws in, and convert it to an appropriate Python object (see figure \ref{fig:selenium-screenshot}). We first fetch the output canvas by it's ID, and execute a small JavaScript function to retrieve the image inside the canvas, in a PNG format. This data is then decoded, and used to create an image, that is resized to the correct size (as the emulator's screen may be upscaled by the browser).
 
@@ -1361,7 +1361,7 @@ To do this, we must extract the image from the \texttt{<canvas/>} element the em
 def getScreenshot(self):
     canvas = self.driver.find_element(value="emulator-frame")
     canvas_base64 = self.driver.execute_script(
-    	"return arguments[0].toDataURL('image/png').substring(21);", 
+    	"return arguments[0].toDataURL('image/png').substring(21);",
     	canvas
     )
     canvas_png = base64.b64decode(canvas_base64)
@@ -1391,7 +1391,7 @@ We may also want to use this table to compare the performance of this emulator t
     \begin{tabular}{|l|l|l|l|l|l|l|l|}
     \hline
     \textbf{Emulator} & \textbf{Tests Run} & \textbf{CPU} & \textbf{PPU} & \textbf{Timer} & \textbf{MBCs} & \textbf{APU} & \textbf{All} \\ \hline
-	
+
 	\textbf{SameBoy} & 239 & 100.0\% & 91.9\% & 100.0\% & 100.0\% & 100.0\% & 98.7\% \\
 	\textbf{Emulicious} & 237 & 98.5\% & 100.0\% & 100.0\% & 100.0\% & 100.0\% & 99.6\% \\
 	\textbf{Beaten Dying Moon} & 239 & 100.0\% & 97.3\% & 100.0\% & 97.1\% & 85.9\% & 94.1\% \\
@@ -1400,23 +1400,23 @@ We may also want to use this table to compare the performance of this emulator t
 	\textbf{binjgb} & 236 & 84.6\% & 63.9\% & 92.3\% & 74.3\% & 29.4\% & 60.6\% \\
 	\textbf{ares} & 239 & 82.1\% & 51.4\% & 38.5\% & 80.0\% & 29.4\% & 56.1\% \\
 	\textbf{mGBA} & 233 & 83.1\% & 52.8\% & 92.3\% & 90.6\% & 20.0\% & 57.1\% \\
-	
-	\hline	
+
+	\hline
 	\textbf{Emmy} & 236 & 76.9\% & 45.9\% & 100.0\% & 79.4\% & 10.6\% & 50.0\% \\
 	\hline
-	
+
 	\textbf{VisualBoyAdvance-M} & 182 & 53.7\% & 45.9\% & 76.9\% & 62.9\% & 60.7\% & 57.1\% \\
 	\textbf{PyBoy} & 143 & 32.1\% & 17.2\% & 38.5\% & 90.6\% & 0.0\% & 40.6\% \\
 	\textbf{Goomba} & 232 & 30.8\% & 8.6\% & 7.7\% & 59.4\% & 3.5\% & 20.7\% \\
 	\textbf{no\$gmb} & 236 & 35.4\% & 22.2\% & 0.0\% & 20.0\% & 2.4\% & 17.8\% \\
 	\textbf{KiGB} & 231 & 29.2\% & 20.0\% & 0.0\% & 12.9\% & 2.4\% & 14.7\% \\\hline
-		
+
     \end{tabular}
     \caption{Success rate of emulators for different components, sorted by total passed tests}
     \label{fig:stats-tests-relative}
 \end{figure}
 
-This table is a good indicator of where our emulator, Emmy, performs well and where it doesn't, compared to other \gls{gb} emulators. For instance, it has a really accurate timer, compared to emulators ranked around it. This also emphasizes the fact that its \gls{cpu} is of an accuracy similar to that of the higher accuracy emulators, passing almost 80\% of tests. It also helps see that only very high accuracy emulators manage to pass the \gls{apu} tests. The only outliar seems to be VisualBoyAdvance-M, with an \gls{apu} success rate of 60.7\%. However, when inspecting the test results, we notice that most of the \gls{apu} tests weren't run on it - this is because it doesn't have support for the \texttt{PCM12} and \texttt{PCM34} registers these tests use. If we add the un-run tests to the percentage, we end with 17 tests passed out of 85, or a 20\% success rate, in line with the success rate of similar emulators. This further shows that creating an accurate \gls{apu} is challenging, especially given the standards of the used test \glspl{rom}.
+This table is a good indicator of where our emulator, Emmy, performs well and where it doesn't, compared to other \gls{gb} emulators. For instance, it has a really accurate timer, compared to emulators ranked around it. This also emphasises the fact that its \gls{cpu} is of an accuracy similar to that of the higher accuracy emulators, passing almost 80\% of tests. It also helps see that only very high accuracy emulators manage to pass the \gls{apu} tests. The only outliar seems to be VisualBoyAdvance-M, with an \gls{apu} success rate of 60.7\%. However, when inspecting the test results, we notice that most of the \gls{apu} tests weren't run on it - this is because it doesn't have support for the \texttt{PCM12} and \texttt{PCM34} registers these tests use. If we add the un-run tests to the percentage, we end with 17 tests passed out of 85, or a 20\% success rate, in line with the success rate of similar emulators. This further shows that creating an accurate \gls{apu} is challenging, especially given the standards of the used test \glspl{rom}.
 
 \section{Performance and Usability}
 
@@ -1430,12 +1430,12 @@ For the \gls{rom}, the performance will be measured on 4 distinct \glspl{rom}, a
 	\item ``The Legend of Zelda: Link's Awakening'', a \gls{dmg} game. It is quite simple and shouldn't be too memory intensive. It will help outline the average performance on the \gls{dmg}.
 	\item The \texttt{cpu\_instrs} test \gls{rom}. It's advantage is that it is quite long, and it's purpose is to test the entirety of the \gls{cpu}, meaning it will be very processor-intensive.
 	\item ``The Legend of Zelda: Oracle of Ages'', a \gls{gbc} game. It is similar to the previous Zelda \gls{rom}, but was built for the \gls{gbc}, meaning it likely requires more resources to run.
-	\item ``Alone in the Dark: The New Nightmare'', a \gls{gbc} game. This is a very complex game released for the \gls{gbc}, that supports ``3D-scenes'', and very regularly changes the color palette registers\cite[Tricky-to-emulate games]{gbdev_wiki}. Both of these properties combined should make this \gls{rom} slower, making it a hypothetical ``upper-bound'' on frame time.
+	\item ``Alone in the Dark: The New Nightmare'', a \gls{gbc} game. This is a very complex game released for the \gls{gbc}, that supports ``3D-scenes'', and very regularly changes the colour palette registers\cite[Tricky-to-emulate games]{gbdev_wiki}. Both of these properties combined should make this \gls{rom} slower, making it a hypothetical ``upper-bound'' on frame time.
 \end{compactitem}
 
 As for how to measure the frame time, the frame time of every frame will be summed and average, over the first 10 million cycles, to give a more accurate measure. See figure \ref{fig:frame-time-results} for the results.
 
-From this table we can notice two things. First, it is that \gls{dmg} games run faster than \gls{gbc} games. This can be due to the double speed mode, that forces the emulator to run twice as many instructions, or to the fact that the \gls{ppu} logic with colour is more complex and needs to be optimised. Secondly we may look at the average frame times of these \glspl{rom}. 
+From this table we can notice two things. First, it is that \gls{dmg} games run faster than \gls{gbc} games. This can be due to the double speed mode, that forces the emulator to run twice as many instructions, or to the fact that the \gls{ppu} logic with colour is more complex and needs to be optimised. Secondly we may look at the average frame times of these \glspl{rom}.
 
 The \gls{gb} runs at 60 frames per second, meaning a frame must last at most $\frac{1}{60}=16.6\text{ms}$. We may calculate the maximum speed increase attainable for a frame time via the formula~$\frac{1000}{\text{frame time} * 60}$, or $(\frac{1000}{\text{frame time} * 60}-1)*100$ to get an increase percentage. For instance, for ``The Legend of Zelda: Link's Awakening'', the maximum speed increase could be of around 279\%.
 
@@ -1445,13 +1445,13 @@ The \gls{gb} runs at 60 frames per second, meaning a frame must last at most $\f
     \hline
     \textbf{Console} & \textbf{ROM} & \textbf{Frame time} (ms) & \textbf{Speed increase} \\ \hline
 
-	\multirow{2}{*}{\textbf{\gls{dmg}}} 
+	\multirow{2}{*}{\textbf{\gls{dmg}}}
 	& The Legend of Zelda: Link's Awakening & 4.39 & 279\% \\\cline{2-4}
 	& \texttt{cpu\_instrs} & 5.43 & 207\% \\\hline
-	\multirow{2}{*}{\textbf{\gls{gbc}}} 
+	\multirow{2}{*}{\textbf{\gls{gbc}}}
 	& The Legend of Zelda: Oracle of Ages & 4.89 & 241\% \\\cline{2-4}
 	& Alone in the Dark: The New Nightmare & 5.78 & 188\% \\\hline
-	
+
     \end{tabular}
     \caption{Average frame time of different \glspl{rom}}
     \label{fig:frame-time-results}
@@ -1466,12 +1466,25 @@ This would however require a full rewrite of the code, since TypeScript and C++ 
 
 Research has been done to convert the project's code to AssemblyScript, and the progress so far can be seen on the \texttt{assembly-script} branch\ftnt{https://github.com/N1ark/gbc-emulator/tree/assembly-script}. However, because AssemblyScript targets such a low-level language, many TypeScript constructs are not (yet) available in it, such as arrow functions, or dynamic objects. Although the implemented emulator doesn't use these features extensively and most components were succesfully migrated to AssemblyScript, the \gls{cpu} uses arrow functions for all instructions - a succesful conversion of the entire emulator would thus require a lengthy rewrite of the \gls{cpu}. This project was thus abandoned in favour of additional features in the emulator's core and frontend. An example of \gls{gb} emulator in AssemblyScript is wasmboy\ftnt{https://github.com/torch2424/wasmboy/}.
 
-In terms of usability, the presented emulator fullfils most of the specification, with some specifications of lower importance having been left out. These include:
+\section{Compliance to Specification}
+
+The presented emulator fullfils most of the specification, with some specifications of lower importance having been left out. These include:
 
 \begin{compactitem}
-	\item The user cannot, currently, download the save of their game (code U4).	 The save file is instead stored in the browser. Some research was done to allow saving the emulator's state to the BESS\ftnt{https://github.com/LIJI32/SameBoy/blob/master/BESS.md} save format, however this required a lot more effort so priority was shifted on other features, as the existing save system was deemed sufficient.
-	\item The emulator's frontend does not provide a way to add breakpoints to the emulation (code U7). This feature was initially supported from the browser's console, but it's implementation wasn't satisfactory. A possible improvement to the emulator would thus be support for such breakpoints, maybe in a format similar to that of the current ``Watch Expressions'' menu.
-	\item The implemented emulator cannot currently be downloaded as a local app (code N3). This could however be added quite easily, using a tool like Electron\ftnt{https://www.electronjs.org/} that allows converting web applications to desktop apps. Another option is converting the web-app into a Progressive Web App (PWA)\ftnt{https://web.dev/progressive-web-apps/}, allowing users to ``download'' the web-app and use it while offline.
+	\item
+		U4: User can press a button to download a save of their game (or, alternatively, the save can be stored inside the browser with a technology like IndexedDB.
+
+		The user cannot, currently, download the save of their game. The save file is instead stored in the browser. Some research was done to allow saving the emulator's state to the BESS\ftnt{https://github.com/LIJI32/SameBoy/blob/master/BESS.md} save format, however this required a lot more effort so priority was shifted on other features, as the existing save system was deemed sufficient.
+
+	\item
+		U7: User can pause the console emulation through a button. They can also input conditions for which the console should break execution.
+
+		The emulator's frontend does not provide a way to add breakpoints to the emulation. This feature was initially supported from the browser's console, but it's implementation wasn't satisfactory. A possible improvement to the emulator would thus be support for such breakpoints, maybe in a format similar to that of the current ``Watch Expressions'' menu.
+
+	\item
+		N3: A  downloadable version of the web-app can be used on a computer and provides full functionality, via keyboard and mouse inputs.
+
+		The implemented emulator cannot currently be downloaded as a local app. This could however be added quite easily, using a tool like Electron\ftnt{https://www.electronjs.org/} that allows converting web applications to desktop apps. Another option is converting the web-app into a Progressive Web App (PWA)\ftnt{https://web.dev/progressive-web-apps/}, allowing users to ``download'' the web-app and use it while offline.
 \end{compactitem}
 
 All of these specifications are however of low importance, and are mainly small quality of life features. Other possible improvements could include more debugging tools (such as a way to inspect the \gls{apu}'s raw output), or more features added to the emulator's core, like support for other \glspl{mbc} (like the MBC6, MBC7, or MMM01 \cite[MBCs]{pandoc}), the real time clock of the MBC3, additional outputs of the \gls{gb} like the Game Boy Printer or the Game Boy Camera \cite{pandoc}, and support for the Link Cable, allowing multiple Gameboys to play together \cite[Serial Data Transfer]{pandoc}.
@@ -1480,9 +1493,9 @@ All of these specifications are however of low importance, and are mainly small 
 
 \section{Privacy}
 
-This piece of software is safe to use in terms of privacy - it runs entirely locally, with no data ever being sent from the user to the server. There are no cookies, and the only forms of storage used are localStorage\ftnt{https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage} and localForage\ftnt{https://github.com/localForage/localForage}, both of which are local and offline. 
+This piece of software is safe to use in terms of privacy - it runs entirely locally, with no data ever being sent from the user to the server. There are no cookies, and the only forms of storage used are localStorage\ftnt{https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage} and localForage\ftnt{https://github.com/localForage/localForage}, both of which are local and offline.
 
-localStorage is handled by the browser, so it is the user's responsability to ensure that they use a secure browser. 
+localStorage is handled by the browser, so it is the user's responsability to ensure that they use a secure browser.
 
 localForage is an open source library, allowing for more transparence - one could go through the source code to verify that it is safe as well. Whenever a new update is released, we may simply verify that the modified code is still safe, and then configure the project to use the new version in the \texttt{package.json} file.
 
@@ -1490,7 +1503,7 @@ localForage is an open source library, allowing for more transparence - one coul
 
 The \glsdesc{gb} is a copyrighted console, owned by Nintendo, but making an emulator for it is deemed legal as long as it is done following a ``clean room'' design \cite{emulation_white_paper}. This was ruled via a series of court appeals between console manufacturers and groups that produce emulators, with the latter consistently winning the appeal. This was the case for Sony Computer Entertainment America v. Connectix Corporation trial, that deemed that the ``Virtual Game Station'' PlayStation emulator wasn't a copyright infringement on Sony, and that Connectix's reverse engineering of the original PlayStation's BIOS was fair use \cite{sony_v_connectix}. This project was developed using online resources about the \gls{gb} compiled by people who reverse engineered the \gls{gb}, and as such was developed with a clean room design too.
 
-Although distributing the emulator is legal, distributing the BIOS (Basic Input/Output System) of the console with the emulator is not, as it is still copyrighted software \cite{emulation_white_paper}. Because acquiring such BIOS is however not illegal as long as the user owns the console, a user is free to use their own BIOS in the emulator (see sub section \ref{sec:settings-ui}). The emulator otherwise simulates the effect of the BIOS on the system, by setting up all the necessary memory and registers.
+Although distributing the emulator is legal, distributing the BIOS (Basic Input/Output System) of the console with the emulator is not, as it is still copyrighted software \cite{emulation_white_paper}. Because acquiring such BIOS is however not illegal as long as the user owns the console, a user is free to use their own BIOS in the emulator (see sub section \nameref{sec:settings-ui}). The emulator otherwise simulates the effect of the BIOS on the system, by setting up all the necessary memory and registers.
 
 Distributing copyrighted game \glspl{rom} is also not allowed - this is why the user must upload the \gls{rom} they want to use themselves. The software does not upload the \gls{rom}, and simply stores it in local storage.
 
