@@ -47,7 +47,7 @@
 
 % setup info
 
-\title{Emmy \\\vspace{0.2cm}The Game Boy Emulator}
+\title{6CCS3PRJ\\Emmy, The Game Boy Emulator}
 \author{Oscar Sjöstedt}
 \studentID{20040078}
 \supervisor{Ian Kenny}
@@ -118,7 +118,7 @@ From an emulation perspective, the \glsdesc{gbc} can thus be seen as an extensio
 
 \subsection{Gameboy Documentation}
 
-The \glsdesc{gb} is one of the best documented consoles for emulation, and a large array of resources exist documenting it. Some useful resources explaining it's behaviour are:
+The \glsdesc{gb} is one of the best documented consoles for emulation, and a large array of resources exist documenting it. Some useful resources explaining its behaviour are:
 
 \begin{compactitem}
     \item Pandocs\ftnt{https://gbdev.io/pandocs/} is a technical reference of how the \gls{gb} works. It is extremely complete and covers a wide range of topics, so it is useful to get a global view of a problem. It is one of the most referenced pieces of literature on the console.
@@ -129,10 +129,10 @@ The \glsdesc{gb} is one of the best documented consoles for emulation, and a lar
 
 \subsection{Existing Emulators}
 
-A wide range of emulators for the \gls{gb} and \gls{gbc} already exist, and many of them are open-source. These are useful when developing a new emulator, to see how they work internally. For performance reasons they're usually written in compiled languages, such as C++ and Rust, but some interpreted language alternatives exist. These emulators include:
+A wide range of emulators for the \gls{gb} and \gls{gbc} already exist, and many of them are open-source. These are useful when developing a new emulator, to see how they work internally. For performance reasons they are usually written in compiled languages, such as C++ and Rust, but some interpreted language alternatives exist. These emulators include:
 
 \begin{compactitem}
-    \item Game Boy Crust\ftnt{https://github.com/mattbruv/Gameboy-Crust} is a simple \gls{gb} emulator written in Rust. It is quite incomplete but has a comprehensive structure, so it's a good project to first figure out how emulators work.
+    \item Game Boy Crust\ftnt{https://github.com/mattbruv/Gameboy-Crust} is a simple \gls{gb} emulator written in Rust. It is quite incomplete but has a comprehensive structure, so its a good project to first figure out how emulators work.
     \item AccurateBoy\ftnt{https://github.com/Atem2069/accurateboy} is a highly accurate emulator, in particular for its \gls{ppu} that has pixel-perfect accuracy.
     \item oxideboy\ftnt{https://github.com/samcday/oxideboy} is another \gls{gb} emulator written in Rust, that is much more complete and helpful for some edge cases.
     \item SameBoy\ftnt{https://github.com/LIJI32/SameBoy} is one of the most accurate open source \gls{gb} and \gls{gbc} emulators, written in C. It is much more technically complex but still useful to understand edge cases, especially since it is the emulator used as a reference when developing this project.
@@ -271,7 +271,7 @@ In emulators, the different components are usually split into three groups:
 
 To allow the user to access the emulator, a frontend needs to be built with it. This frontend is responsible for outputting the graphics and audio data of the emulator, and also for receiving input from the user to pass down to the emulator. Aside from that, extra UI components have been added, to make the usage of the emulator more convenient and add more features: a play and pause button, custom themes, debugging tools, upscaling filters and keybinding options. All of these are kept independent from the emulator, and control transformations of the input and output, or changes in the running of the emulator.
 
-Because this implementation is merely to allow access to the emulator and does not have any outstanding functionality, it's description will be brief -- most of the focus will be put on the emulator's core.
+Because this implementation is merely to allow access to the emulator and does not have any outstanding functionality, its description will be brief -- most of the focus will be put on the emulator's core.
 
 \section{CPU}
 
@@ -279,7 +279,7 @@ The \glsfirst{cpu} is perhaps the most complex part of the \gls{gb}. It is howev
 
 Most emulator are typically ``CPU-driven''. This means that the \gls{cpu} is what drives the emulation. If an instruction takes multiple hardware cycles to execute, the \gls{cpu} is responsible for asking the rest of the system to tick at the appropriate time. In the design chosen for this project however, the emulator will be ``System-driven'', with the \gls{cpu} only being part of the overall running of the emulator -- it will not be responsible for ticking the rest of the system. This difference will be made obvious by the interfaces exposed to the \gls{cpu}; it allows for nicer encapsulation and better separation of concerns.
 
-The \gls{cpu} is thus responsible for stepping through the program it's given. It has 6 different 16-bit registers, with different roles. Some registers' bytes can be accessed independently, operating as two 8-bit registers or one 16-bit register as needed \cite[CPU Registers and Flags]{pandoc}.
+The \gls{cpu} is thus responsible for stepping through the program its given. It has 6 different 16-bit registers, with different roles. Some registers' bytes can be accessed independently, operating as two 8-bit registers or one 16-bit register as needed \cite[CPU Registers and Flags]{pandoc}.
 
 \begin{compactitem}
 	\item \texttt{AF}: the accumulator-flag register. Most arithmetic operations can be done on \texttt{A}. \texttt{F} holds the \gls{cpu}'s flags, and can only be altered indirectly, as a consequence of arithmetic operations.
@@ -289,7 +289,7 @@ The \gls{cpu} is thus responsible for stepping through the program it's given. I
 	\item \texttt{HL}: similar to \texttt{BC} and \texttt{DE}, it can also be used as an address by some operations, allowing the use of indirect addressing.
 \end{compactitem}
 
-Aside from it's registers, the \gls{cpu} needs to interact with system interrupts, and needs to access memory for reading/writing operations.
+Aside from its registers, the \gls{cpu} needs to interact with system interrupts, and needs to access memory for reading/writing operations.
 
 \section{PPU, APU, Joypad}
 
@@ -305,7 +305,7 @@ The behaviour of the \gls{ppu} changes significantly between the \gls{dmg} and t
     \label{fig:ppu-class-diagram}
 \end{figure}
 
-The \glsfirst{apu} is responsible for playing the audio output of the console. It has a few registers to control it, as well as a short memory area called the wave RAM. It's timings are controlled by the timer, which can be accessed via a memory read of the system. It's sound output is derived from four separate channels: two square wave channels, a custom wave channel, and a noise channel \cite[Audio]{pandoc}. These channels are here modelled as separate entities, but are purely internal (see figure \ref{fig:apu-class-diagram}).
+The \glsfirst{apu} is responsible for playing the audio output of the console. It has a few registers to control it, as well as a short memory area called the wave RAM. Its timings are controlled by the timer, which can be accessed via a memory read of the system. Its sound output is derived from four separate channels: two square wave channels, a custom wave channel, and a noise channel \cite[Audio]{pandoc}. These channels are here modelled as separate entities, but are purely internal (see figure \ref{fig:apu-class-diagram}).
 
 \begin{figure}[h]
     \centering
@@ -331,7 +331,7 @@ Similarly as for the output, the emulator core will expose an interface to read 
 
 \section{System Bus}
 
-Components within the Gameboy need to communicate. To do this, components typically have a set of registers that control how they behave -- for instance, the timer has a \texttt{TAC} register at \texttt{0xFF07} to control it's frequency. To allow this interaction without having all components directly depend on each other, a ``system bus'' component is created, responsible for handling all components and managing memory-addressing among them.
+Components within the Gameboy need to communicate. To do this, components typically have a set of registers that control how they behave -- for instance, the timer has a \texttt{TAC} register at \texttt{0xFF07} to control its frequency. To allow this interaction without having all components directly depend on each other, a ``system bus'' component is created, responsible for handling all components and managing memory-addressing among them.
 
 This component, called \texttt{System}, is thus responsible for instantiating the other components, and providing them access to each other, via a read and write method.
 
@@ -361,7 +361,7 @@ To have similar interfaces over all components, we will also declare specific cl
 
 \subsection{Addressable}
 
-The \texttt{Addressable} interface (see \ref{fig:addressable-interface}) provides a read and write method. This allows all components to communicate between each other without needing to be aware of what the component they're communicating with is. Aside from the \gls{cpu}, all components of the emulator implement this method.
+The \texttt{Addressable} interface (see \ref{fig:addressable-interface}) provides a read and write method. This allows all components to communicate between each other without needing to be aware of what the component they are communicating with is. Aside from the \gls{cpu}, all components of the emulator implement this method.
 
 \begin{figure}[h]
     \begin{minted}{typescript}
@@ -471,7 +471,7 @@ In the side drawer, the first tab is ``Settings''. It contains general settings 
 	\item the size of the emulator's screen, allowing resizing to two or four times larger.
 	\item a slider to change the volume of the emulator's audio output.
 	\item a palette selector, to change the four hues of the \gls{dmg}'s screen.
-	\item two buttons to upload the boot \glspl{rom} of the \gls{dmg} and \gls{gbc}. This is needed for users that wish to play with the full start-up screen of the console, as these two \glspl{rom} are copyrighted and cannot be distributed. If they're not provided, the emulator simulates their effect on the system.
+	\item two buttons to upload the boot \glspl{rom} of the \gls{dmg} and \gls{gbc}. This is needed for users that wish to play with the full start-up screen of the console, as these two \glspl{rom} are copyrighted and cannot be distributed. If they are not provided, the emulator simulates their effect on the system.
 	\item miscellaneous toggle-able settings, grouped together:
 	\begin{compactitem}
 		\item an option to play with or without the initial boot \gls{rom} of the emulator (a boot \gls{rom} must have been uploaded).
@@ -535,14 +535,14 @@ The currently automated test suites are:
 			\item For the \texttt{halt\_bug} test, there does not seem to be anywhere where the result is output, so the graphical output of the emulator is verified.
 		\end{compactitem}
 	\item The Mooneye test \glspl{rom}\ftnt{https://github.com/Gekkio/mooneye-test-suite} and SameSuite\ftnt{https://github.com/LIJI32/SameSuite/}, of which all tests are verified the same way. In case of success, the \texttt{B}, \texttt{C}, \texttt{D}, \texttt{E}, \texttt{H} and \texttt{L} registers hold the values $3$, $5$, $8$, $13$, $21$ and $34$ respectively (Fibonacci's sequence). If they instead all hold the value \texttt{0x42}, the test failed\footnote{See \url{https://github.com/Gekkio/mooneye-test-suite/\#passfail-reporting} for the Mooneye test suite, see lines 265-281 of \texttt{include/base.inc} in \url{https://github.com/LIJI32/SameSuite/} for the SameSuite}.
-	\item The Acid test \glspl{rom} (\gls{dmg}\ftnt{https://github.com/mattcurrie/dmg-acid2}, \gls{gbc}\ftnt{https://github.com/mattcurrie/cgb-acid2}). These need to be tested graphically, as their purpose is verifying the actual output of the emulator rather than it's behaviour.
+	\item The Acid test \glspl{rom} (\gls{dmg}\ftnt{https://github.com/mattcurrie/dmg-acid2}, \gls{gbc}\ftnt{https://github.com/mattcurrie/cgb-acid2}). These need to be tested graphically, as their purpose is verifying the actual output of the emulator rather than its behaviour.
 \end{compactitem}
 
 Thanks to this, the emulator's frontend supports a total of 191 automated test \glspl{rom}, that verify the behaviour of most of the emulator. Of these 191 tests, 101 pass.
 
 \subsection{Memory Inspect}
 
-When debugging an emulator, being able to inspect it's memory is essential, as some bugs may be caused by the wrong mapping of components, or a fault when writing data. To help debugging this, the frontend comes with a basic memory inspection tool, that can show the entirety of the \textit{addressable} data of the emulator (see \ref{fig:memory-inspect}). This means data that is unaccessible by the \gls{cpu} (for instance, because the appropriate \gls{rom} bank is not selected) cannot be inspected here. A simple offset can also be indicated, to limit the data to a certain area.
+When debugging an emulator, being able to inspect its memory is essential, as some bugs may be caused by the wrong mapping of components, or a fault when writing data. To help debugging this, the frontend comes with a basic memory inspection tool, that can show the entirety of the \textit{addressable} data of the emulator (see \ref{fig:memory-inspect}). This means data that is unaccessible by the \gls{cpu} (for instance, because the appropriate \gls{rom} bank is not selected) cannot be inspected here. A simple offset can also be indicated, to limit the data to a certain area.
 
 \begin{figure}[h]
     \centering
@@ -595,7 +595,7 @@ Whenever any parameter changes, a new \textit{render function} is generated, and
 \begin{enumerate}[itemsep=0mm]
 	\item Roll the buffers, setting the previous frame to the current frame, and the current frame to the newly received frame.
 	\item If needed, apply the colour palette to the input. The palette is a simple map, from source colour to target colour.
-	\item If it's the first frame to be drawn, also set the previous frame to the newly received frame (this avoid blending the new frame with a black frame, since the buffers are initialised with \texttt{0x000000} values).
+	\item If it is the first frame to be drawn, also set the previous frame to the newly received frame (this avoid blending the new frame with a black frame, since the buffers are initialised with \texttt{0x000000} values).
 	\item If required, blend the previous frame and the current frame.
 	\item Apply the upscale filter to the image (this can be an identity filter, that simply returns the image, or upscale filters like Scale2x and Scale4x).
 	\item The image data is created from the \texttt{Uint32Array}, and drawn on the \texttt{<canvas />}.
@@ -721,7 +721,7 @@ protected instructionSet: Partial<Record<number, InstructionObject>> = {
 
 \subsection{A cycle accurate CPU}
 
-The Gameboy is a memory-bound system, meaning that it is limited by it's memory accesses. The \gls{cpu} can only execute either one read or one write per M-cycle \cite[CPU core timing]{gbctr}. It also needs to retrieve the opcode for each instruction, which takes an additional cycle, meaning an instruction performing no memory accesses lasts one cycle, and an instruction performing $n$ memory accesses lasts at least $n + 1$ cycles. Finally, the \gls{gb} overlaps the last cycle of the execution with the fetching cycle for the next opcode -- this will thus be of importance when implementing the fetching of the opcode. See figure \ref{fig:ld-instr-timing} for the breakdown of an instruction.
+The Gameboy is a memory-bound system, meaning that it is limited by its memory accesses. The \gls{cpu} can only execute either one read or one write per M-cycle \cite[CPU core timing]{gbctr}. It also needs to retrieve the opcode for each instruction, which takes an additional cycle, meaning an instruction performing no memory accesses lasts one cycle, and an instruction performing $n$ memory accesses lasts at least $n + 1$ cycles. Finally, the \gls{gb} overlaps the last cycle of the execution with the fetching cycle for the next opcode -- this will thus be of importance when implementing the fetching of the opcode. See figure \ref{fig:ld-instr-timing} for the breakdown of an instruction.
 
 \begin{figure}[h]
 	\centering
@@ -766,7 +766,7 @@ protected ld_bc_d16(system: System) { // LD BC, d16
 
 This solution however comes with the cost of coupling the \gls{cpu} to the system, or at least to a way of ticking said system. A particularity of this emulator is that the \gls{cpu} is almost autonomous, in that it does not interact with any other functionality of the system directly, except the interrupts. The only other interface it requires is an \texttt{Addressable}, to allow access to memory (and thus the other components). This also means the emulator is no longer ``\gls{cpu}-driven'', since the \gls{cpu} \textit{cannot} tick the rest of the system. It is instead up to the root system to tick all of the components (including the \gls{cpu}). This is thus a code quality improvement, that is not present in other emulators.
 
-This was done by splitting all the instructions into their respective steps, and have each step return the next step (or \texttt{null} if it's the last step). The \gls{cpu} now must simply store whatever the instruction returns: if it's \texttt{null} then it needs to fetch an instruction to prepare for the next cycle, otherwise it's a function and must be executed (and it's result stored for the next step). See figures \ref{fig:system-driven-ld} and \ref{fig:system-driven-cpu-tick} for an example of this.
+This was done by splitting all the instructions into their respective steps, and have each step return the next step (or \texttt{null} if it is the last step). The \gls{cpu} now must simply store whatever the instruction returns: if it is \texttt{null} then it needs to fetch an instruction to prepare for the next cycle, otherwise it is a function and must be executed (and its result stored for the next step). See figures \ref{fig:system-driven-ld} and \ref{fig:system-driven-cpu-tick} for an example of this.
 
 In the final version of the \gls{cpu}'s tick method, a method \texttt{loadNextOp} is implemented. It not only handles getting an instruction associated with the desired opcode, but it also is responsible for checking if an interrupt was raised (in which case the interrupt handling procedure occurs \cite[Interrupts]{pandoc}), and for ensuring the \gls{cpu} is not halted before running an instruction.
 
@@ -998,9 +998,9 @@ One of the main characteristics of the \gls{ppu} is that it operates in modes. D
 
 Rendering of the line is thus done during mode 3, when no graphics data is accessible, using a FIFO queue (First In First Out) of pixels that can be pushed in and out as the data is read. Some of the registers are still writable, but most games do not use them during this mode because they would require very precise timing. An example of a game relying on this is ``Prehistorik Man'', that changes the colour palette registers during the scanline in its intro-scene \cite[Tricky-to-emulate games]{gbdev_wiki}.
 
-Since this is only the case for a minority of games, we can go past this inaccuracy. We'll thus take advantage of this to simplify greatly the rendering logic and make the renderer ``scanline based'', drawing an entire line all at once. This shortcut is commonly used by emulators that are not too accuracy-oriented.
+Since this is only the case for a minority of games, we can go past this inaccuracy. We will thus take advantage of this to simplify greatly the rendering logic and make the renderer ``scanline based'', drawing an entire line all at once. This shortcut is commonly used by emulators that are not too accuracy-oriented.
 
-To handle each mode separately, we have four distinct ``mode'' objects of type \texttt{PPUMode}, that hold some basic information on the operation of the mode: it's length, it's flag for the \texttt{STAT} register and the name of the method in \texttt{PPU} responsible for ticking said mode (see figure~\ref{fig:stat-mode-type}). Note \texttt{KeyForType<T, V>} is the union of all keys \texttt{k} of \texttt{T} such that \texttt{T[k]} is of type \texttt{V}.
+To handle each mode separately, we have four distinct ``mode'' objects of type \texttt{PPUMode}, that hold some basic information on the operation of the mode: its length, its flag for the \texttt{STAT} register and the name of the method in \texttt{PPU} responsible for ticking said mode (see figure~\ref{fig:stat-mode-type}). Note \texttt{KeyForType<T, V>} is the union of all keys \texttt{k} of \texttt{T} such that \texttt{T[k]} is of type \texttt{V}.
 
 
 \begin{figure}[h]
@@ -1033,7 +1033,7 @@ this.readSprites = this.oam
     \label{fig:sprite-select}
 \end{figure}
 
-First, we retrieve the sprites from the \gls{oam}. Internally, sprite data is cached between scanlines and invalidated when written to -- \texttt{getSprites()} updates the dirty tiles in the cache and returns them. This avoids decoding the sprite every line if that tile has not received any changes, while also ensuring excess decoding is not done if the sprite is modified twice between scanlines. We then select the first 10 sprites to be part of the scanline -- this selection is done based on index: the \gls{ppu} looks through the \gls{oam} sequentially to find matching sprites \cite[OAM]{pandoc}. Finally, a re-ordering of the sprites needs to be done, to determine which sprite goes above which -- this may depend on the sprite's position in the \gls{oam}, or on it's X coordinate. This is handled in \texttt{objPrioritySort}. To allow sorting based on both attributes, the sprites must be briefly remapped to a tuple with the sprite and it's index (as JavaScript does not expose the indices of elements when ordering them). These sprites are then stored in the \gls{ppu} object, to be used when rendering at the end of mode 3.
+First, we retrieve the sprites from the \gls{oam}. Internally, sprite data is cached between scanlines and invalidated when written to -- \texttt{getSprites()} updates the dirty tiles in the cache and returns them. This avoids decoding the sprite every line if that tile has not received any changes, while also ensuring excess decoding is not done if the sprite is modified twice between scanlines. We then select the first 10 sprites to be part of the scanline -- this selection is done based on index: the \gls{ppu} looks through the \gls{oam} sequentially to find matching sprites \cite[OAM]{pandoc}. Finally, a re-ordering of the sprites needs to be done, to determine which sprite goes above which -- this may depend on the sprite's position in the \gls{oam}, or on its X coordinate. This is handled in \texttt{objPrioritySort}. To allow sorting based on both attributes, the sprites must be briefly remapped to a tuple with the sprite and its index (as JavaScript does not expose the indices of elements when ordering them). These sprites are then stored in the \gls{ppu} object, to be used when rendering at the end of mode 3.
 
 The \gls{ppu} uses a form of indirect addressing to handle data (see figure \ref{fig:ppu-tile-logic}). It has an area in \gls{vram} that stores tile data, a tile being an $8 \times 8$ image. Whenever one of these tiles needs to be used, for the background, or for an object, the identifier of the tile needs to be used, this identifier being derived from the tile's address. This allows for the very simple re-use of tiles, which is particularly relevant for backgrounds where they may be repeated a lot. This background data is stored in a \textit{tile map}, a $256 \times 256$ map of 1-byte indices to the actual tile data. The \gls{gb} has two such maps, and both the background and window can display either of them -- this is controlled via a flag in the \texttt{LCDC} register.
 
@@ -1041,7 +1041,7 @@ To render the scanline, the layers need to be drawn on top of each other: backgr
 
 This method will loop over all tiles it needs to draw in the current scanline. It first needs to determine the tile's index. This index can be used to the retrieve the tile's address in \gls{vram}. It can also be used to fetch the attributes of the tile; this is a \gls{gbc}-exclusive feature, that allows transforming tiles (for instance, flipping them, or selecting a different palette for the tile). These attributes are stored in the second bank of \gls{vram}, at the same address, in a single byte of data. The \gls{dmg} and \gls{gbc} distinction is however not needed, because the attributes for a \texttt{0x00} value match the attributes used by the \gls{dmg}. This means that instead of having two different methods split on the console versions, we can setup the \gls{dmg} emulator to always return \texttt{0x00} for the second bank of \gls{vram}, and keep the \gls{gbc} way of handling of attributes.
 
-Once the tile index has been acquired, the \gls{ppu} may retrieve the tile data address from \gls{vram}. This one-byte address needs to be converted to a valid address in the tile data range of \gls{vram}, as it contains two partially overlapping tile data areas -- a flag in the \texttt{LCDC} register controls this. Once the address where the tile data (ie. it's texture) is obtained, the \gls{ppu} may finally retrieve said data, and draw it in the scanline.
+Once the tile index has been acquired, the \gls{ppu} may retrieve the tile data address from \gls{vram}. This one-byte address needs to be converted to a valid address in the tile data range of \gls{vram}, as it contains two partially overlapping tile data areas -- a flag in the \texttt{LCDC} register controls this. Once the address where the tile data (ie. its texture) is obtained, the \gls{ppu} may finally retrieve said data, and draw it in the scanline.
 
 \begin{figure}[h]
     \centering
@@ -1084,7 +1084,7 @@ abstract class VRAMController implements Addressable {
 
 \section{APU}
 
-The \glsfirst{apu} is the component responsible for producing the sounds and music of the \gls{gb}. It's output is the combination of four different channels, each with their own properties: two square channels, a wave channel and a noise channel \cite[Audio]{pandoc}. These channels run independently, can be turned on or off individually, and are merged to form the output.
+The \glsfirst{apu} is the component responsible for producing the sounds and music of the \gls{gb}. Its output is the combination of four different channels, each with their own properties: two square channels, a wave channel and a noise channel \cite[Audio]{pandoc}. These channels run independently, can be turned on or off individually, and are merged to form the output.
 
  Most features of the channels can be derived to a counter, that ticks down from a value and has an effect when reaching 0. Although they differ in output, all channels have some attributes in common. For example, they all have a \textit{length timer}, that turns off the channel when it reaches 0. Channels 1, 2 and 4 also have an \textit{envelope}, that allows updating the volume of the channel at a set frequency. To have these behaviours work across all channels, an abstract class \texttt{SoundChannel} was created. It holds the registers all channels have in common, as well as methods like \texttt{tickLengthTimer} to handle common mechanisms across all channels.
 
@@ -1092,7 +1092,7 @@ To return their output, all channels have a \texttt{getSample} method that retur
 
 \section{MBCs and ROMs}
 
-A majority of \gls{gb} cartridges came shipped with a \glsfirst{mbc}. This was done to circumvent the memory limit of the \gls{gb}: due to it's 16-bit addresses, only memory in \texttt{0x0000}--\texttt{0x7FFF} is mapped to the \gls{rom}, limiting it's size to 32KB. \glspl{mbc} provided a way of extending this memory limit, by doing \textit{bank switching} \cite[MBCs]{pandoc}. The cartridge holds more data than it can address, and the \gls{cpu} can modify which part of the memory it's accessing by writing to a register in the \gls{mbc}. Because \glspl{rom} are read-only, the write-operations can be safely re-used to instead write to these built-in registers without losing any functionality.
+A majority of \gls{gb} cartridges came shipped with a \glsfirst{mbc}. This was done to circumvent the memory limit of the \gls{gb}: due to its 16-bit addresses, only memory in \texttt{0x0000}--\texttt{0x7FFF} is mapped to the \gls{rom}, limiting its size to 32KB. \glspl{mbc} provided a way of extending this memory limit, by doing \textit{bank switching} \cite[MBCs]{pandoc}. The cartridge holds more data than it can address, and the \gls{cpu} can modify which part of the memory it is accessing by writing to a register in the \gls{mbc}. Because \glspl{rom} are read-only, the write-operations can be safely re-used to instead write to these built-in registers without losing any functionality.
 
 On top of more memory space, \glspl{mbc} can sometimes provide additional features, such as external RAM, a battery (to be able to keep the state of the RAM between sessions, which allows saving the game) \cite[MBCs]{pandoc}, a rumble motor  \cite[MBC5]{pandoc}, or a battery-backed real time clock \cite[MBC3]{pandoc}, for example. The most common \glspl{mbc} found were the MBC1, with space for a maximum of 2MB \cite[MBC1]{pandoc}, and the MBC5 -- the only \gls{mbc} to officially support the \gls{gbc}'s double speed mode \cite{mbc5_only_double}. see figure~\ref{fig:stats-mbc} for statistics of the usage of different \glspl{mbc}.
 
@@ -1112,9 +1112,9 @@ On top of more memory space, \glspl{mbc} can sometimes provide additional featur
     \label{fig:stats-mbc}
 \end{figure}
 
-To ensure the emulator can run as many games as possible, the main \glspl{mbc} have been implemented: MBC1, MBC2, MBC3 and MBC5 (although support for the MBC3's real time clock has not been added). Since the \gls{gb} interacts with the cartridge in the exact same way whether there is an \gls{mbc} or not, the choice of making a \texttt{MBC} abstract class came quite naturally: it's interface is that of \texttt{Addressable}, and it also supports a \texttt{save} and \texttt{load} method, for save files.
+To ensure the emulator can run as many games as possible, the main \glspl{mbc} have been implemented: MBC1, MBC2, MBC3 and MBC5 (although support for the MBC3's real time clock has not been added). Since the \gls{gb} interacts with the cartridge in the exact same way whether there is an \gls{mbc} or not, the choice of making a \texttt{MBC} abstract class came quite naturally: its interface is that of \texttt{Addressable}, and it also supports a \texttt{save} and \texttt{load} method, for save files.
 
-To decide which \gls{mbc} to use, we have a \texttt{GameCartridge} class, that wraps around \texttt{MBC}. It's role is decoding the cartridge's header, contained in \texttt{0x0100}-\texttt{0x014F} \cite[The Cartridge Header]{pandoc}, to decide on which \gls{mbc} to use, as well as some of the properties of the cartridge: does it have RAM, is it battery backed (in which case it supports saving), what's the game's title and identifier.
+To decide which \gls{mbc} to use, we have a \texttt{GameCartridge} class, that wraps around \texttt{MBC}. Its role is decoding the cartridge's header, contained in \texttt{0x0100}-\texttt{0x014F} \cite[The Cartridge Header]{pandoc}, to decide on which \gls{mbc} to use, as well as some of the properties of the cartridge: does it have RAM, is it battery backed (in which case it supports saving), what's the game's title and identifier.
 
 The \texttt{read} and \texttt{write} methods received an optimisation similar to what was done with \texttt{System.getAddress}: because the internal addressing logic of the \glspl{mbc} only relies on the most significant nibble, a simple switch statement can be made (see figure~\ref{fig:mbc-read-switch}).
 
@@ -1257,7 +1257,7 @@ To accommodate the 16-bit registers of the \gls{cpu}, a \texttt{DoubleRegister} 
 
 Classes to manage memory were also created, to avoid having high-level components access data structures directly. For instance, the \texttt{ROM} class is backed by a \texttt{UInt8Array}\ftnt{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array}, and implements \texttt{Addressable}. It is extended by \texttt{RAM}, to allow \texttt{write} operations.
 
-To simplify the operation of certain components, a \texttt{CircularRAM} class was also created. It extends \texttt{RAM}, and must be provided an \textit{offset} on creation. When reading or writing to it, the offset is subtracted from the address, and the modulo of the RAM's length is then applied to it (see figure~\ref{fig:circular-ram}). This allows this part of memory to handle addressing in an independent way: the high-level component simply has to provide it with it's address on creation.
+To simplify the operation of certain components, a \texttt{CircularRAM} class was also created. It extends \texttt{RAM}, and must be provided an \textit{offset} on creation. When reading or writing to it, the offset is subtracted from the address, and the modulo of the RAM's length is then applied to it (see figure~\ref{fig:circular-ram}). This allows this part of memory to handle addressing in an independent way: the high-level component simply has to provide it with its address on creation.
 
 \begin{figure}[h]
     \begin{minted}{typescript}
@@ -1386,7 +1386,7 @@ Once the emulator is setup, the test \gls{rom} must be handled. First, the desir
 
 The second part of automated testing requires monitoring the emulator, and verifying if the test succeeded or failed. GBEmulatorShootout requires taking screenshots of the emulator frequently, and comparing the screenshot to an image of the expected result. This method implies storing an additional image for each test \gls{rom}, but comes with the advantage that no complex code is required to look into the emulator's state for other indicators of success (like what was done in this project's frontend, see subsection \nameref{sec:testing-ui}). This makes it the ideal solution for this kind of tool, as the additional code to add an emulator to the test suite is minimal (all emulators will output the \glsdesc{gb}'s screen, whereas not all emulators have the same internal structure).
 
-To do this, we must extract the image from the \texttt{<canvas/>} element the emulator's frontend draws in, and convert it to an appropriate Python object (see figure \ref{fig:selenium-screenshot}). We first fetch the output canvas by it's ID, and execute a small JavaScript function to retrieve the image inside the canvas, in a PNG format. This data is then decoded, and used to create an image, that is resized to the correct size (as the emulator's screen may be upscaled by the browser).
+To do this, we must extract the image from the \texttt{<canvas/>} element the emulator's frontend draws in, and convert it to an appropriate Python object (see figure \ref{fig:selenium-screenshot}). We first fetch the output canvas by its ID, and execute a small JavaScript function to retrieve the image inside the canvas, in a PNG format. This data is then decoded, and used to create an image, that is resized to the correct size (as the emulator's screen may be upscaled by the browser).
 
 \begin{figure}[h]
     \begin{minted}{python}
@@ -1460,7 +1460,7 @@ For the \gls{rom}, the performance will be measured on 4 distinct \glspl{rom}, a
 
 \begin{compactitem}
 	\item ``The Legend of Zelda: Link's Awakening'', a \gls{dmg} game. It is quite simple and should not be too memory intensive. It will help outline the average performance on the \gls{dmg}.
-	\item The \texttt{cpu\_instrs} test \gls{rom}. It's advantage is that it is quite long, and it's purpose is to test the entirety of the \gls{cpu}, meaning it will be very processor-intensive.
+	\item The \texttt{cpu\_instrs} test \gls{rom}. Its advantage is that it is quite long, and its purpose is to test the entirety of the \gls{cpu}, meaning it will be very processor-intensive.
 	\item ``The Legend of Zelda: Oracle of Ages'', a \gls{gbc} game. It is similar to the previous Zelda \gls{rom}, but was built for the \gls{gbc}, meaning it likely requires more resources to run.
 	\item ``Alone in the Dark: The New Nightmare'', a \gls{gbc} game. This is a very complex game released for the \gls{gbc}, that supports ``3D-scenes'', and very regularly changes the colour palette registers \cite[Tricky-to-emulate games]{gbdev_wiki}. Both of these properties combined should make this \gls{rom} slower, making it a hypothetical ``upper-bound'' on frame time.
 \end{compactitem}
@@ -1512,7 +1512,7 @@ The presented emulator fulfils most of the specification, with some specificatio
 	\item
 		U7: User can pause the console emulation through a button. They can also input conditions for which the console should break execution.
 
-		The emulator's frontend does not provide a way to add breakpoints to the emulation. This feature was initially supported from the browser's console, but it's implementation was unsatisfactory. A possible improvement to the emulator would thus be support for such breakpoints, maybe in a format similar to that of the current ``Watch Expressions'' menu.
+		The emulator's frontend does not provide a way to add breakpoints to the emulation. This feature was initially supported from the browser's console, but its implementation was unsatisfactory. A possible improvement to the emulator would thus be support for such breakpoints, maybe in a format similar to that of the current ``Watch Expressions'' menu.
 
 	\item
 		N3: A  downloadable version of the web-app can be used on a computer and provides full functionality, via keyboard and mouse inputs.
@@ -1562,7 +1562,7 @@ The first is improving the accuracy of the emulator. As seen in the evaluation o
 
 A second important point to be improved in the emulator is its performance. As seen in its evaluation, an average maximum of a 200\% speed increase is reachable. To improve the performance of the emulator (which will be needed if more features are to be added), its performance must be improved substantially. Although code optimisations and caching could improve some of the performance issues, a significant bottleneck is the language used itself. If the emulator were to be entirely rewritten using a language such as AssemblyScript, it would likely run much faster. This would be a much more time-consuming change, and would require updating the front-end to work properly with it, but could yield great performance improvements if done properly.
 
-Finally, the third point to improve on this project is it's frontend. Although it has a good range of available features, it could still be improved to be up to par with other technical emulators. More and better debugging tools could be provided to the user, as well as more customisation options, such as new screen filters, a full-screen mode or support for input macros.
+Finally, the third point to improve on this project is its frontend. Although it has a good range of available features, it could still be improved to be up to par with other technical emulators. More and better debugging tools could be provided to the user, as well as more customisation options, such as new screen filters, a full-screen mode or support for input macros.
 
 \clearpage
 
@@ -1570,5 +1570,9 @@ Finally, the third point to improve on this project is it's frontend. Although i
 
 \printbibliography
 \addcontentsline{toc}{chapter}{Bibliography}
+
+\appendix
+
+\include{appendices/userguide}
 
 \end{document}
