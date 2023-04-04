@@ -26,8 +26,7 @@ class Timer implements Addressable {
     // TAC - timer control
     protected timerControl = new MaskRegister(0b1111_1000);
 
-    protected previousDivider = this.divider.get();
-    protected timerWasEnabled: number = 0;
+    protected previousBitState: number = 0;
     protected timerOverflowed: boolean = false;
     protected previousTimerOverflowed: boolean = false;
 
@@ -53,21 +52,16 @@ class Timer implements Addressable {
         // Increase TIMA
         // Store bit for TIMA edge-detection
         const timerControl = this.timerControl.get();
+        const timerIsEnabled = timerControl & TIMER_ENABLE_FLAG;
         const speedMode = (timerControl & 0b11) as Int2;
         const checkedBit = TIMER_CONTROLS[speedMode];
 
-        // Several edge-y cases can toggle a timer increase:
-        const bitStateBefore = (this.previousDivider >> checkedBit) & 1;
-        const bitStateAfter = (newDivider >> checkedBit) & 1;
-        const timerIsEnabled = timerControl & TIMER_ENABLE_FLAG;
+        // Bit is read if enabled, otherwise it's 0
+        const currentBitState = timerIsEnabled && (newDivider >> checkedBit) & 1;
 
-        // Cases when timer should increase:
-        if (
-            bitStateBefore &&
-            (timerIsEnabled
-                ? !bitStateAfter // Regular falling edge, while toggled
-                : this.timerWasEnabled) // Bit is set, and timer went from enabled to disabled
-        ) {
+        // Timer increases when *read bit* goes from 1 to 0
+        // This meaning turning off the timer when the bit was 1 triggers an increase
+        if (this.previousBitState && !currentBitState) {
             const result = (this.timerCounter.get() + 1) & 0xff;
             this.timerCounter.set(result);
 
@@ -77,8 +71,7 @@ class Timer implements Addressable {
             }
         }
 
-        this.timerWasEnabled = timerIsEnabled;
-        this.previousDivider = newDivider;
+        this.previousBitState = currentBitState;
     }
 
     protected addresses: Record<number, Register> = {

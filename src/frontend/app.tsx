@@ -65,23 +65,22 @@ const App: FunctionalComponent = () => {
     };
 
     const saveGame = useCallback(() => {
-        if (gameboy) {
+        if (gameboy && gameboy.supportsSaves()) {
             const save = gameboy.save();
-            if (save) {
-                localforage.setItem(SAVE_CACHE_KEY + gameboy.getIdentifier(), save, (err) => {
-                    if (err)
-                        console.error(
-                            `Could not save game ${gameboy.getTitle()} (${gameboy.getIdentifier()}):`,
-                            err
-                        );
-                    else {
-                        console.log(
-                            `Saved game ${gameboy.getTitle()} (${gameboy.getIdentifier()})`
-                        );
-                        addAlert(`Saved game '${gameboy.getTitle()}'`);
-                    }
-                });
-            }
+            if (!save) return;
+            localforage.setItem(SAVE_CACHE_KEY + gameboy.getIdentifier(), save, (err) => {
+                if (err)
+                    console.error(
+                        `Could not save game ${gameboy.getTitle()} (${gameboy.getIdentifier()}):`,
+                        err
+                    );
+                else {
+                    console.log(
+                        `Saved game ${gameboy.getTitle()} (${gameboy.getIdentifier()})`
+                    );
+                    addAlert(`Saved game '${gameboy.getTitle()}'`);
+                }
+            });
         }
     }, [gameboy]);
 
