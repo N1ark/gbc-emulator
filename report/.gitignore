@@ -13,3 +13,6 @@ packages/*.sty
 diagrams/*.pdf
 diagrams/*.bkp
 diagrams/*.dtmp
+*.mtc*
+*.maf
+*.ptc

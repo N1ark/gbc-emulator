@@ -1,0 +1,153 @@
+\setminted{
+	fontsize=\footnotesize,
+	numbersep=5pt,
+	linenos=true,
+	framesep=3mm,
+	breaklines=true,
+	tabsize=2,
+	baselinestretch=1
+}
+
+
+\newcommand{\src}[4]{
+\subsubsection{#2 (\texttt{#1/#2.#3})}
+\inputminted{#4}{../#1/#2.#3}
+\clearpage
+}
+
+\newcommand{\srcTs}[2]{\src{#1}{#2}{ts}{typescript}}
+\newcommand{\srcTsx}[2]{\src{#1}{#2}{tsx}{jsx}}
+\newcommand{\srcCss}[2]{\src{#1}{#2}{css}{css}}
+
+\chapter{Source Code}
+
+% Black links
+\hypersetup{linkcolor=black}
+% Removes left margin, smaller subsubsection names
+\titlecontents{psection}[2.3em]
+{} {\contentslabel{2.3em}} {} {\titlerule*[1pc]{.}\contentspage}
+\titlecontents{psubsection}[4.0em]
+{} {\contentslabel{3.2em}} {} {\titlerule*[1pc]{.}\contentspage}
+\titlecontents{psubsubsection}[4.0em]
+{\small} {} {} {\titlerule*[1pc]{.}\contentspage}
+
+
+\startcontents[sourcecode]
+\printcontents[sourcecode]{p}{1}[3]{}
+
+\clearpage
+
+\section{Emulator Core Code}
+
+\subsection{Emulator Main Interfaces}
+
+\srcTs{src/emulator}{GameBoyColor}
+\srcTs{src/emulator}{GameBoyInput}
+\srcTs{src/emulator}{GameBoyOutput}
+
+\subsection{CPU}
+
+\srcTs{src/emulator}{CPU}
+
+\subsection{System}
+
+\srcTs{src/emulator}{System}
+
+\subsection{PPU}
+
+\srcTs{src/emulator/ppu}{PPU}
+\srcTs{src/emulator/ppu}{OAM}
+\srcTs{src/emulator/ppu}{ColorController}
+\srcTs{src/emulator/ppu}{VRAMController}
+
+\subsection{APU}
+
+\srcTs{src/emulator/apu}{APU}
+\srcTs{src/emulator/apu}{SoundChannel}
+\srcTs{src/emulator/apu}{SoundChannel1}
+\srcTs{src/emulator/apu}{SoundChannel2}
+\srcTs{src/emulator/apu}{SoundChannel3}
+\srcTs{src/emulator/apu}{SoundChannel4}
+
+\subsection{MBCs}
+
+\srcTs{src/emulator/mbc}{MBC}
+\srcTs{src/emulator/mbc}{NoMBC}
+\srcTs{src/emulator/mbc}{MBC1}
+\srcTs{src/emulator/mbc}{MBC2}
+\srcTs{src/emulator/mbc}{MBC3}
+\srcTs{src/emulator/mbc}{MBC5}
+
+\subsection{Other Components}
+
+\srcTs{src/emulator}{GameCartridge}
+\srcTs{src/emulator}{JoypadInput}
+\srcTs{src/emulator}{Timer}
+\srcTs{src/emulator}{Interrupts}
+\srcTs{src/emulator}{WRAM}
+
+\subsection{Helpers}
+
+\srcTs{src/emulator}{Memory}
+\srcTs{src/emulator}{Register}
+\srcTs{src/emulator}{constants}
+\srcTs{src/emulator}{util}
+
+\section{Frontend Code}
+
+\subsection{Main App}
+
+\srcTsx{src/frontend}{main}
+\srcTsx{src/frontend}{app}
+
+\subsection{Main Styling}
+
+\srcCss{src/frontend}{index}
+\srcCss{src/frontend}{mobile}
+
+\subsection{Components}
+
+\srcTsx{src/frontend/components}{Alerts}
+\srcCss{src/frontend/components}{Alerts}
+\srcTsx{src/frontend/components}{GameInput}
+\srcCss{src/frontend/components}{GameInput}
+\srcTsx{src/frontend/components}{IconButton}
+\srcTsx{src/frontend/components}{KeybindingInput}
+\srcCss{src/frontend/components}{KeybindingInput}
+\srcTsx{src/frontend/components}{Resizable}
+\srcCss{src/frontend/components}{Resizable}
+\srcTsx{src/frontend/components}{RomInput}
+\srcTsx{src/frontend/components}{Screen}
+
+\subsection{Drawer Components}
+
+\srcTsx{src/frontend/components/Drawer}{Drawer}
+\srcCss{src/frontend/components/Drawer}{Drawer}
+\srcTsx{src/frontend/components/Drawer}{DrawerSection}
+\srcTsx{src/frontend/components/Drawer}{ExpressionDrawer}
+\srcTsx{src/frontend/components/Drawer}{ExpressionWatch}
+\srcTsx{src/frontend/components/Drawer}{Grid2x}
+\srcTsx{src/frontend/components/Drawer}{KeysDrawer}
+\srcTsx{src/frontend/components/Drawer}{MemoryDrawer}
+\srcTsx{src/frontend/components/Drawer}{SettingsDrawer}
+\srcTsx{src/frontend/components/Drawer}{TestDrawer}
+
+\subsection{Helpers}
+
+\srcTs{src/frontend/helpers}{AudioPlayer}
+\srcTsx{src/frontend/helpers}{ConfigContext}
+\srcTs{src/frontend/helpers}{useKeys}
+
+\subsection{Image Filters}
+
+\srcTs{src/frontend/helpers/ImageFilter}{index}
+\srcTs{src/frontend/helpers/ImageFilter}{Base}
+\srcTs{src/frontend/helpers/ImageFilter}{Identity}
+\srcTs{src/frontend/helpers/ImageFilter}{Scale2x}
+\srcTs{src/frontend/helpers/ImageFilter}{Scale4x}
+
+\subsection{Automated Test Config}
+
+\srcTs{src/frontend}{testConfig}
+
+\stopcontents[sourcecode]

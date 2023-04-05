@@ -59,6 +59,7 @@
 			\large{Author: \@author\\*
 			           Supervisor: \@supervisor}\\*
 			           Student ID: \@studentID\\*
+			           Programme of Study: Computer Science MSci\\*
 			\vspace*{0.2in}
 			{\@date}\\*
 		}

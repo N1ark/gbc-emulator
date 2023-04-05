@@ -22,6 +22,8 @@
 \usepackage{minted}
 \setminted{linenos, tabsize=4}
 
+\usepackage{titletoc}
+
 % setup bibliography
 \usepackage[style=ieee]{biblatex}
 \addbibresource{references.bib}
@@ -49,7 +51,7 @@
 
 \title{6CCS3PRJ\\Emmy, The Game Boy Emulator}
 \author{Oscar Sjöstedt}
-\studentID{20040078}
+\studentID{K20040078}
 \supervisor{Ian Kenny}
 
 \date{\today}
@@ -1534,7 +1536,7 @@ localForage is an open source library, allowing for more transparency -- one cou
 
 \section{Legality}
 
-The \glsdesc{gb} is a copyrighted console, owned by Nintendo, but making an emulator for it is deemed legal as long as it is done following a ``clean room'' design \cite{emulation_white_paper}. Overall, it is legal to make emulators, as long as they follow this method. This was ruled via a series of court appeals between console manufacturers and groups that produce emulators, with the latter consistently winning the appeal. This was the case for Sony Computer Entertainment America v. Connectix Corporation trial, that deemed that the ``Virtual Game Station'' PlayStation emulator was not a copyright infringement on Sony, and that Connectix's reverse engineering of the original PlayStation's BIOS was fair use \cite{sony_v_connectix}. Emmy was developed using online resources about the \gls{gb} compiled by people who reverse engineered the \gls{gb}, and as such was developed with a clean room design too.
+The \glsdesc{gb} is a copyrighted console, owned by Nintendo, but making an emulator for it is deemed legal as long as it is done following a ``clean room'' design \cite{emulation_white_paper}. Overall, it is legal to make emulators, as long as they follow this method. This was ruled via a series of court appeals between console manufacturers and groups that produce emulators, with the latter consistently winning the appeal. This was the case for the Sony Computer Entertainment America v. Connectix Corporation trial, that deemed that the ``Virtual Game Station'' PlayStation emulator was not a copyright infringement on Sony, and that Connectix's reverse engineering of the original PlayStation's BIOS was fair use \cite{sony_v_connectix}. Emmy was developed using online resources about the \gls{gb} compiled by people who reverse engineered the \gls{gb}, and as such was developed with a clean room design too.
 
 Although distributing the emulator is legal, distributing the BIOS (Basic Input/Output System) of the console with the emulator is not, as it is still copyrighted software \cite{emulation_white_paper}. Because acquiring such BIOS is however not illegal as long as the user owns the console, a user is free to use their own BIOS in the emulator (see subsection \nameref{sec:settings-ui}). The emulator otherwise simulates the effect of the BIOS on the system, by setting up all the necessary memory and registers.
 
@@ -1574,5 +1576,7 @@ Finally, the third point to improve on this project is its frontend. Although it
 \appendix
 
 \include{appendices/userguide}
+\include{appendices/sourcecode}
+\include{appendices/gbemulatorshootout}
 
 \end{document}
