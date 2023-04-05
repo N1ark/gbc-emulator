@@ -102,14 +102,6 @@ class CPU {
         return this.nextByte((low) => this.nextByte((high) => receiver(combine(high, low))));
     }
 
-    getStepCounts() {
-        return this.stepCounter;
-    }
-
-    getPC() {
-        return this.regPC.get();
-    }
-
     /**
      * Steps through one line of the code, and returns the M-cycles required for the
      * operation
@@ -379,69 +371,23 @@ class CPU {
             };
         }),
         // LD B/C/D/E/H/L/A, B/C/D/E/H/L/A
-        ...this.generateOperation<number, [Register, Register]>(
-            {
-                0x40: [this.srB, this.srB],
-                0x41: [this.srB, this.srC],
-                0x42: [this.srB, this.srD],
-                0x43: [this.srB, this.srE],
-                0x44: [this.srB, this.srH],
-                0x45: [this.srB, this.srL],
-                0x47: [this.srB, this.srA],
-
-                0x48: [this.srC, this.srB],
-                0x49: [this.srC, this.srC],
-                0x4a: [this.srC, this.srD],
-                0x4b: [this.srC, this.srE],
-                0x4c: [this.srC, this.srH],
-                0x4d: [this.srC, this.srL],
-                0x4f: [this.srC, this.srA],
-
-                0x50: [this.srD, this.srB],
-                0x51: [this.srD, this.srC],
-                0x52: [this.srD, this.srD],
-                0x53: [this.srD, this.srE],
-                0x54: [this.srD, this.srH],
-                0x55: [this.srD, this.srL],
-                0x57: [this.srD, this.srA],
-
-                0x58: [this.srE, this.srB],
-                0x59: [this.srE, this.srC],
-                0x5a: [this.srE, this.srD],
-                0x5b: [this.srE, this.srE],
-                0x5c: [this.srE, this.srH],
-                0x5d: [this.srE, this.srL],
-                0x5f: [this.srE, this.srA],
-
-                0x60: [this.srH, this.srB],
-                0x61: [this.srH, this.srC],
-                0x62: [this.srH, this.srD],
-                0x63: [this.srH, this.srE],
-                0x64: [this.srH, this.srH],
-                0x65: [this.srH, this.srL],
-                0x67: [this.srH, this.srA],
-
-                0x68: [this.srL, this.srB],
-                0x69: [this.srL, this.srC],
-                0x6a: [this.srL, this.srD],
-                0x6b: [this.srL, this.srE],
-                0x6c: [this.srL, this.srH],
-                0x6d: [this.srL, this.srL],
-                0x6f: [this.srL, this.srA],
-
-                0x78: [this.srA, this.srB],
-                0x79: [this.srA, this.srC],
-                0x7a: [this.srA, this.srD],
-                0x7b: [this.srA, this.srE],
-                0x7c: [this.srA, this.srH],
-                0x7d: [this.srA, this.srL],
-                0x7f: [this.srA, this.srA],
-            },
-            ([to, from]) =>
-                () => {
-                    to.set(from.get());
-                    return null;
-                }
+        ...[this.srB, this.srC, this.srD, this.srE, this.srH, this.srL].reduce(
+            (prev, r, i) => ({
+                ...prev,
+                ...this.generateExtendedOperation(0x40 + i * 8, ({ get, set }) =>
+                    get((n) => {
+                        r.set(n);
+                        return null;
+                    })
+                ),
+            }),
+            {} as Partial<Record<number, InstructionMethod>>
+        ),
+        ...this.generateExtendedOperation(0x78, ({ get, set }) =>
+            get((n) => {
+                this.srA.set(n);
+                return null;
+            })
         ),
         // LD B/C/D/E/H/L/A (HL)
         ...this.generateOperation(
@@ -481,81 +427,34 @@ class CPU {
             }
         ),
         // ADD A, B/C/D/E/H/L/A/(HL)/d8
-        ...this.generateOperation(
-            {
-                0x80: this.srB,
-                0x81: this.srC,
-                0x82: this.srD,
-                0x83: this.srE,
-                0x84: this.srH,
-                0x85: this.srL,
-                0x87: this.srA,
-            },
-            (r) => () => {
-                this.addNToA(r.get(), false);
+        ...this.generateExtendedOperation(0x80, ({ get, set }) =>
+            get((n) => {
+                this.addNToA(n, false);
                 return null;
-            }
+            })
         ),
-        0x86: this.readAddress(
-            () => this.regHL.get(),
-            (value) => () => {
-                this.addNToA(value, false);
-                return null;
-            }
-        ),
+
         0xc6: this.nextByte((value) => () => {
             this.addNToA(value, false);
             return null;
         }),
         // ADDC A, B/C/D/E/H/L/A/(HL)/d8
-        ...this.generateOperation(
-            {
-                0x88: this.srB,
-                0x89: this.srC,
-                0x8a: this.srD,
-                0x8b: this.srE,
-                0x8c: this.srH,
-                0x8d: this.srL,
-                0x8f: this.srA,
-            },
-            (r) => () => {
-                this.addNToA(r.get(), true);
+        ...this.generateExtendedOperation(0x88, ({ get, set }) =>
+            get((n) => {
+                this.addNToA(n, true);
                 return null;
-            }
-        ),
-        0x8e: this.readAddress(
-            () => this.regHL.get(),
-            (value) => () => {
-                this.addNToA(value, true);
-                return null;
-            }
+            })
         ),
         0xce: this.nextByte((value) => () => {
             this.addNToA(value, true);
             return null;
         }),
         // SUB A, B/C/D/E/H/L/A/(HL)/d8
-        ...this.generateOperation(
-            {
-                0x90: this.srB,
-                0x91: this.srC,
-                0x92: this.srD,
-                0x93: this.srE,
-                0x94: this.srH,
-                0x95: this.srL,
-                0x97: this.srA,
-            },
-            (r) => () => {
-                this.subNFromA(r.get(), false);
+        ...this.generateExtendedOperation(0x90, ({ get, set }) =>
+            get((n) => {
+                this.subNFromA(n, false);
                 return null;
-            }
-        ),
-        0x96: this.readAddress(
-            () => this.regHL.get(),
-            (value) => () => {
-                this.subNFromA(value, false);
-                return null;
-            }
+            })
         ),
         0xd6: this.nextByte((value) => () => {
             this.subNFromA(value, false);
@@ -935,19 +834,19 @@ class CPU {
     protected extendedInstructionSet: Partial<Record<number, InstructionMethod>> = {
         // RLC ...
         ...this.generateExtendedOperation(0x00, ({ get, set }) =>
-            get((value) => set(this.rotateL(value, false, true)))
+            get((value) => set(this.rotateL(value, false, true), () => null))
         ),
         // RRC ...
         ...this.generateExtendedOperation(0x08, ({ get, set }) =>
-            get((value) => set(this.rotateR(value, false, true)))
+            get((value) => set(this.rotateR(value, false, true), () => null))
         ),
         // RL ...
         ...this.generateExtendedOperation(0x10, ({ get, set }) =>
-            get((value) => set(this.rotateL(value, true, true)))
+            get((value) => set(this.rotateL(value, true, true), () => null))
         ),
         // RC ...
         ...this.generateExtendedOperation(0x18, ({ get, set }) =>
-            get((value) => set(this.rotateR(value, true, true)))
+            get((value) => set(this.rotateR(value, true, true), () => null))
         ),
         // SLA ...
         ...this.generateExtendedOperation(0x20, ({ get, set }) =>
@@ -957,7 +856,7 @@ class CPU {
                 this.setFlag(FLAG_SUBSTRACTION, false);
                 this.setFlag(FLAG_HALFCARRY, false);
                 this.setFlag(FLAG_CARRY, ((value >> 7) & 0b1) === 1);
-                return set(result);
+                return set(result, () => null);
             })
         ),
         // SRA ...
@@ -968,7 +867,7 @@ class CPU {
                 this.setFlag(FLAG_SUBSTRACTION, false);
                 this.setFlag(FLAG_HALFCARRY, false);
                 this.setFlag(FLAG_CARRY, (value & 0b1) === 1);
-                return set(result);
+                return set(result, () => null);
             })
         ),
         // SRL ...
@@ -979,7 +878,7 @@ class CPU {
                 this.setFlag(FLAG_SUBSTRACTION, false);
                 this.setFlag(FLAG_HALFCARRY, false);
                 this.setFlag(FLAG_CARRY, (value & 0b1) === 1);
-                return set(result);
+                return set(result, () => null);
             })
         ),
         // SWAP ...
@@ -990,7 +889,7 @@ class CPU {
                 this.setFlag(FLAG_SUBSTRACTION, false);
                 this.setFlag(FLAG_HALFCARRY, false);
                 this.setFlag(FLAG_CARRY, false);
-                return set(result);
+                return set(result, () => null);
             })
         ),
         // BIT 0/1/2/.../7, ...
@@ -1016,7 +915,7 @@ class CPU {
                 ...this.generateExtendedOperation(0x80 + bit * 8, ({ get, set }) =>
                     get((value) => {
                         const result = value & ~(1 << bit);
-                        return set(result);
+                        return set(result, () => null);
                     })
                 ),
             }),
@@ -1029,7 +928,7 @@ class CPU {
                 ...this.generateExtendedOperation(0xc0 + bit * 8, ({ get, set }) =>
                     get((value) => {
                         const result = value | (1 << bit);
-                        return set(result);
+                        return set(result, () => null);
                     })
                 ),
             }),
@@ -1243,19 +1142,16 @@ class CPU {
      */
     protected generateExtendedOperation(
         baseCode: number,
-        execute: (r: {
-            get: (r: (value: number) => InstructionReturn) => InstructionReturn;
-            set: (x: number) => InstructionReturn;
-        }) => InstructionReturn
+        execute: InstrMeth<AsyncRegister>
     ): Partial<Record<number, InstructionMethod>> {
-        const make = (sr: Register) => ({
-            get: (r: (value: number) => InstructionReturn) => {
+        const make: (sr: Register) => AsyncRegister = (sr) => ({
+            get: (r) => {
                 const value = sr.get();
                 return r(value);
             },
-            set: (x: number) => {
+            set: (x, r) => {
                 sr.set(x);
-                return null;
+                return r();
             },
         });
         const regB = make(this.srB);
@@ -1276,18 +1172,25 @@ class CPU {
             [baseCode + 5]: (s) => execute(regL),
             [baseCode + 6]: (s) =>
                 execute({
-                    get: (r: (value: number) => InstructionReturn) => {
+                    get: (r) => {
                         const value = s.read(this.regHL.get());
                         return () => r(value);
                     },
-                    set: (x: number) => {
+                    set: (x, r) => {
                         s.write(this.regHL.get(), x);
-                        return () => null;
+                        return () => r();
                     },
-                }),
+                } satisfies AsyncRegister),
             [baseCode + 7]: (s) => execute(regA),
         };
     }
 }
+
+type InstrMeth<A = void, B = void, C = void> = (a: A, b: B, c: C) => InstructionReturn;
+
+type AsyncRegister = {
+    get: InstrMeth<InstrMeth<number>>;
+    set: InstrMeth<number, InstrMeth>;
+};
 
 export default CPU;
