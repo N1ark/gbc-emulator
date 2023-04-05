@@ -29,7 +29,7 @@ class CPU {
     // If the CPU was halted when IME=0
     protected haltBug: boolean = false;
 
-    // Subregisters, for convenience sake
+    // 8-bit registers, for convenience sake
     protected srA = this.regAF.h;
     protected srB = this.regBC.h;
     protected srC = this.regBC.l;
@@ -833,19 +833,23 @@ class CPU {
         ),
         // RLCA / RLA / RRCA / RRA
         0x07: () => {
-            this.rotateLSr(this.srA, false, false);
+            const result = this.rotateL(this.srA.get(), false, false);
+            this.srA.set(result);
             return null;
         },
         0x17: () => {
-            this.rotateLSr(this.srA, true, false);
+            const result = this.rotateL(this.srA.get(), true, false);
+            this.srA.set(result);
             return null;
         },
         0x0f: () => {
-            this.rotateRSr(this.srA, false, false);
+            const result = this.rotateR(this.srA.get(), false, false);
+            this.srA.set(result);
             return null;
         },
         0x1f: () => {
-            this.rotateRSr(this.srA, true, false);
+            const result = this.rotateR(this.srA.get(), true, false);
+            this.srA.set(result);
             return null;
         },
         // ADD SP, s8
@@ -1060,7 +1064,7 @@ class CPU {
         return result;
     }
 
-    /** Adds a value to subregister A, updates flags Z/0/H/CY */
+    /** Adds a value to register A, updates flags Z/0/H/CY */
     protected addNToA(n: number, carry: boolean) {
         const a = this.srA.get();
         const carryVal = carry && this.flag(FLAG_CARRY) ? 1 : 0;
@@ -1080,7 +1084,7 @@ class CPU {
         this.setFlag(FLAG_HALFCARRY, (a & 0xf) > 0xf - (b & 0xf));
         return result;
     }
-    /** Substracts a value from subregister A, updates flags Z/1/H/CY */
+    /** Substracts a value from register A, updates flags Z/1/H/CY */
     protected subNFromA(n: number, carry: boolean) {
         const a = this.srA.get();
         const carryVal = carry && this.flag(FLAG_CARRY) ? 1 : 0;
@@ -1202,10 +1206,6 @@ class CPU {
         this.setFlag(FLAG_CARRY, bit7 === 1);
         return result;
     }
-    /** Applies rotateL to a subregister. Sets flags Z|0/0/0/Sr7 */
-    protected rotateLSr(sr: Register, useCarry: boolean, setZero: boolean) {
-        sr.set(this.rotateL(sr.get(), useCarry, setZero));
-    }
     /** Rotates the given number right. Sets flags Z|0/0/0/N0 */
     protected rotateR(n: number, useCarry: boolean, setZero: boolean) {
         const bit0 = n & 0b1;
@@ -1216,10 +1216,6 @@ class CPU {
         this.setFlag(FLAG_HALFCARRY, false);
         this.setFlag(FLAG_CARRY, bit0 === 1);
         return result;
-    }
-    /** Applies rotateR to a subregister. Sets flags Z|0/0/0/Sr0 */
-    protected rotateRSr(sr: Register, useCarry: boolean, setZero: boolean) {
-        sr.set(this.rotateR(sr.get(), useCarry, setZero));
     }
 
     /**
@@ -1262,23 +1258,22 @@ class CPU {
                 return null;
             },
         });
-        const subregisters = {
-            b: make(this.srB),
-            c: make(this.srC),
-            d: make(this.srD),
-            e: make(this.srE),
-            h: make(this.srH),
-            l: make(this.srL),
-            a: make(this.srA),
-        };
+        const regB = make(this.srB);
+        const regC = make(this.srC);
+        const regD = make(this.srD);
+        const regE = make(this.srE);
+        const regH = make(this.srH);
+        const regL = make(this.srL);
+        const regA = make(this.srA);
+
         // order matters: B/C/D/E/H/L/(HL)/A
         return {
-            [baseCode + 0]: (s) => execute(subregisters.b),
-            [baseCode + 1]: (s) => execute(subregisters.c),
-            [baseCode + 2]: (s) => execute(subregisters.d),
-            [baseCode + 3]: (s) => execute(subregisters.e),
-            [baseCode + 4]: (s) => execute(subregisters.h),
-            [baseCode + 5]: (s) => execute(subregisters.l),
+            [baseCode + 0]: (s) => execute(regB),
+            [baseCode + 1]: (s) => execute(regC),
+            [baseCode + 2]: (s) => execute(regD),
+            [baseCode + 3]: (s) => execute(regE),
+            [baseCode + 4]: (s) => execute(regH),
+            [baseCode + 5]: (s) => execute(regL),
             [baseCode + 6]: (s) =>
                 execute({
                     get: (r: (value: number) => InstructionReturn) => {
@@ -1290,7 +1285,7 @@ class CPU {
                         return () => null;
                     },
                 }),
-            [baseCode + 7]: (s) => execute(subregisters.a),
+            [baseCode + 7]: (s) => execute(regA),
         };
     }
 }

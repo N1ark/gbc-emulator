@@ -10,7 +10,7 @@ import { wrap16 } from "./util";
 class Register implements Addressable {
     protected value: number;
 
-    /** Initialises a subregister with either 0 or a value */
+    /** Initialises a register with either 0 or a value */
     constructor(value: number = 0) {
         this.value = value;
     }
@@ -32,11 +32,11 @@ class Register implements Addressable {
         return (this.get() & flag) === flag;
     }
 
-    /** Read this subregister. */
+    /** Read this register. */
     read(): number {
         return this.get();
     }
-    /** Write to this subregister. Position's ignored. */
+    /** Write to this register. Position is ignored. */
     write(_: number, data: number): void {
         this.set(data);
     }
@@ -49,12 +49,6 @@ class Register implements Addressable {
 class MaskRegister extends Register {
     protected mask: number;
 
-    /**
-     * Constructs a PaddedSubRegister, using only the given number of bits
-     * @param usedBits Either the number of used bits (the end / most significant will be
-     * padded) or an array containing the mask of the subregister.
-     * @param value The initial value of the register
-     */
     constructor(mask: number, value: number = 0) {
         mask &= 0xff;
         super(value | mask);
@@ -67,7 +61,7 @@ class MaskRegister extends Register {
 }
 
 /**
- * A register, containing two 8 bit values.
+ * A double register, containing two 8 bit values.
  */
 class DoubleRegister {
     // Most significant byte (0xFF00)
