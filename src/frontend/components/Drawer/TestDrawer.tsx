@@ -10,7 +10,12 @@ import GameBoyOutput from "@emulator/GameBoyOutput";
 import IconButton from "@components/IconButton";
 import tests, { Test } from "@frontend/testConfig";
 
-type TestOutput = "❌" | "⌛" | "✅" | "🪦";
+const TEST_PASS = "\u2705"; // tick emoji
+const TEST_FAIL = "\u274C"; // cross emoji
+const TEST_TIMEOUT = "\u231B"; // hourglass emoji
+const TEST_CRASH = "\ud83e\udea6"; // skull emoji
+
+type TestOutput = typeof TEST_PASS | typeof TEST_FAIL | typeof TEST_TIMEOUT | typeof TEST_CRASH;
 
 const makeGameboy = (
     type: "DMG" | "CGB",
@@ -76,27 +81,27 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
 
                 const newState = await check(gbc, serialOut, videoOut, file);
                 if (newState !== null) {
-                    state = newState === "failure" ? "❌" : "✅";
+                    state = newState === "failure" ? TEST_FAIL : TEST_PASS;
                     break;
                 }
 
                 const steps = gbc["cpu"]["stepCounter"];
                 if (steps > 10_000_000 || steps === prevSteps) {
-                    state = "⌛";
+                    state = TEST_TIMEOUT;
                     break;
                 }
                 prevSteps = steps;
             }
         } catch (e) {
             console.error("Caught error, skipping test", e);
-            state = "🪦";
+            state = TEST_CRASH;
         }
 
         localResults.push([test, state]);
         results(localResults);
     }
 
-    const passedTests = localResults.filter((t) => t[1] === "✅").length;
+    const passedTests = localResults.filter((t) => t[1] === TEST_PASS).length;
     const totalTests = localResults.length;
     console.log(`Finished running tests! Passed ${passedTests}/${totalTests} tests.`);
 };
@@ -169,7 +174,7 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
                             (t) => [t, testResults.value.find((r) => r[0] === t)?.[1]] as const
                         );
 
-                    const passedTests = matchingTests.filter((v) => v[1] === "✅").length;
+                    const passedTests = matchingTests.filter((v) => v[1] === TEST_PASS).length;
                     const totalTests = matchingTests.length;
 
                     return (

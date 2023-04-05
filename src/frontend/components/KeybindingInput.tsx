@@ -13,7 +13,6 @@ const KEY_DISPLAY: Record<string, string | undefined> = {
     ArrowDown: "↓",
     ArrowLeft: "←",
     ArrowRight: "→",
-    Meta: "⌘",
     " ": "Space",
 };
 
