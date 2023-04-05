@@ -1,4 +1,4 @@
-import MBC from "./abstract";
+import MBC from "./MBC";
 
 class NoMBC extends MBC {
     constructor(data: Uint8Array) {

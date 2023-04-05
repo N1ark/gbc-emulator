@@ -1,9 +1,9 @@
-import MBC from "./mbc/abstract";
-import MBC1 from "./mbc/mbc1";
-import MBC2 from "./mbc/mbc2";
-import MBC3 from "./mbc/mbc3";
-import MBC5 from "./mbc/mbc5";
-import NoMBC from "./mbc/nombc";
+import MBC from "./mbc/MBC";
+import MBC1 from "./mbc/MBC1";
+import MBC2 from "./mbc/MBC2";
+import MBC3 from "./mbc/MBC3";
+import MBC5 from "./mbc/MBC5";
+import NoMBC from "./mbc/NoMBC";
 import { Addressable } from "./Memory";
 
 const TITLE_START = 0x134;

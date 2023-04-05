@@ -1,6 +1,6 @@
 import { RAM } from "../Memory";
 import { Register } from "../Register";
-import MBC from "./abstract";
+import MBC from "./MBC";
 
 const RAM_ENABLED = 0x0a;
 const MBC2_ROM_BANK = 1 << 8;
