@@ -74,7 +74,7 @@ class CPU {
      */
     protected readAddress(
         address: number | (() => number),
-        receiver: (value: number) => InstructionMethod
+        receiver: (value: number) => InstructionReturn
     ): InstructionMethod {
         return (system) => {
             const effectiveAddress = typeof address === "number" ? address : address();
@@ -87,7 +87,7 @@ class CPU {
      * Reads the next byte from the PC and increases it.
      * Takes 1 cycle.
      */
-    protected nextByte(receiver: (value: number) => InstructionMethod): InstructionMethod {
+    protected nextByte(receiver: (value: number) => InstructionReturn): InstructionMethod {
         return (system) => {
             const value = system.read(this.regPC.inc());
             return receiver(value);
@@ -98,7 +98,7 @@ class CPU {
      * Reads the next word (two bytes) from the PC and increases it.
      * Takes 2 cycles.
      */
-    protected nextWord(receiver: (value: number) => InstructionMethod): InstructionMethod {
+    protected nextWord(receiver: (value: number) => InstructionReturn): InstructionMethod {
         return this.nextByte((low) => this.nextByte((high) => receiver(combine(high, low))));
     }
 
@@ -202,45 +202,22 @@ class CPU {
             return instruction(system, interrupts);
         }),
         // LD BC/DE/HL/SP, d16
-        ...this.generateOperation(
-            {
-                0x01: this.regBC,
-                0x11: this.regDE,
-                0x21: this.regHL,
-                0x31: this.regSP,
-            },
-            (register) =>
-                this.nextWord((value) => () => {
-                    register.set(value);
-                    return null;
-                })
+        ...this.generateExtendedOperation16Regs(0x01, (register) =>
+            this.nextWord((value) => () => {
+                register.set(value);
+                return null;
+            })
         ),
         // INC BC/DE/HL/SP
-        ...this.generateOperation(
-            {
-                0x03: this.regBC,
-                0x13: this.regDE,
-                0x23: this.regHL,
-                0x33: this.regSP,
-            },
-            (r) => () => () => {
-                r.inc();
-                return null;
-            }
-        ),
+        ...this.generateExtendedOperation16Regs(0x03, (register) => () => () => {
+            register.inc();
+            return null;
+        }),
         // DEC BC/DE/HL/SP
-        ...this.generateOperation(
-            {
-                0x0b: this.regBC,
-                0x1b: this.regDE,
-                0x2b: this.regHL,
-                0x3b: this.regSP,
-            },
-            (r) => () => () => {
-                r.dec();
-                return null;
-            }
-        ),
+        ...this.generateExtendedOperation16Regs(0x0b, (register) => () => () => {
+            register.dec();
+            return null;
+        }),
         // ADD HL, BC/DE/HL/SP
         ...this.generateOperation(
             {
@@ -261,56 +238,12 @@ class CPU {
             }
         ),
         // INC B/D/H/C/E/L/A
-        ...this.generateOperation(
-            {
-                0x04: this.srB,
-                0x0c: this.srC,
-                0x14: this.srD,
-                0x1c: this.srE,
-                0x24: this.srH,
-                0x2c: this.srL,
-                0x3c: this.srA,
-            },
-            (r) => () => {
-                const result = this.incN(r.get());
-                r.set(result);
-                return null;
-            }
+        ...this.generateExtendedOperation8(0x04, ({ get, set }) =>
+            get((n) => set(this.incN(n), () => null))
         ),
-        // INC (HL)
-        0x34: this.readAddress(
-            () => this.regHL.get(),
-            (value) => (s) => {
-                const result = this.incN(value);
-                s.write(this.regHL.get(), result);
-                return () => null;
-            }
-        ),
-        // DEC B/D/H/C/E/L/A
-        ...this.generateOperation(
-            {
-                0x05: this.srB,
-                0x0d: this.srC,
-                0x15: this.srD,
-                0x1d: this.srE,
-                0x25: this.srH,
-                0x2d: this.srL,
-                0x3d: this.srA,
-            },
-            (r) => () => {
-                const result = this.decN(r.get());
-                r.set(result);
-                return null;
-            }
-        ),
-        // DEC (HL)
-        0x35: this.readAddress(
-            () => this.regHL.get(),
-            (value) => (s) => {
-                const result = this.decN(value);
-                s.write(this.regHL.get(), result);
-                return () => null;
-            }
+        // DEC B/D/H/C/E/L/(HL)/A
+        ...this.generateExtendedOperation8(0x05, ({ get, set }) =>
+            get((n) => set(this.decN(n), () => null))
         ),
         // LD (BC/DE/HL+/HL-), A
         ...this.generateOperation(
@@ -341,21 +274,8 @@ class CPU {
                 })
         ),
         // LD B/C/D/E/H/L/A, d8
-        ...this.generateOperation(
-            {
-                0x06: this.srB,
-                0x0e: this.srC,
-                0x16: this.srD,
-                0x1e: this.srE,
-                0x26: this.srH,
-                0x2e: this.srL,
-                0x3e: this.srA,
-            },
-            (r) =>
-                this.nextByte((value) => () => {
-                    r.set(value);
-                    return null;
-                })
+        ...this.generateExtendedOperation8(0x06, ({ get, set }) =>
+            this.nextByte((n) => set(n, () => null))
         ),
         // LD (HL), d8
         0x36: this.nextByte((value) => (s) => {
@@ -370,62 +290,29 @@ class CPU {
                 return () => null;
             };
         }),
-        // LD B/C/D/E/H/L/A, B/C/D/E/H/L/A
-        ...[this.srB, this.srC, this.srD, this.srE, this.srH, this.srL].reduce(
+        // LD B/C/D/E/H/L/(HL)/A, B/C/D/E/H/L/A
+        ...[this.srB, this.srC, this.srD, this.srE, this.srH, this.srL, null, this.srA].reduce(
             (prev, r, i) => ({
                 ...prev,
-                ...this.generateExtendedOperation(0x40 + i * 8, ({ get, set }) =>
-                    get((n) => {
-                        r.set(n);
-                        return null;
-                    })
-                ),
+                ...(r !== null
+                    ? this.generateExtendedOperation(0x40 + i * 8, ({ get, set }) =>
+                          get((n) => {
+                              r.set(n);
+                              return null;
+                          })
+                      )
+                    : {}),
             }),
-            {} as Partial<Record<number, InstructionMethod>>
-        ),
-        ...this.generateExtendedOperation(0x78, ({ get, set }) =>
-            get((n) => {
-                this.srA.set(n);
-                return null;
-            })
-        ),
-        // LD B/C/D/E/H/L/A (HL)
-        ...this.generateOperation(
-            {
-                0x46: this.srB,
-                0x4e: this.srC,
-                0x56: this.srD,
-                0x5e: this.srE,
-                0x66: this.srH,
-                0x6e: this.srL,
-                0x7e: this.srA,
-            },
-            (r) =>
-                this.readAddress(
-                    () => this.regHL.get(),
-                    (value) => {
-                        r.set(value);
-                        return () => null;
-                    }
-                )
+            {}
         ),
         // LD (HL), B/C/D/E/H/L/A
-        ...this.generateOperation(
-            {
-                0x70: this.srB,
-                0x71: this.srC,
-                0x72: this.srD,
-                0x73: this.srE,
-                0x74: this.srH,
-                0x75: this.srL,
-                0x77: this.srA,
-            },
-            (r) => (system) => {
-                const address = this.regHL.get();
-                system.write(address, r.get());
+        ...this.generateExtendedOperation(0x70, ({ get, set }, system) => {
+            const address = this.regHL.get();
+            return get((n) => {
+                system.write(address, n);
                 return () => null;
-            }
-        ),
+            });
+        }),
         // ADD A, B/C/D/E/H/L/A/(HL)/d8
         ...this.generateExtendedOperation(0x80, ({ get, set }) =>
             get((n) => {
@@ -461,80 +348,28 @@ class CPU {
             return null;
         }),
         // SBC A, B/C/D/E/H/L/A/(HL)/d8
-        ...this.generateOperation(
-            {
-                0x98: this.srB,
-                0x99: this.srC,
-                0x9a: this.srD,
-                0x9b: this.srE,
-                0x9c: this.srH,
-                0x9d: this.srL,
-                0x9f: this.srA,
-            },
-            (r) => () => {
-                this.subNFromA(r.get(), true);
+        ...this.generateExtendedOperation(0x98, ({ get, set }) =>
+            get((n) => {
+                this.subNFromA(n, true);
                 return null;
-            }
-        ),
-        0x9e: this.readAddress(
-            () => this.regHL.get(),
-            (value) => () => {
-                this.subNFromA(value, true);
-                return null;
-            }
+            })
         ),
         0xde: this.nextByte((value) => () => {
             this.subNFromA(value, true);
             return null;
         }),
         // AND/XOR/OR B/C/D/E/H/L/A
-        ...this.generateOperation<number, [Register, "&" | "|" | "^"]>(
-            {
-                0xa0: [this.srB, "&"],
-                0xa1: [this.srC, "&"],
-                0xa2: [this.srD, "&"],
-                0xa3: [this.srE, "&"],
-                0xa4: [this.srH, "&"],
-                0xa5: [this.srL, "&"],
-                0xa7: [this.srA, "&"],
-
-                0xa8: [this.srB, "^"],
-                0xa9: [this.srC, "^"],
-                0xaa: [this.srD, "^"],
-                0xab: [this.srE, "^"],
-                0xac: [this.srH, "^"],
-                0xad: [this.srL, "^"],
-                0xaf: [this.srA, "^"],
-
-                0xb0: [this.srB, "|"],
-                0xb1: [this.srC, "|"],
-                0xb2: [this.srD, "|"],
-                0xb3: [this.srE, "|"],
-                0xb4: [this.srH, "|"],
-                0xb5: [this.srL, "|"],
-                0xb7: [this.srA, "|"],
-            },
-            ([r, op]) =>
-                () => {
-                    this.boolNToA(r.get(), op);
-                    return null;
-                }
-        ),
-        // AND/XOR/OR (HL)
-        ...this.generateOperation(
-            {
-                0xa6: "&" as const,
-                0xae: "^" as const,
-                0xb6: "|" as const,
-            },
-            (op) =>
-                this.readAddress(
-                    () => this.regHL.get(),
-                    (value) => () => {
-                        this.boolNToA(value, op);
+        ...["&" as const, "^" as const, "|" as const].reduce(
+            (prev, op, i) => ({
+                ...prev,
+                ...this.generateExtendedOperation(0xa0 + i * 8, ({ get, set }) =>
+                    get((n) => {
+                        this.boolNToA(n, op);
                         return null;
-                    }
-                )
+                    })
+                ),
+            }),
+            {}
         ),
         // AND/XOR/OR d8
         ...this.generateOperation(
@@ -550,27 +385,11 @@ class CPU {
                 })
         ),
         // CP B/C/D/E/H/L/A/(HL)/d8
-        ...this.generateOperation(
-            {
-                0xb8: this.srB,
-                0xb9: this.srC,
-                0xba: this.srD,
-                0xbb: this.srE,
-                0xbc: this.srH,
-                0xbd: this.srL,
-                0xbf: this.srA,
-            },
-            (r) => () => {
-                this.compNToA(r.get());
+        ...this.generateExtendedOperation(0xb8, ({ get, set }) =>
+            get((n) => {
+                this.compNToA(n);
                 return null;
-            }
-        ),
-        0xbe: this.readAddress(
-            () => this.regHL.get(),
-            (value) => () => {
-                this.compNToA(value);
-                return null;
-            }
+            })
         ),
         0xfe: this.nextByte((value) => (s) => {
             this.compNToA(value);
@@ -906,7 +725,7 @@ class CPU {
                     })
                 ),
             }),
-            {} as Partial<Record<number, InstructionMethod>>
+            {}
         ),
         // RES 0/1/2/.../7, ...
         ...[...new Array(8)].reduce(
@@ -919,7 +738,7 @@ class CPU {
                     })
                 ),
             }),
-            {} as Partial<Record<number, InstructionMethod>>
+            {}
         ),
         // SET 0/1/2/.../7, ...
         ...[...new Array(8)].reduce(
@@ -932,7 +751,7 @@ class CPU {
                     })
                 ),
             }),
-            {} as Partial<Record<number, InstructionMethod>>
+            {}
         ),
     };
 
@@ -1140,9 +959,10 @@ class CPU {
      * @param execute A function that executes the instruction for a given register
      * @returns An object with the completed instructions (e.g. 0x50, 0x51, ..., 0x57)
      */
-    protected generateExtendedOperation(
+    protected generateExtendedOperationGeneric(
         baseCode: number,
-        execute: InstrMeth<AsyncRegister>
+        multiplier: number,
+        execute: InstrMeth<AsyncRegister, Addressable, Interrupts>
     ): Partial<Record<number, InstructionMethod>> {
         const make: (sr: Register) => AsyncRegister = (sr) => ({
             get: (r) => {
@@ -1162,26 +982,53 @@ class CPU {
         const regL = make(this.srL);
         const regA = make(this.srA);
 
+        const makeHl: (s: Addressable) => AsyncRegister = (s) => ({
+            get: (r) => {
+                const value = s.read(this.regHL.get());
+                return () => r(value);
+            },
+            set: (x, r) => {
+                s.write(this.regHL.get(), x);
+                return () => r();
+            },
+        });
+
         // order matters: B/C/D/E/H/L/(HL)/A
         return {
-            [baseCode + 0]: (s) => execute(regB),
-            [baseCode + 1]: (s) => execute(regC),
-            [baseCode + 2]: (s) => execute(regD),
-            [baseCode + 3]: (s) => execute(regE),
-            [baseCode + 4]: (s) => execute(regH),
-            [baseCode + 5]: (s) => execute(regL),
-            [baseCode + 6]: (s) =>
-                execute({
-                    get: (r) => {
-                        const value = s.read(this.regHL.get());
-                        return () => r(value);
-                    },
-                    set: (x, r) => {
-                        s.write(this.regHL.get(), x);
-                        return () => r();
-                    },
-                } satisfies AsyncRegister),
-            [baseCode + 7]: (s) => execute(regA),
+            [baseCode + multiplier * 0]: (s, i) => execute(regB, s, i),
+            [baseCode + multiplier * 1]: (s, i) => execute(regC, s, i),
+            [baseCode + multiplier * 2]: (s, i) => execute(regD, s, i),
+            [baseCode + multiplier * 3]: (s, i) => execute(regE, s, i),
+            [baseCode + multiplier * 4]: (s, i) => execute(regH, s, i),
+            [baseCode + multiplier * 5]: (s, i) => execute(regL, s, i),
+            [baseCode + multiplier * 6]: (s, i) => execute(makeHl(s), s, i),
+            [baseCode + multiplier * 7]: (s, i) => execute(regA, s, i),
+        };
+    }
+
+    protected generateExtendedOperation(
+        baseCode: number,
+        execute: InstrMeth<AsyncRegister, Addressable, Interrupts>
+    ): Partial<Record<number, InstructionMethod>> {
+        return this.generateExtendedOperationGeneric(baseCode, 1, execute);
+    }
+
+    protected generateExtendedOperation8(
+        baseCode: number,
+        execute: InstrMeth<AsyncRegister, Addressable, Interrupts>
+    ): Partial<Record<number, InstructionMethod>> {
+        return this.generateExtendedOperationGeneric(baseCode, 8, execute);
+    }
+
+    protected generateExtendedOperation16Regs(
+        baseCode: number,
+        execute: (r: DoubleRegister) => InstructionMethod
+    ): Record<number, InstructionMethod> {
+        return {
+            [baseCode + 0x00]: execute(this.regBC),
+            [baseCode + 0x10]: execute(this.regDE),
+            [baseCode + 0x20]: execute(this.regHL),
+            [baseCode + 0x30]: execute(this.regSP),
         };
     }
 }
