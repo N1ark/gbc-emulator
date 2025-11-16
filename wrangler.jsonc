@@ -1,0 +1,7 @@
+{
+    "name": "emmy",
+    "compatibility_date": "2025-11-16",
+    "assets": {
+        "not_found_handling": "single-page-application",
+    },
+}
