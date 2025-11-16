@@ -25,7 +25,7 @@ export const toKebabCase = (string: string) =>
  */
 const createPreactComponent = (
     iconName: string,
-    iconNode: IconNode
+    iconNode: IconNode,
 ): ((props: LucideProps) => JSX.Element) => {
     const Component = ({
         color = "currentColor",
@@ -48,7 +48,7 @@ const createPreactComponent = (
                 class: `lucide lucide-${toKebabCase(iconName)}`,
                 ...rest,
             },
-            [...iconNode.map(([tag, attrs]) => h(tag, attrs)), ...toChildArray(children)]
+            [...iconNode.map(([tag, attrs]) => h(tag, attrs)), ...toChildArray(children)],
         );
 
     Component.displayName = `${iconName}`;

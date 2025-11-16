@@ -1,8 +1,8 @@
 import { CGBMode } from "../constants";
 import { Addressable, RAM } from "../Memory";
-import { Sprite } from "./OAM";
-import { Register, MaskRegister } from "../Register";
+import { MaskRegister, Register } from "../Register";
 import { Int3 } from "../util";
+import { Sprite } from "./OAM";
 
 export type ColorPalette = [number, number, number, number];
 
@@ -84,7 +84,7 @@ class CGBColorControl extends ColorController {
         () => ({
             data: [0, 0, 0, 0],
             valid: false,
-        })
+        }),
     );
     // Compatibility mode
     protected dmgBgPalette = new Register(0x00);
@@ -126,7 +126,7 @@ class CGBColorControl extends ColorController {
             this.paletteCache[index >> 3].valid = false;
             if (bgPaletteOptions & PALETTE_AUTO_INCREMENT)
                 this.bgPaletteOptions.set(
-                    (bgPaletteOptions & ~PALETTE_INDEX) | ((index + 1) & PALETTE_INDEX)
+                    (bgPaletteOptions & ~PALETTE_INDEX) | ((index + 1) & PALETTE_INDEX),
                 );
         } else if (pos === 0xff6b) {
             const objPaletteOptions = this.objPaletteOptions.get();
@@ -135,7 +135,7 @@ class CGBColorControl extends ColorController {
             this.paletteCache[(index >> 3) + 8].valid = false;
             if (objPaletteOptions & PALETTE_AUTO_INCREMENT)
                 this.objPaletteOptions.set(
-                    (objPaletteOptions & ~PALETTE_INDEX) | ((index + 1) & PALETTE_INDEX)
+                    (objPaletteOptions & ~PALETTE_INDEX) | ((index + 1) & PALETTE_INDEX),
                 );
         } else {
             super.write(pos, value);
@@ -169,7 +169,7 @@ class CGBColorControl extends ColorController {
     protected applyDmgTransform(
         palette: ColorPalette,
         register: Register,
-        isObj: boolean
+        isObj: boolean,
     ): ColorPalette {
         const dmgPalette = register.get();
         return [
@@ -196,10 +196,10 @@ class CGBColorControl extends ColorController {
         const dmgPalette = this.applyDmgTransform(
             palette,
             sprite.dmgPaletteNumber ? this.dmgObj1Palette : this.dmgObj0Palette,
-            true
+            true,
         );
         return dmgPalette;
     }
 }
 
-export { ColorController, DMGColorControl, CGBColorControl };
+export { CGBColorControl, ColorController, DMGColorControl };

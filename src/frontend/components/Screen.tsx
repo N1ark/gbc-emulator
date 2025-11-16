@@ -66,7 +66,7 @@ const Screen: FunctionalComponent<ScreenProps> = ({
 
         const filterInstance = new Filter(width, height);
         const dataAsUint8 = new Uint8ClampedArray(filterInstance.output.buffer);
-        const imageData = new ImageData(dataAsUint8, ...filterInstance.outputSize);
+        const imageData = new ImageData(dataAsUint8 as any, ...filterInstance.outputSize);
 
         const targetWidth = width * scale * window.devicePixelRatio;
         const targetHeight = height * scale * window.devicePixelRatio;

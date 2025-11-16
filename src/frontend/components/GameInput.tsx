@@ -1,5 +1,5 @@
 import { FunctionalComponent } from "preact";
-import { useCallback, useEffect, useMemo } from "preact/hooks";
+import { useEffect, useMemo } from "preact/hooks";
 
 import GameBoyInput from "@emulator/GameBoyInput";
 import { useConfig } from "@helpers/ConfigContext";

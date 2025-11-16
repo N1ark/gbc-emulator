@@ -102,4 +102,4 @@ class DoubleRegister {
 const Register00: Addressable = { read: () => 0x00, write: () => {} };
 const RegisterFF: Addressable = { read: () => 0xff, write: () => {} };
 
-export { DoubleRegister, Register, MaskRegister, Register00, RegisterFF };
+export { DoubleRegister, MaskRegister, Register, Register00, RegisterFF };

@@ -9,7 +9,7 @@ type ExpressionWatchProps = {
 };
 
 const handleValue = (
-    value: Object | { get: () => number } | number | string | null
+    value: Object | { get: () => number } | number | string | null,
 ): string => {
     if (value === null) return "null";
     if (value === undefined) return "undefined";

@@ -10,5 +10,5 @@ render(
     <ConfigProvider>
         <App />
     </ConfigProvider>,
-    document.getElementById("app") as HTMLElement
+    document.getElementById("app") as HTMLElement,
 );

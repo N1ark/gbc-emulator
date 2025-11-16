@@ -1,6 +1,5 @@
 import { Addressable } from "../Memory";
 import { MaskRegister, Register } from "../Register";
-import { Int4 } from "../util";
 import SoundChannel2 from "./SoundChannel2";
 
 const NRX0_SWEEP_CHANGE = 1 << 3;

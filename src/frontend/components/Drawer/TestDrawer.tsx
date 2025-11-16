@@ -21,7 +21,7 @@ const makeGameboy = (
     type: "DMG" | "CGB",
     rom: Uint8Array,
     videoOut: (d: Uint32Array) => void,
-    serialOut: (s: string) => void
+    serialOut: (s: string) => void,
 ) => {
     const gameIn: GameBoyInput = {
         read: () => ({
@@ -72,7 +72,7 @@ const runTests = async (validGroups: string[] = [], results: (r: TestResult) => 
                 consoleType,
                 romArray,
                 (v) => videoOut.set(v),
-                (s) => (serialOut += s)
+                (s) => (serialOut += s),
             );
 
             let prevSteps = 0;
@@ -113,7 +113,7 @@ const testGroups = tests
 const localStorageKey = "test-drawer-groups";
 
 type TestDrawerProps = {
-    loadRom: (rom: Uint8Array) => void;
+    loadRom: (rom: Uint8Array<ArrayBuffer>) => void;
 };
 
 const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
@@ -124,12 +124,12 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
     // Loading
     useEffect(
         () => (keptTests.value = JSON.parse(localStorage.getItem(localStorageKey) ?? "[]")),
-        []
+        [],
     );
     // Saving
     useEffect(
         () => localStorage.setItem(localStorageKey, JSON.stringify(keptTests.value)),
-        [keptTests.value]
+        [keptTests.value],
     );
 
     return (
@@ -145,7 +145,7 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
                         testResults.value = [];
                         testsRunning.value = true;
                         runTests(keptTests.value, (r) => (testResults.value = [...r])).then(
-                            () => (testsRunning.value = false)
+                            () => (testsRunning.value = false),
                         );
                     }}
                 />
@@ -171,7 +171,7 @@ const TestDrawer: FunctionalComponent<TestDrawerProps> = ({ loadRom }) => {
                     const matchingTests = tests
                         .filter((t) => `${t.testType}/${t.subTestType}` === group)
                         .map(
-                            (t) => [t, testResults.value.find((r) => r[0] === t)?.[1]] as const
+                            (t) => [t, testResults.value.find((r) => r[0] === t)?.[1]] as const,
                         );
 
                     const passedTests = matchingTests.filter((v) => v[1] === TEST_PASS).length;

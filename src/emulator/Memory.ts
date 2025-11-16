@@ -74,5 +74,5 @@ class CircularRAM extends RAM {
     }
 }
 
+export { CircularRAM, RAM, ROM };
 export type { Addressable };
-export { ROM, RAM, CircularRAM };

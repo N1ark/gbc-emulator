@@ -12,7 +12,7 @@ import TestDrawer from "./TestDrawer";
 import "./Drawer.css";
 
 type DrawerProps = {
-    loadRom: (rom: Uint8Array) => void;
+    loadRom: (rom: Uint8Array<ArrayBuffer>) => void;
 };
 
 const Drawer: FunctionalComponent<DrawerProps> = ({ loadRom }) => (

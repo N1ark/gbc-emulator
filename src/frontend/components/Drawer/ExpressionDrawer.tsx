@@ -14,7 +14,7 @@ const ExpressionDrawer: FunctionalComponent = () => {
     useEffect(
         () =>
             (expressionList.value = JSON.parse(localStorage.getItem(localStorageKey) ?? "[]")),
-        []
+        [],
     );
     const saveToLocalStorage = () =>
         localStorage.setItem(localStorageKey, JSON.stringify(expressionList.value));

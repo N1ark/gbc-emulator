@@ -72,11 +72,11 @@ const App: FunctionalComponent = () => {
                 if (err)
                     console.error(
                         `Could not save game ${gameboy.getTitle()} (${gameboy.getIdentifier()}):`,
-                        err
+                        err,
                     );
                 else {
                     console.log(
-                        `Saved game ${gameboy.getTitle()} (${gameboy.getIdentifier()})`
+                        `Saved game ${gameboy.getTitle()} (${gameboy.getIdentifier()})`,
                     );
                     addAlert(`Saved game '${gameboy.getTitle()}'`);
                 }
@@ -138,7 +138,7 @@ const App: FunctionalComponent = () => {
                     gbOut,
                     {
                         bootRom,
-                    }
+                    },
                 );
             } catch (e) {
                 alert("Could not load ROM: " + e);
@@ -155,16 +155,16 @@ const App: FunctionalComponent = () => {
                         try {
                             gbc.load(save);
                             console.log(
-                                `Loaded save for ${gbc.getTitle()} (${gbc.getIdentifier()})`
+                                `Loaded save for ${gbc.getTitle()} (${gbc.getIdentifier()})`,
                             );
                             addAlert(`Loaded save for '${gbc.getTitle()}'`);
                         } catch (e) {
                             console.error(
                                 `Could not load save for ${gbc.getTitle()} (${gbc.getIdentifier()}):`,
-                                e
+                                e,
                             );
                         }
-                    }
+                    },
                 );
             }
 
@@ -230,7 +230,7 @@ const App: FunctionalComponent = () => {
             window.gbc = gbc;
             return gbc;
         },
-        [gameboy, config]
+        [gameboy, config],
     );
 
     /**
@@ -255,18 +255,18 @@ const App: FunctionalComponent = () => {
      * Cache the loaded ROM, and load it in.
      */
     const loadRom = useCallback(
-        (rom: ArrayBuffer) => {
+        (rom: Uint8Array<ArrayBuffer>) => {
             const romArray = new Uint8Array(rom);
             // try caching the rom for reloads / refreshes
             localforage.setItem(
                 CACHE_KEY,
                 romArray,
-                (err) => err && console.warn("Error caching ROM: ", err)
+                (err) => err && console.warn("Error caching ROM: ", err),
             );
             setLoadedGame(romArray);
             loadGame(romArray);
         },
-        [loadGame, setLoadedGame]
+        [loadGame, setLoadedGame],
     );
 
     /**

@@ -74,7 +74,7 @@ class CPU {
      */
     protected readAddress(
         address: number | (() => number),
-        receiver: (value: number) => InstructionMethod
+        receiver: (value: number) => InstructionMethod,
     ): InstructionMethod {
         return (system) => {
             const effectiveAddress = typeof address === "number" ? address : address();
@@ -127,7 +127,7 @@ class CPU {
     protected loadNextOp(
         system: Addressable,
         interrupts: Interrupts,
-        verbose?: boolean
+        verbose?: boolean,
     ): InstructionMethod | "halted" {
         // Check if any interrupt is requested. This also stops HALTing.
         if (interrupts.hasPendingInterrupt) {
@@ -155,8 +155,8 @@ class CPU {
         if (verbose)
             console.log(
                 `[CPU] ${this.stepCounter} - (0x${(this.regPC.get() - 1).toString(
-                    16
-                )}) executing op 0x${opcode.toString(16)}`
+                    16,
+                )}) executing op 0x${opcode.toString(16)}`,
             );
 
         if (this.haltBug) {
@@ -169,7 +169,7 @@ class CPU {
             throw Error(
                 `Unrecognized opcode ${opcode?.toString(16)} at address ${(
                     this.regPC.get() - 1
-                ).toString(16)}`
+                ).toString(16)}`,
             );
         }
         return instruction;
@@ -196,7 +196,7 @@ class CPU {
                 throw Error(
                     `Unrecognized extended opcode ${opcode.toString(16)} at address ${(
                         this.regPC.get() - 1
-                    ).toString(16)}`
+                    ).toString(16)}`,
                 );
             }
             return instruction(system, interrupts);
@@ -213,7 +213,7 @@ class CPU {
                 this.nextWord((value) => () => {
                     register.set(value);
                     return null;
-                })
+                }),
         ),
         // INC BC/DE/HL/SP
         ...this.generateOperation(
@@ -226,7 +226,7 @@ class CPU {
             (r) => () => () => {
                 r.inc();
                 return null;
-            }
+            },
         ),
         // DEC BC/DE/HL/SP
         ...this.generateOperation(
@@ -239,7 +239,7 @@ class CPU {
             (r) => () => () => {
                 r.dec();
                 return null;
-            }
+            },
         ),
         // ADD HL, BC/DE/HL/SP
         ...this.generateOperation(
@@ -258,7 +258,7 @@ class CPU {
                 this.setFlag(FLAG_HALFCARRY, (((hl & 0xfff) + (n & 0xfff)) & 0x1000) != 0);
                 this.setFlag(FLAG_CARRY, hl > 0xffff - n);
                 return null;
-            }
+            },
         ),
         // INC B/D/H/C/E/L/A
         ...this.generateOperation(
@@ -275,7 +275,7 @@ class CPU {
                 const result = this.incN(r.get());
                 r.set(result);
                 return null;
-            }
+            },
         ),
         // INC (HL)
         0x34: this.readAddress(
@@ -284,7 +284,7 @@ class CPU {
                 const result = this.incN(value);
                 s.write(this.regHL.get(), result);
                 return () => null;
-            }
+            },
         ),
         // DEC B/D/H/C/E/L/A
         ...this.generateOperation(
@@ -301,7 +301,7 @@ class CPU {
                 const result = this.decN(r.get());
                 r.set(result);
                 return null;
-            }
+            },
         ),
         // DEC (HL)
         0x35: this.readAddress(
@@ -310,7 +310,7 @@ class CPU {
                 const result = this.decN(value);
                 s.write(this.regHL.get(), result);
                 return () => null;
-            }
+            },
         ),
         // LD (BC/DE/HL+/HL-), A
         ...this.generateOperation(
@@ -324,7 +324,7 @@ class CPU {
                 const address = getAddress();
                 system.write(address, this.srA.get());
                 return () => null;
-            }
+            },
         ),
         // LD A, (BC/DE/HL+/HL-)
         ...this.generateOperation(
@@ -338,7 +338,7 @@ class CPU {
                 this.readAddress(getAddress, (value) => () => {
                     this.srA.set(value);
                     return null;
-                })
+                }),
         ),
         // LD B/C/D/E/H/L/A, d8
         ...this.generateOperation(
@@ -355,7 +355,7 @@ class CPU {
                 this.nextByte((value) => () => {
                     r.set(value);
                     return null;
-                })
+                }),
         ),
         // LD (HL), d8
         0x36: this.nextByte((value) => (s) => {
@@ -378,16 +378,16 @@ class CPU {
                     get((n) => {
                         r.set(n);
                         return () => null;
-                    })
+                    }),
                 ),
             }),
-            {} as Partial<Record<number, InstructionMethod>>
+            {} as Partial<Record<number, InstructionMethod>>,
         ),
         ...this.generateExtendedOperation(0x78, ({ get, set }) =>
             get((n) => {
                 this.srA.set(n);
                 return () => null;
-            })
+            }),
         ),
         // LD (HL), B/C/D/E/H/L/A
         ...this.generateOperation(
@@ -404,14 +404,14 @@ class CPU {
                 const address = this.regHL.get();
                 system.write(address, r.get());
                 return () => null;
-            }
+            },
         ),
         // ADD A, B/C/D/E/H/L/A/(HL)/d8
         ...this.generateExtendedOperation(0x80, ({ get, set }) =>
             get((n) => {
                 this.addNToA(n, false);
                 return () => null;
-            })
+            }),
         ),
         0xc6: this.nextByte((value) => () => {
             this.addNToA(value, false);
@@ -422,7 +422,7 @@ class CPU {
             get((n) => {
                 this.addNToA(n, true);
                 return () => null;
-            })
+            }),
         ),
         0xce: this.nextByte((value) => () => {
             this.addNToA(value, true);
@@ -433,7 +433,7 @@ class CPU {
             get((n) => {
                 this.subNFromA(n, false);
                 return () => null;
-            })
+            }),
         ),
         0xd6: this.nextByte((value) => () => {
             this.subNFromA(value, false);
@@ -453,14 +453,14 @@ class CPU {
             (r) => () => {
                 this.subNFromA(r.get(), true);
                 return null;
-            }
+            },
         ),
         0x9e: this.readAddress(
             () => this.regHL.get(),
             (value) => () => {
                 this.subNFromA(value, true);
                 return null;
-            }
+            },
         ),
         0xde: this.nextByte((value) => () => {
             this.subNFromA(value, true);
@@ -497,7 +497,7 @@ class CPU {
                 () => {
                     this.boolNToA(r.get(), op);
                     return null;
-                }
+                },
         ),
         // AND/XOR/OR (HL)
         ...this.generateOperation(
@@ -512,8 +512,8 @@ class CPU {
                     (value) => () => {
                         this.boolNToA(value, op);
                         return null;
-                    }
-                )
+                    },
+                ),
         ),
         // AND/XOR/OR d8
         ...this.generateOperation(
@@ -526,7 +526,7 @@ class CPU {
                 this.nextByte((value) => () => {
                     this.boolNToA(value, op);
                     return null;
-                })
+                }),
         ),
         // CP B/C/D/E/H/L/A/(HL)/d8
         ...this.generateOperation(
@@ -542,14 +542,14 @@ class CPU {
             (r) => () => {
                 this.compNToA(r.get());
                 return null;
-            }
+            },
         ),
         0xbe: this.readAddress(
             () => this.regHL.get(),
             (value) => () => {
                 this.compNToA(value);
                 return null;
-            }
+            },
         ),
         0xfe: this.nextByte((value) => (s) => {
             this.compNToA(value);
@@ -566,7 +566,7 @@ class CPU {
             this.readAddress(0xff00 | address, (data) => () => {
                 this.srA.set(data);
                 return null;
-            })
+            }),
         ),
         // LD (C), A
         0xe2: (s) => {
@@ -579,7 +579,7 @@ class CPU {
             (value) => () => {
                 this.srA.set(value);
                 return null;
-            }
+            },
         ),
         // LD (a16), A
         0xea: this.nextWord((address) => (system) => {
@@ -607,7 +607,7 @@ class CPU {
                 0xf7: 0x30,
                 0xff: 0x38,
             },
-            (jumpAdr) => this.call(jumpAdr, () => () => null)
+            (jumpAdr) => this.call(jumpAdr, () => () => null),
         ),
         // CALL a16
         0xcd: this.nextWord((value) => this.call(value, () => () => null)),
@@ -621,8 +621,8 @@ class CPU {
             },
             (condition) =>
                 this.nextWord((value) =>
-                    condition() ? this.call(value, () => () => null) : () => null
-                )
+                    condition() ? this.call(value, () => () => null) : () => null,
+                ),
         ),
         // RET
         0xc9: this.return(() => () => null),
@@ -639,14 +639,14 @@ class CPU {
                 0xd0: () => !this.flag(FLAG_CARRY),
                 0xd8: () => this.flag(FLAG_CARRY),
             },
-            (condition) => () => condition() ? this.return(() => () => null) : () => null
+            (condition) => () => (condition() ? this.return(() => () => null) : () => null),
         ),
         // JP a16
         0xc3: this.nextWord((value) => this.jump(value, () => () => null)),
         // JP HL
         0xe9: this.jump(
             () => this.regHL.get(),
-            () => null
+            () => null,
         ),
         // JP Z/C/NZ/NC, a16
         ...this.generateOperation(
@@ -658,8 +658,8 @@ class CPU {
             },
             (condition) =>
                 this.nextWord(
-                    (value) => () => condition() ? this.jump(value, () => null) : null
-                )
+                    (value) => () => (condition() ? this.jump(value, () => null) : null),
+                ),
         ),
         // JR s8
         0x18: this.nextByte((value) => this.jumpr(asSignedInt8(value), () => () => null)),
@@ -674,8 +674,8 @@ class CPU {
             (condition) =>
                 this.nextByte(
                     (value) => () =>
-                        condition() ? this.jumpr(asSignedInt8(value), () => null) : null
-                )
+                        condition() ? this.jumpr(asSignedInt8(value), () => null) : null,
+                ),
         ),
         // POP BC/DE/HL/AF
         ...this.generateOperation(
@@ -688,7 +688,7 @@ class CPU {
                 this.pop((value) => () => {
                     r.set(value);
                     return null;
-                })
+                }),
         ),
         // We need to mask lower 4 bits bc hardwired to 0
         0xf1: this.pop((value) => () => {
@@ -706,8 +706,8 @@ class CPU {
             (register) =>
                 this.push(
                     () => register.get(),
-                    () => () => null
-                )
+                    () => () => null,
+                ),
         ),
         // RLCA / RLA / RRCA / RRA
         0x07: () => {
@@ -813,19 +813,19 @@ class CPU {
     protected extendedInstructionSet: Partial<Record<number, InstructionMethod>> = {
         // RLC ...
         ...this.generateExtendedOperation(0x00, ({ get, set }) =>
-            get((value) => set(this.rotateL(value, false, true), () => null))
+            get((value) => set(this.rotateL(value, false, true), () => null)),
         ),
         // RRC ...
         ...this.generateExtendedOperation(0x08, ({ get, set }) =>
-            get((value) => set(this.rotateR(value, false, true), () => null))
+            get((value) => set(this.rotateR(value, false, true), () => null)),
         ),
         // RL ...
         ...this.generateExtendedOperation(0x10, ({ get, set }) =>
-            get((value) => set(this.rotateL(value, true, true), () => null))
+            get((value) => set(this.rotateL(value, true, true), () => null)),
         ),
         // RC ...
         ...this.generateExtendedOperation(0x18, ({ get, set }) =>
-            get((value) => set(this.rotateR(value, true, true), () => null))
+            get((value) => set(this.rotateR(value, true, true), () => null)),
         ),
         // SLA ...
         ...this.generateExtendedOperation(0x20, ({ get, set }) =>
@@ -836,7 +836,7 @@ class CPU {
                 this.setFlag(FLAG_HALFCARRY, false);
                 this.setFlag(FLAG_CARRY, ((value >> 7) & 0b1) === 1);
                 return set(result, () => null);
-            })
+            }),
         ),
         // SRA ...
         ...this.generateExtendedOperation(0x28, ({ get, set }) =>
@@ -847,7 +847,7 @@ class CPU {
                 this.setFlag(FLAG_HALFCARRY, false);
                 this.setFlag(FLAG_CARRY, (value & 0b1) === 1);
                 return set(result, () => null);
-            })
+            }),
         ),
         // SRL ...
         ...this.generateExtendedOperation(0x38, ({ get, set }) =>
@@ -858,7 +858,7 @@ class CPU {
                 this.setFlag(FLAG_HALFCARRY, false);
                 this.setFlag(FLAG_CARRY, (value & 0b1) === 1);
                 return set(result, () => null);
-            })
+            }),
         ),
         // SWAP ...
         ...this.generateExtendedOperation(0x30, ({ get, set }) =>
@@ -869,7 +869,7 @@ class CPU {
                 this.setFlag(FLAG_HALFCARRY, false);
                 this.setFlag(FLAG_CARRY, false);
                 return set(result, () => null);
-            })
+            }),
         ),
         // BIT 0/1/2/.../7, ...
         ...[...new Array(8)].reduce(
@@ -882,10 +882,10 @@ class CPU {
                         this.setFlag(FLAG_SUBSTRACTION, false);
                         this.setFlag(FLAG_HALFCARRY, true);
                         return null;
-                    })
+                    }),
                 ),
             }),
-            {} as Partial<Record<number, InstructionMethod>>
+            {} as Partial<Record<number, InstructionMethod>>,
         ),
         // RES 0/1/2/.../7, ...
         ...[...new Array(8)].reduce(
@@ -895,10 +895,10 @@ class CPU {
                     get((value) => {
                         const result = value & ~(1 << bit);
                         return set(result, () => null);
-                    })
+                    }),
                 ),
             }),
-            {} as Partial<Record<number, InstructionMethod>>
+            {} as Partial<Record<number, InstructionMethod>>,
         ),
         // SET 0/1/2/.../7, ...
         ...[...new Array(8)].reduce(
@@ -908,10 +908,10 @@ class CPU {
                     get((value) => {
                         const result = value | (1 << bit);
                         return set(result, () => null);
-                    })
+                    }),
                 ),
             }),
-            {} as Partial<Record<number, InstructionMethod>>
+            {} as Partial<Record<number, InstructionMethod>>,
         ),
     };
 
@@ -995,7 +995,7 @@ class CPU {
      */
     protected push(
         data: number | (() => number),
-        receiver: () => InstructionReturn
+        receiver: () => InstructionReturn,
     ): InstructionMethod {
         return () => (system) => {
             const effectiveData = typeof data === "number" ? data : data();
@@ -1031,7 +1031,7 @@ class CPU {
             () => {
                 this.regPC.set(address);
                 return receiver();
-            }
+            },
         );
     }
 
@@ -1051,7 +1051,7 @@ class CPU {
      */
     protected jump(
         n: number | (() => number),
-        receiver: () => InstructionReturn
+        receiver: () => InstructionReturn,
     ): InstructionMethod {
         return () => {
             const address = typeof n === "number" ? n : n();
@@ -1065,7 +1065,7 @@ class CPU {
      */
     protected jumpr(
         n: number | (() => number),
-        receiver: () => InstructionReturn
+        receiver: () => InstructionReturn,
     ): InstructionMethod {
         return () => {
             const address = typeof n === "number" ? n : n();
@@ -1104,7 +1104,7 @@ class CPU {
      */
     protected generateOperation<K extends number, T>(
         items: Record<K, T>,
-        execute: (r: T) => InstructionMethod
+        execute: (r: T) => InstructionMethod,
     ): Record<K, InstructionMethod> {
         const obj: Record<K, InstructionMethod> = {} as any;
         for (const [opcode, item] of Object.entries(items) as any as [K, T][]) {
@@ -1121,7 +1121,7 @@ class CPU {
      */
     protected generateExtendedOperation(
         baseCode: number,
-        execute: InstrMeth<AsyncRegister>
+        execute: InstrMeth<AsyncRegister>,
     ): Partial<Record<number, InstructionMethod>> {
         const make: (sr: Register) => AsyncRegister = (sr) => ({
             get: (r) => {

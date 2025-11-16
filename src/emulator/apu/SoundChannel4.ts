@@ -1,7 +1,7 @@
 import { Addressable } from "../Memory";
-import { MaskRegister, RegisterFF, Register } from "../Register";
+import { MaskRegister, Register, RegisterFF } from "../Register";
 import { clamp, Int4 } from "../util";
-import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
+import SoundChannel, { NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX2_STOP_DAC = 0b1111_1000;
 const NRX3_CLOCK_SHIFT_OFFSET = 4;

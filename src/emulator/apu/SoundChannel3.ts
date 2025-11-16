@@ -1,4 +1,4 @@
-import { CircularRAM, Addressable } from "../Memory";
+import { Addressable, CircularRAM } from "../Memory";
 import { MaskRegister, Register } from "../Register";
 import { Int2, Int4, rangeObject } from "../util";
 import SoundChannel, { NRX4_RESTART_CHANNEL } from "./SoundChannel";

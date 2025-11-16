@@ -54,7 +54,7 @@ const MemoryDrawer: FunctionalComponent = () => {
                         offset.value = Number(`0x${e.currentTarget.value}`);
                         localStorage.setItem(
                             MEMORY_DRAWER_LOCAL_STORAGE_KEY,
-                            offset.value.toString()
+                            offset.value.toString(),
                         );
                     }}
                 />

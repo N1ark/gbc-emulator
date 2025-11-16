@@ -223,9 +223,9 @@ class CGBVRAMController extends VRAMController {
         return this._getTile(
             tileAddress,
             bank ? this.vram1 : this.vram0,
-            bank ? this.tileCache1 : this.tileCache0
+            bank ? this.tileCache1 : this.tileCache0,
         );
     }
 }
 
-export { VRAMController, DMGVRAMController, CGBVRAMController };
+export { CGBVRAMController, DMGVRAMController, VRAMController };

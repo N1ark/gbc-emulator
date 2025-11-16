@@ -51,7 +51,7 @@ abstract class MBC implements Addressable {
         if (data.length !== this.ram.size)
             throw new Error(
                 `[MBC] Save data is not the same size as the RAM! ` +
-                    `Got ${data.length} bytes, expected ${this.ram.size} bytes.`
+                    `Got ${data.length} bytes, expected ${this.ram.size} bytes.`,
             );
 
         this.ram.rawSet(data);

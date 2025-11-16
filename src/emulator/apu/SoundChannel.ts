@@ -142,4 +142,4 @@ abstract class SoundChannel implements Addressable {
 }
 
 export default SoundChannel;
-export { NRX4_RESTART_CHANNEL, FREQUENCY_SWEEP_PACE, FREQUENCY_ENVELOPE };
+export { FREQUENCY_ENVELOPE, FREQUENCY_SWEEP_PACE, NRX4_RESTART_CHANNEL };

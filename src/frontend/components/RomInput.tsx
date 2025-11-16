@@ -3,7 +3,7 @@ import { useRef } from "preact/hooks";
 import { JSXInternal } from "preact/src/jsx";
 
 type RomInputProps = {
-    onLoad: (data: ArrayBuffer) => void;
+    onLoad: (data: Uint8Array<ArrayBuffer>) => void;
 };
 
 const RomInput: FunctionalComponent<RomInputProps> = ({ onLoad }) => {
@@ -20,7 +20,7 @@ const RomInput: FunctionalComponent<RomInputProps> = ({ onLoad }) => {
         reader.readAsArrayBuffer(uploadedRom);
         reader.onload = (e) => {
             if (e.target?.result && typeof e.target.result === "object") {
-                onLoad(e.target.result);
+                onLoad(new Uint8Array(e.target.result));
             }
         };
         console.log("Uploaded rom", uploadedRom);

@@ -6,23 +6,21 @@ import {
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
 } from "../constants";
-import { Addressable } from "../Memory";
-import { MaskRegister, RegisterFF, Register } from "../Register";
-import { asSignedInt8, Int3, wrap8 } from "../util";
 import GameBoyOutput from "../GameBoyOutput";
-import OAM, { Sprite } from "./OAM";
-import { CGBColorControl, ColorController, DMGColorControl } from "./ColorController";
-import { VRAMController, CGBVRAMController, DMGVRAMController } from "./VRAMController";
 import Interrupts from "../Interrupts";
+import { Addressable } from "../Memory";
+import { MaskRegister, Register, RegisterFF } from "../Register";
+import { asSignedInt8, Int3, wrap8 } from "../util";
+import { CGBColorControl, ColorController, DMGColorControl } from "./ColorController";
+import OAM, { Sprite } from "./OAM";
+import { CGBVRAMController, DMGVRAMController, VRAMController } from "./VRAMController";
 
-type KeyForType<T, V> = NonNullable<
-    {
-        [k in keyof T]: T[k] extends V ? k : never;
-    }[keyof T]
->;
+type KeyForType<T, V> = {
+    [k in keyof T]: T[k] extends V ? k : never;
+}[keyof T];
 
 type PPUMode = {
-    doTick: KeyForType<PPU, (interrupts: Interrupts) => void>;
+    doTick: KeyForType<PPU, (interrupts: Interrupts) => void> & {};
     flag: number;
     cycles: number;
 };
@@ -249,7 +247,7 @@ class PPU implements Addressable {
         this.haltCpu = this.vramControl.tick(
             system,
             this.mode === MODE_HBLANK && this.lcdY.get() < SCREEN_HEIGHT,
-            isLcdOn
+            isLcdOn,
         );
 
         if (!isMCycle || !isLcdOn) return this.haltCpu;
@@ -467,7 +465,7 @@ class PPU implements Addressable {
      */
     updateInterrupt(
         interrupts: Interrupts | null,
-        data: Partial<typeof this.interruptLineState>
+        data: Partial<typeof this.interruptLineState>,
     ) {
         Object.assign(this.interruptLineState, data);
         const lcdStatus = this.lcdStatus.get();
@@ -626,7 +624,7 @@ class PPU implements Addressable {
         y: number,
         locationFlag: number,
         scrollOffsetX: number,
-        getX: (x: number) => number
+        getX: (x: number) => number,
     ) {
         // Global BG priority bit (CGB only)
         const bgPrioCgb = this.lcdControl.flag(LCDC_BG_WIN_PRIO);
@@ -706,7 +704,7 @@ class PPU implements Addressable {
             y, // y
             LCDC_BG_TILE_MAP_AREA, // location flag
             scrollOffsetX, // scroll offset x
-            (x) => wrap8(x + viewX) // get x
+            (x) => wrap8(x + viewX), // get x
         );
     }
 
@@ -726,7 +724,7 @@ class PPU implements Addressable {
             y, // y
             LCDC_WIN_TILE_MAP_AREA, // location flag
             0, // scroll offset x
-            (x) => wrap8(x - windowX) // get x
+            (x) => wrap8(x - windowX), // get x
         );
     }
 

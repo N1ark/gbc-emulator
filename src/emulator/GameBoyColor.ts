@@ -1,8 +1,8 @@
 import { ConsoleType, CYCLES_PER_FRAME, SpeedMode } from "./constants";
 import CPU from "./CPU";
 import GameBoyInput from "./GameBoyInput";
-import System from "./System";
 import GameBoyOutput from "./GameBoyOutput";
+import System from "./System";
 
 export type GameBoyColorOptions = {
     bootRom: null | Uint8Array;
@@ -30,7 +30,7 @@ class GameBoyColor {
         rom: Uint8Array,
         input: GameBoyInput,
         output: GameBoyOutput,
-        options?: Partial<GameBoyColorOptions>
+        options?: Partial<GameBoyColorOptions>,
     ) {
         this.mode = modeStr === "DMG" ? ConsoleType.DMG : ConsoleType.CGB;
         this.system = new System(rom, input, output, this.mode);

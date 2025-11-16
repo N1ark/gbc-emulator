@@ -1,16 +1,16 @@
 import APU from "./apu/APU";
 import { CGBMode, ConsoleType, HRAM_SIZE, SpeedMode } from "./constants";
 import GameBoyInput from "./GameBoyInput";
-import PPU from "./ppu/PPU";
-import JoypadInput from "./JoypadInput";
-import { CircularRAM, RAM, Addressable, ROM } from "./Memory";
-import { MaskRegister, Register00, RegisterFF, Register } from "./Register";
-import GameCartridge from "./GameCartridge";
-import Timer from "./Timer";
 import GameBoyOutput from "./GameBoyOutput";
+import GameCartridge from "./GameCartridge";
+import Interrupts from "./Interrupts";
+import JoypadInput from "./JoypadInput";
+import { Addressable, CircularRAM, RAM, ROM } from "./Memory";
+import PPU from "./ppu/PPU";
+import { MaskRegister, Register, Register00, RegisterFF } from "./Register";
+import Timer from "./Timer";
 import { Int4, rangeObject } from "./util";
 import { DMGWRAM, GBCWRAM } from "./WRAM";
-import Interrupts from "./Interrupts";
 
 const KEY0_DISABLE_ALL = 1 << 2;
 const KEY0_DISABLE_SOME = 1 << 3;
@@ -72,7 +72,7 @@ class System implements Addressable {
         rom: Uint8Array,
         input: GameBoyInput,
         output: GameBoyOutput,
-        mode: ConsoleType
+        mode: ConsoleType,
     ) {
         this.mode = mode;
         this.bootRom = new ROM(mode === ConsoleType.DMG ? 0x100 : 0x900);
@@ -185,7 +185,7 @@ class System implements Addressable {
         console.debug(
             `Accessed unmapped area ${pos
                 .toString(16)
-                .padStart(4, "0")}, return a fake 0xff register`
+                .padStart(4, "0")}, return a fake 0xff register`,
         );
         return RegisterFF;
     }
@@ -244,7 +244,7 @@ class System implements Addressable {
             .map((_, index) =>
                 this.read(pos + index)
                     .toString(format)
-                    .padStart((255).toString(format).length, "0")
+                    .padStart((255).toString(format).length, "0"),
             )
             .join(" ");
     }

@@ -33,7 +33,7 @@ const rawTestFiles = {
             "cpu-10-bit ops",
             "cpu-11-op a,(hl)",
             "instr_timing",
-            "mem_timing"
+            "mem_timing",
         ),
         apu: dmgTests(
             "apu-01-registers",
@@ -47,7 +47,7 @@ const rawTestFiles = {
             "apu-09-wave read while on",
             "apu-10-wave trigger while on",
             "apu-11-regs after power",
-            "apu-12-wave write while on"
+            "apu-12-wave write while on",
         ),
         other: dmgTests("halt_bug", "oam_bug"),
     },
@@ -60,7 +60,7 @@ const rawTestFiles = {
             "if_ie_registers",
             "rapid_di_ei",
             "reg_f",
-            "unused_hwio-GS"
+            "unused_hwio-GS",
         ),
         ppu: dmgTests(
             "ppu_hblank_ly_scx_timing-GS",
@@ -74,7 +74,7 @@ const rawTestFiles = {
             "ppu_lcdon_write_timing-GS",
             "ppu_stat_irq_blocking",
             "ppu_stat_lyc_onoff",
-            "ppu_vblank_stat_intr-GS"
+            "ppu_vblank_stat_intr-GS",
         ),
         cpuTiming: dmgTests(
             "add_sp_e_timing",
@@ -97,7 +97,7 @@ const rawTestFiles = {
             "ret_cc_timing",
             "reti_intr_timing",
             "reti_timing",
-            "rst_timing"
+            "rst_timing",
         ),
         timer: dmgTests(
             "timer_div_write",
@@ -112,7 +112,7 @@ const rawTestFiles = {
             "timer_tim11_div_trigger",
             "timer_tima_reload",
             "timer_tima_write_reloading",
-            "timer_tma_write_reloading"
+            "timer_tma_write_reloading",
         ),
         mbc1: dmgTests(
             "mbc1_bits_bank1",
@@ -126,7 +126,7 @@ const rawTestFiles = {
             "mbc1_rom_2Mb",
             "mbc1_rom_4Mb",
             "mbc1_rom_512kb",
-            "mbc1_rom_8Mb"
+            "mbc1_rom_8Mb",
         ),
         mbc2: dmgTests(
             "mbc2_bits_ramg",
@@ -135,7 +135,7 @@ const rawTestFiles = {
             "mbc2_ram",
             "mbc2_rom_1Mb",
             "mbc2_rom_2Mb",
-            "mbc2_rom_512kb"
+            "mbc2_rom_512kb",
         ),
         mbc5: dmgTests(
             "mbc5_rom_16Mb",
@@ -145,7 +145,7 @@ const rawTestFiles = {
             "mbc5_rom_4Mb",
             "mbc5_rom_512kb",
             "mbc5_rom_64Mb",
-            "mbc5_rom_8Mb"
+            "mbc5_rom_8Mb",
         ),
         oam: dmgTests(
             "mem_oam",
@@ -154,7 +154,7 @@ const rawTestFiles = {
             "oam_dma_timing",
             "oam_dma_basic",
             "oam_dma_reg_read",
-            "oam_dma_sources-GS"
+            "oam_dma_sources-GS",
         ),
     },
     acid: {
@@ -167,7 +167,7 @@ const rawTestFiles = {
             "div_write_trigger",
             "div_write_trigger_10",
             "div_write_trigger_volume",
-            "div_write_trigger_volume_10"
+            "div_write_trigger_volume_10",
         ),
         channel1: cgbTests(
             "channel_1_align",
@@ -190,7 +190,7 @@ const rawTestFiles = {
             "channel_1_sweep_restart",
             "channel_1_sweep_restart_2",
             "channel_1_volume",
-            "channel_1_volume_div"
+            "channel_1_volume_div",
         ),
         channel2: cgbTests(
             "channel_2_align",
@@ -207,7 +207,7 @@ const rawTestFiles = {
             "channel_2_stop_div",
             "channel_2_stop_restart",
             "channel_2_volume",
-            "channel_2_volume_div"
+            "channel_2_volume_div",
         ),
         channel3: cgbTests(
             "channel_3_and_glitch",
@@ -225,7 +225,7 @@ const rawTestFiles = {
             "channel_3_stop_div",
             "channel_3_wave_ram_dac_on_rw",
             "channel_3_wave_ram_locked_write",
-            "channel_3_wave_ram_sync"
+            "channel_3_wave_ram_sync",
         ),
         channel4: cgbTests(
             "channel_4_align",
@@ -240,18 +240,18 @@ const rawTestFiles = {
             "channel_4_lfsr_7_15",
             "channel_4_lfsr_restart",
             "channel_4_lfsr_restart_fast",
-            "channel_4_volume_div"
+            "channel_4_volume_div",
         ),
     },
 };
 
 type TestType = keyof typeof rawTestFiles;
-type SubTestType = { [k in TestType]: keyof typeof rawTestFiles[k] }[TestType];
+type SubTestType = { [k in TestType]: keyof (typeof rawTestFiles)[k] }[TestType];
 type TestChecker = (
     gbc: GameBoyColor,
     out: string,
     vid: Uint32Array,
-    testName: string
+    testName: string,
 ) => Promise<null | "success" | "failure">;
 
 export type Test = MiniTest & {
@@ -297,7 +297,7 @@ const blaargTestCheck: TestChecker = async (gbc, serialOut, vid, testName) => {
         return status === 0x00 ? "success" : "failure";
     }
 
-    if (testName === "halt_bug" && gbc["cpu"].getStepCounts() >= 700_000) {
+    if (testName === "halt_bug" && gbc["cpu"]["stepCounter"] >= 700_000) {
         const expected = await loadImageData("blaarg/reference-halt_bug");
         return compareImages(expected, vid);
     }
@@ -357,8 +357,8 @@ const tests: Test[] = (
                 testType,
                 subTestType,
                 check: testConfig[testType],
-            }))
-    )
+            })),
+    ),
 );
 
 export default tests;

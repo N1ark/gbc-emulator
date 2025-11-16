@@ -113,7 +113,7 @@ class MBC3 extends MBC {
             case 0x5:
                 if (data > 0x0c) {
                     console.error(
-                        `Invalid RAM bank number in MBC3 (write ignored): ${data.toString(16)}`
+                        `Invalid RAM bank number in MBC3 (write ignored): ${data.toString(16)}`,
                     );
                     return;
                 }

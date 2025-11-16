@@ -1,4 +1,4 @@
-import { ComponentChildren, createContext, FunctionalComponent } from "preact";
+import { ComponentChildren, createContext } from "preact";
 import { useCallback, useContext, useState } from "preact/hooks";
 
 import { filterByName, Identity, ImageFilter } from "@helpers/ImageFilter";
@@ -47,7 +47,7 @@ const Uint8ArrayStringSave: ConfigLoader<Uint8Array | null> = {
         v === "0"
             ? null
             : new Uint8Array(v.length / 2).map((_, i) =>
-                  Number.parseInt(v.substring(i * 2, i * 2 + 2), 16)
+                  Number.parseInt(v.substring(i * 2, i * 2 + 2), 16),
               ),
 };
 
@@ -111,8 +111,8 @@ const configToString = (config: Configuration): string =>
         Object.fromEntries(
             Object.entries(config) // @ts-ignore
                 .filter(([k, v]) => configLoaders[k] !== null) // @ts-ignore
-                .map(([k, v]) => [k, configLoaders[k].to(v)])
-        )
+                .map(([k, v]) => [k, configLoaders[k].to(v)]),
+        ),
     );
 
 const configFromString = (configString: string): Configuration => {
@@ -121,7 +121,7 @@ const configFromString = (configString: string): Configuration => {
     const loadedConfig: Partial<Configuration> = Object.fromEntries(
         Object.entries(rawConfig)
             .filter(([k, v]) => k in configLoaders && v !== undefined) // @ts-ignore
-            .map(([k, v]) => [k, configLoaders[k].from(v)])
+            .map(([k, v]) => [k, configLoaders[k].from(v)]),
     );
     return { ...defaultConfig, ...loadedConfig };
 };
@@ -134,7 +134,7 @@ export const useConfig = () => useContext(ConfigContext);
 
 const localStorageKey = "config";
 
-export const ConfigProvider: FunctionalComponent<ComponentChildren> = ({ children }) => {
+export const ConfigProvider = ({ children }: { children: ComponentChildren }) => {
     const [config, setConfig] = useState<Configuration>(() => {
         const savedConfig = localStorage.getItem(localStorageKey);
         if (savedConfig) {
@@ -149,7 +149,7 @@ export const ConfigProvider: FunctionalComponent<ComponentChildren> = ({ childre
             setConfig((c) => (fullNewConfig = { ...c, ...newConfig }));
             localStorage.setItem(localStorageKey, configToString(fullNewConfig!));
         },
-        [setConfig]
+        [setConfig],
     );
 
     return (

@@ -1,6 +1,6 @@
-import { Addressable } from "../Memory";
 import { CLOCK_SPEED, FRAME_RATE } from "../constants";
 import GameBoyOutput from "../GameBoyOutput";
+import { Addressable } from "../Memory";
 import { MaskRegister, Register } from "../Register";
 import { Int4, rangeObject } from "../util";
 import SoundChannel1 from "./SoundChannel1";

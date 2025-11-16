@@ -1,7 +1,7 @@
 import { IFLAG_TIMER } from "./constants";
 import Interrupts from "./Interrupts";
 import { Addressable } from "./Memory";
-import { MaskRegister, DoubleRegister, Register } from "./Register";
+import { DoubleRegister, MaskRegister, Register } from "./Register";
 import { Int2, wrap16 } from "./util";
 
 /**

@@ -40,7 +40,7 @@ const KeybindingInput: FunctionalComponent<KeybindingInputProps> = ({ value, onC
             e.stopPropagation();
             e.preventDefault();
         },
-        [setIsEditing, onChange, setKey, key]
+        [setIsEditing, onChange, setKey, key],
     );
 
     useEffect(() => {
@@ -66,9 +66,9 @@ const KeybindingInput: FunctionalComponent<KeybindingInputProps> = ({ value, onC
         >
             {isEditing
                 ? key
-                    ? KEY_DISPLAY[key] ?? key
+                    ? (KEY_DISPLAY[key] ?? key)
                     : "Press a key"
-                : KEY_DISPLAY[value] ?? value}
+                : (KEY_DISPLAY[value] ?? value)}
         </button>
     );
 };

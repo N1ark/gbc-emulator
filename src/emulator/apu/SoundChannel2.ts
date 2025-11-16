@@ -1,7 +1,7 @@
 import { Addressable } from "../Memory";
-import { RegisterFF, Register } from "../Register";
+import { Register, RegisterFF } from "../Register";
 import { clamp, Int2, Int4 } from "../util";
-import SoundChannel, { FREQUENCY_ENVELOPE, NRX4_RESTART_CHANNEL } from "./SoundChannel";
+import SoundChannel, { NRX4_RESTART_CHANNEL } from "./SoundChannel";
 
 const NRX2_STOP_DAC = 0b1111_1000;
 const wavePatterns: (0 | 1)[][] = [
